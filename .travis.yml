@@ -27,7 +27,7 @@ matrix:
         - DEPENDS="cython numpy scipy nibabel cythongsl"
 
 before_install:
-    - source tools/travis_tools.sh
+   # - source tools/travis_tools.sh
     - virtualenv --python=python venv
     - source venv/bin/activate
     - python --version # just to check
