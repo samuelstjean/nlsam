@@ -5,7 +5,9 @@
 # ";"s
 
 language: python
-sudo: true
+# travis can't use sudo with educational accounts because of a docker issue
+# http://blog.travis-ci.com/2014-12-17-faster-builds-with-container-based-infrastructure/
+sudo: false
 
 env:
     global:
