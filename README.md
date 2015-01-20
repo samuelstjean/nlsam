@@ -1,22 +1,26 @@
-Non Local Spatial and Angular Matching
+# Non Local Spatial and Angular Matching denoising
 =====
 
 The reference implementation for the Non Local Spatial and Angular Matching (NLSAM) denoising algorithm for diffusion MRI.
 
+## How to install
 
-# How to install
+#### 1.a. Windows and Mac : Get a python 2.7 distribution, which can be easily installed with http://continuum.io/downloads#all
 
-#### 1.a. Windows and Mac : Get a python distribution http://continuum.io/downloads#all
-
-#### 1.b. Linux : Get python and required dependencies :
+#### 1.b. Linux (assuming a Debian/Ubuntu based distribution): Get python 2.7 and required dependencies :
 
 ```shell
 sudo apt-get install python-numpy python-scipy python-pip libgsl0-dev
 ```
 *P.S. Ca vous prend la gsl pour mac (mrtrix l'utilise aussi), ca s'installe comment?*
 
-*P.P.S. __pip install scikit-learn__, ya des bouttes de codes pu/semi utilises, donc vous aurez des import
-errors parce que ca prend un major cleanup.*
+Get the GSL, either through your distribution package manager or by using this cmake version : git clone https://github.com/samuelstjean/gsl
+http://www2.lawrence.edu/fast/GREGGJ/CMSC110/gsl/gsl.html
+
+You will also need a compiler and required build tools, which would be
++ On Windows, Visual Studio
++ On Mac, XCode
++ On Linux, GCC and company : sudo apt-get install build-essential
 
 #### 2. Get some more dependencies with pip
 
@@ -34,11 +38,11 @@ python setup.py build_ext -i
 
 This will build the NLSAM cython files and also the spams library, but feel free to use your own local version of spams as needed.
 
-### 4. Check everything went well
+#### 4. Check everything went well
 Run the tests
 
 
-# Using the NLSAM algorithm
+## Using the NLSAM algorithm
 Go to the script subfolder and run
 ```shell
 stabilizer.py input.nii.gz -N N -o output
@@ -52,6 +56,7 @@ stabilizer.py output_stabilized.nii.gz number_of_angular_neighbors bvals bvecs
 
 *5 a l'air de bien marche comme N voisins angulaires, c'est a peu pres le nombre que l'on retrouve
 a egale distance d'un point donne sur des shell bien distribuees, j'ai un script pour compter
-une tonne de metriques pour aider a choisir selon le degre max/degre moyen etc.*
+une tonne de metriques pour aider a choisir selon le degre max/degre moyen etc., dont un de visualisation pour
+voir rapidement des points sur la sphere*
 
 nlsam_gui.py __wishlist__
