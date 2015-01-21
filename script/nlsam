@@ -1,0 +1,1078 @@
+#! /usr/bin/env python
+# Caller for the 3D and 4D denoising
+
+from __future__ import division, print_function
+
+import nibabel as nib
+import numpy as np
+
+import os
+import argparse
+# import tempfile
+# import string
+# import random
+
+from nlsam.denoiser import denoise
+# from scilpy.denoising.utils import padding, PCA_truncate, ZCA_whitening, im2col_nd, col2im_nd
+from nlsam.angular_tools import angular_neighbors
+
+# from sklearn.decomposition import SparsePCA, PCA, MiniBatchSparsePCA, MiniBatchDictionaryLearning
+# from sklearn.linear_model import LassoLarsCV
+# from sklearn.grid_search import GridSearchCV
+# from sklearn.cross_validation import KFold, train_test_split
+
+# from dipy.segment.mask import median_otsu, applymask
+
+from dipy.io.gradients import read_bvals_bvecs
+# from dipy.denoise.nlmeans import nlmeans
+
+from time import time
+from copy import copy
+from ast import literal_eval
+
+
+DESCRIPTION = """
+    Convenient script to call the denoising dictionnary learning/sparse coding
+    functions. It enables the user to select a whole range of parameters to
+    test instead of relying on scripts that call the relevant scripts.
+    """
+
+
+# def nlm(img, sig):
+
+#     # print("nlm sig is", sig)
+#     # from dipy.denoise.nlmeans import nlmeans, nlmeans4D
+#     # return np.mean(nlmeans(np.ascontiguousarray(img), sig, rician=False), axis=-1)
+
+#     w = []
+#     wsum = 0
+#     print("nlm sig is", sig)
+#     for idx in range(img.shape[-1]):
+#         for i in range(img.shape[-1]):
+
+#             inner = np.exp((-(img[..., idx] - img[..., i])**2) / (sig**2))
+#             w += [inner]
+#             wsum += inner
+
+#     for idx in range(len(w)):
+#         w[idx] /= wsum
+
+#     out = 0
+#     for i in range(len(w)):
+#         out += w[i] * img[..., i//img.shape[-1]]
+
+#     return out
+
+
+def buildArgsParser():
+
+    p = argparse.ArgumentParser(description=DESCRIPTION)
+
+    p.add_argument('input', action='store', metavar='DWI',
+                   help='Path of the image file to denoise.')
+
+    p.add_argument('block_size', action='store', metavar='block_size',
+                   type=str, help='Number of angular neighbors used for denoising.')
+
+    p.add_argument('bvals', action='store', metavar='bvals',
+                   help='Path of the bvals file, in FSL format.')
+
+    p.add_argument('bvecs', action='store', metavar='bvecs',
+                   help='Path of the bvecs file, in FSL format.')
+
+    p.add_argument('-sigma', action='store', required=False, type=str,
+                   help='Value of sigma or path to sigma numpy array.')
+
+    p.add_argument('-gs', action='store', required=False, type=str, default=None,
+                   help='Comparison dataset for crossval.')
+
+    p.add_argument('-D', action='store', metavar='D',
+                   required=False, default=None, type=str,
+                   help='Path to a prelearned dictionnary D in npy format to \
+                   use for the sparse coding step. Supplying D will skip the \
+                   dictionnary learning part.')
+
+    # p.add_argument('-shuffle', action='store_true', required=False,
+    #                help='If True, the input volume is randomly shuffled \
+    #                before the learning part and unshuffled after the \
+    #                reconstruction.')
+
+    p.add_argument('-overlap', action='store', metavar='overlap',
+                   required=False, default=None, type=str,
+                   help='Specifies overlap between blocks, ranging from 0 \
+                   (no overlap) to min(block_size)-1 (full overlap)')
+
+    p.add_argument('-no_whitening', action='store_false', required=False,
+                   help='If True, do not apply ZCA whitening. Each block \
+                   will be mean centered and scaled to unit l2 norm. ')
+
+    p.add_argument('-nb_atoms_D', action='store', metavar='nb_atoms_D',
+                   required=False, default=128, type=int,
+                   help='Number of atoms in the learned dictionnary D.')
+
+    p.add_argument('-batchsize', action='store', metavar='batchsize',
+                   required=False, default=512, type=float,
+                   help='Size of a minibatch for the dictionnary \
+                   learning algorithm.')
+
+    p.add_argument('-lambda_D', action='store', metavar='lambda_D',
+                   required=False, default=None, type=float,
+                   help='Lambda parameter used for the penalisation in the \
+                   dictionnary learning algorithm.')
+
+    p.add_argument('-mode_D', action='store', metavar='mode_D',
+                   required=False, default=2, type=int,
+                   help='Type of the solved problem for the dictionnary \
+                   learning algorithm. See spams documentation for more info')
+
+    p.add_argument('-mode_alpha', action='store', metavar='mode_alpha',
+                   required=False, default=2, type=int,
+                   help='Type of the solved problem for the sparse coding \
+                   step. See spams documentation for more info')
+
+    p.add_argument('-pos_D', action='store_true', required=False,
+                   default=False, help='Enforces positivity contraints for D \
+                   in the dictionnary learning algorithm.')
+
+    p.add_argument('-debug', action='store_true', required=False,
+                   default=False, help='Print debug info and saves intermediate datasets. \
+                   May be heavy on RAM usage')
+
+    p.add_argument('-pos_alpha', action='store_true', required=False,
+                   help='Enforces positivity contraints for alpha in the \
+                   lasso algorithm.')
+
+    # p.add_argument('-group_lasso', action='store', metavar='group_lasso',
+    #                required=False, default=False, type=int,
+    #                help='Use the group lasso algorithm instead of the regular \
+    #                lasso algorithm.')
+
+    p.add_argument('-lambda_lasso', action='store', metavar='lambda_lasso',
+                   required=False, default=None, type=float,
+                   help='Lambda parameter used for the penalisation in the \
+                   lasso algorithm.')
+
+    p.add_argument('-iter', action='store', metavar='iter',
+                   required=False, default=1000, type=int,
+                   help='Number of iterations in the dictionnary learning \
+                   algorithm. A negative value specifies the number of second \
+                   used for training instead of the number of iterations')
+
+    p.add_argument('-std', action='store', dest='std',
+                   metavar='std', required=False, default=None, type=int,
+                   help='Standard deviation of the noise.')
+
+    p.add_argument('-cores', action='store', dest='cores',
+                   metavar='cores', required=False, default=None, type=int,
+                   help='Number of cores to use for multithreading')
+
+    p.add_argument('-o', action='store', dest='savename',
+                   metavar='savename', required=False, default=None, type=str,
+                   help='Path and prefix for the saved denoised file. \
+                   The name is always appended with _denoised.nii.gz')
+
+    p.add_argument('-mask_noise', action='store', dest='mask_noise',
+                   metavar='', required=False, default=None, type=str,
+                   help='Path to a binary mask. Data inside the mask will \
+                   be considered as pure noise. Since the noise estimation \
+                   relies on background noise data, be careful to not include\
+                   the skull or other random artifacts in the mask.')
+
+    p.add_argument('-mask_train', action='store', dest='mask_train',
+                   metavar='', required=False, default=None, type=str,
+                   help='Path to a binary mask. Data inside the mask will be \
+                   used as training samples for the dictionnary learning \
+                   algorithm.')
+
+    p.add_argument('-mask_data', action='store', dest='mask_data',
+                   metavar='', required=False, default=None, type=str,
+                   help='Path to a binary mask. Only the data inside the mask \
+                   will be reconstructed by the sparse coding algorithm.')
+
+    p.add_argument('-mask_wm', action='store', dest='mask_wm',
+                   metavar='', required=False, default=None, type=str,
+                   help='Path to a binary white matter mask. Only the data \
+                   inside this mask wil be used for estimating \
+                   the fiber response function in the CSD fODFs computation.')
+
+    return p
+
+
+def main():
+    parser = buildArgsParser()
+    args = parser.parse_args()
+
+    print("Now denoising " + os.path.realpath(args.input))
+    print("List of used parameters : ", vars(parser.parse_args()))
+
+    debug = args.debug
+
+    vol = nib.load(args.input)
+    data = vol.get_data()
+    affine = vol.get_affine()
+
+    use_abs = False
+    use_clip = True
+
+    if use_abs:
+        data = np.abs(data)
+    elif use_clip:
+        data[data < 0] = 0
+
+    # if args.gs is not None:
+    #     gold_standard = nib.load(args.gs).get_data()
+    # else:
+    #     gold_standard = np.ones_like(data, dtype=np.int16)
+
+    if debug:
+        data_orig = copy(data)
+    else:
+        data_orig = np.ones_like(data)
+
+    original_dtype = data.dtype
+    # data = data.astype(np.float64)
+
+    print(data.shape)
+
+    print("Input values min and max", data.min(), data.max())
+
+    block_size = np.array((3, 3, 3, int(args.block_size)))
+    param_D = {}
+    param_alpha = {}
+
+    if len(block_size) != len(data.shape):
+        raise ValueError('Block shape and data shape are not of the same \
+                         dimensions', data.shape, block_size.shape)
+
+    if args.overlap is not None:
+        overlap = np.array(literal_eval(args.overlap))
+    else:
+        overlap = np.ones(len(block_size), dtype='int16')
+
+    if args.cores is None:
+        param_D['numThreads'] = -1
+    else:
+        param_D['numThreads'] = args.cores
+
+    if args.lambda_lasso is None:
+        param_alpha['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
+    else:
+        param_alpha['lambda1'] = args.lambda_lasso
+
+    if args.lambda_D is None:
+        param_D['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
+    else:
+        param_D['lambda1'] = args.lambda_D
+
+    if args.D is not None:
+        param_alpha['D'] = np.load(args.D)
+
+    param_alpha['mode'] = args.mode_alpha
+
+    param_D['mode'] = args.mode_D
+    param_D['iter'] = args.iter
+    param_D['K'] = args.nb_atoms_D
+    # if args.shuffle is True:
+    #    idx = np.random.permutation(len(rand_seeds[0]))
+
+    param_D['posD'] = args.pos_D
+
+    param_alpha['pos'] = args.pos_alpha
+    param_D['posAlpha'] = args.pos_alpha
+
+    # if args.group_lasso is True:
+    #     raise NotImplementedError()
+
+    if args.mask_train is not None:
+        mask_train = nib.load(args.mask_train).get_data().squeeze().astype(np.bool)
+    else:
+        mask_train = None
+
+    if args.savename is None:
+        #temp, ext = str.split(os.path.basename(args.input), '.', 1)
+        #filename = os.path.dirname(os.path.realpath(args.input)) + '/' + temp
+        filename = os.path.dirname(os.path.realpath(args.input)) + '/' + os.path.splitext(args.input)[0]
+
+        if filename[-4:] == '.nii':
+            filename = filename[:-4]
+    else:
+        filename = args.savename
+
+    # Testing neighbors stuff
+    bvals, bvecs = read_bvals_bvecs(args.bvals, args.bvecs)
+
+    b0_thresh = 10
+    b0_loc = tuple(np.where(bvals <= b0_thresh)[0])
+    num_b0s = len(b0_loc)
+
+    print("found " + str(num_b0s) + " b0s at position " + str(b0_loc))
+    # Double bvecs to find neighbors with assumed symmetry
+    sym_bvecs = np.vstack((np.delete(bvecs, b0_loc, axis=0), np.delete(-bvecs, b0_loc, axis=0)))
+    neighbors = (angular_neighbors(sym_bvecs, block_size[-1] - num_b0s) % (data.shape[-1] - num_b0s))[:data.shape[-1] - num_b0s]
+  #  print(neighbors, sym_bvecs, neighbors.shape) #, angular_neighbors(sym_bvecs, block_size[-1] - 1))
+   # 1/0
+    if args.mask_data is not None:
+        mask_data = nib.load(args.mask_data).get_data().squeeze().astype(np.bool)
+    else:
+        #_, mask = median_otsu(data, median_radius=1, vol_idx=b0_loc)
+        mask = np.ones_like(data[..., 0], dtype=np.bool)
+        mask_data = mask
+        # mask_noise = np.zeros_like(mask, dtype=np.bool)
+        # mask_noise[mask == 0] = 1
+
+        if debug:
+            nib.save(nib.Nifti1Image(data, affine), filename + '_masked.nii.gz')
+            nib.save(nib.Nifti1Image(mask.astype('int8'), affine), filename + '_mask.nii.gz')
+            # nib.save(nib.Nifti1Image(mask_noise.astype('int8'), affine), filename + '_mask_noise.nii.gz')
+
+    # if args.mask_noise is not None:
+    #     mask_noise = nib.load(args.mask_noise).get_data().astype(np.bool)
+    # else:
+    #     mask_noise = np.zeros(data.shape[:-1], dtype=np.bool)
+
+    ##mask_data = np.ones_like(mask_data)
+
+    if args.sigma is not None:
+        # try:
+            sigma = nib.load(args.sigma).get_data()
+            print("Found sigma volume! Using", args.sigma, "as the noise standard deviation")
+            #sigma = np.load(args.sigma) #* np.ones(data.shape[-1], dtype=np.float32)
+        # except:
+
+        # #else:
+        #     sigma = np.ones_like(data[..., 0], dtype=np.bool) #np.array([args.sigma], dtype=np.float32)
+        #     print("No volume found for noise estimation!")
+    else:
+        sigma = np.ones_like(data[..., 0], dtype=np.bool) #np.array([args.sigma], dtype=np.float32)
+        print("No volume found for noise estimation!")
+    # else:
+    #     sigma = 1.
+    # if sigma.shape != data_std_vol.shape:
+    #     print("Assuming one sigma for all volumes")
+    #     for i in range(data.shape[-1]):
+    #         data_std_vol[i] = 1.#sigma / sigma
+        #data_mean_vol[i] = 0
+        #data_std_vol[i] = 89.6808422293
+
+
+    # print("Using MASK_DATA")
+   ### mask_data = np.ones_like(mask_data)
+    crop = False
+    if crop:
+        print("cropping data and mask")
+        ca = 20#80#23
+        cb = 170#150#86#27#data.shape[1]
+        # [90:, 88:96, 40:] [90:140, 90:160, 38:46]
+        # isbi : [:,22:28, :]
+        #mask_data=np.ones_like(data[...,0],dtype=np.bool)
+        data = data[:,ca:cb,...]#[40:129,40:129,...]#[90:150, :165, ...] #88:96, 40:]
+        data_orig = data_orig[:,ca:cb,...]#[40:129,40:129,...]#[90:150, :165, ...]#88:96, 40:]
+        # mask_noise = mask_noise[:,ca:cb,...]#[40:129,40:129,...]#[90:150, :165, ...]#88:96, 40:]
+        mask_data = mask_data[:,ca:cb,...]#[40:129,40:129,...]#[90:150, :165, ...]#88:96, 40:]
+        # gold_standard = gold_standard[:,ca:cb,...]#[40:129,40:129,...]#[90:150, :165, ...]#88:96, 40:]
+        sigma = sigma[:,ca:cb,...]
+        #if debug:
+        #    data_orig = data_orig[90:150, :165, ...]#88:96, 40:]
+        nib.save(nib.Nifti1Image(mask_data.astype(np.int16), np.eye(4)), 'mask_crop.nii.gz')
+        # nib.save(nib.Nifti1Image(gold_standard, np.eye(4)), 'dwis_crop.nii.gz')
+        nib.save(nib.Nifti1Image(data, np.eye(4)), 'data.nii.gz')
+        #nib.save(nib.Nifti1Image(data.astype(np.int16), np.eye(4)), 'gs_cor.nii.gz')
+        #1/0
+    print("Now normalizing each volume separately")
+    data_mean_vol = 0.#np.zeros(data.shape[-1], dtype=np.bool)
+    data_std_vol = 1.#np.ones(data.shape[-1], dtype=np.bool)
+
+    #print(data.shape, mask_data.shape, mask_noise.shape)
+    # for i in range(data.shape[-1]):
+    #     data_mean_vol[i] = np.mean(data[..., i][mask_data])*0
+        #data_std_vol[i] = np.std(data[..., i][mask_noise])
+        #if data_std_vol[i] == 0:
+        #    data_std_vol[i] = 1
+
+    # if os.path.isfile(args.sigma):
+    #     sigma = np.load(args.sigma) #* np.ones(data.shape[-1], dtype=np.float32)
+    #     print("Found sigma npy file! Using", sigma, "as the noise standard deviation")
+    # else:
+    #     sigma = np.ones_like(data[...,0])#, dtype=np.float32) * args.sigma
+
+    # if sigma.shape != data_std_vol.shape:
+    #     print("Assuming one sigma for all volumes")
+        # for i in range(data.shape[-1]):
+        #     data_std_vol[i] = 1.#sigma / sigma
+        #data_mean_vol[i] = 0
+        #data_std_vol[i] = 89.6808422293
+
+    # print(data_std_vol, data_mean_vol)
+    # print("nlm b0")
+    # data[..., 0] = nlmeans(np.ascontiguousarray(data[..., 0]), sigma, rician=False)
+    #data_std_vol[0] =  np.std(data[..., 0][mask_noise])
+    #print(data_std_vol, data_mean_vol)
+    #data_mean_vol[0] = 711.84510908011839
+  #  for i in range(data.shape[-1]):
+   #     print(np.mean(data[..., i][mask_data]), np.std(data[..., i][mask_noise]))
+
+   # print(np.shape(np.repeat(mask_data[..., None], data.shape[-1], axis=-1)))
+    #data_mean_vol = np.mean(data * np.repeat(mask_data[..., None], data.shape[-1], axis=-1), axis=0)
+    #data_std_vol = np.std(data[np.repeat(mask_noise[..., None], data.shape[-1], axis=-1)], axis=0)
+ #   data_mean_vol = np.mean(data.reshape(-1, data.shape[-1])[mask_data.ravel()], axis=0)
+  #  data_std_vol = np.std(data.reshape(-1, data.shape[-1])[mask_noise.ravel()], axis=0)
+
+   # print(data.reshape(-1, data.shape[-1]).shape, mask_data.ravel().shape)
+     #, data.reshape(-1, data.shape[-1]).shape, mask_noise.ravel().shape)
+
+  #  1/0
+   # data_std_vol = np.ones_like(data_std_vol) * data[mask_data != 0] # 515.
+
+    # Test b0 pre-denoise
+    # print("pre-denoising the b0s with nlm...")
+    # data[..., b0_loc] = nlm(data[..., b0_loc], data_std_vol[b0_loc])[..., None]
+    # nib.save(nib.Nifti1Image(data[..., b0_loc].astype(np.float32), affine), filename + '_b0nlm.nii.gz')
+
+  #  data_mean_vol = np.zeros_like(data_mean_vol)
+  #  data_std_vol = np.ones_like(data_std_vol)
+
+    #print(data.dtype, data.min(), data.max())
+    data -= data_mean_vol
+    data /= data_std_vol
+    ##data = np.nan_to_num(data)  # B0 is constant in isbi, so std is 0
+    #print(data.dtype, data.min(), data.max())
+    #print(data.dtype, data_std_vol.shape, data_std_vol.dtype, data_mean_vol.shape, data_mean_vol.dtype)
+    #####data = applymask(data, mask_data)
+    #print(data.dtype, data.min(-1), data.max(-1))
+
+    if debug:
+        nib.save(nib.Nifti1Image(data.astype(np.float32), affine), filename + '_norm.nii.gz')
+
+    orig_shape = data.shape
+    new_block_size = np.floor(data.shape[-1]**(1/3)).astype(np.int8)
+    if new_block_size == 1:
+        new_block_size = 2
+    if new_block_size > 3:
+        new_block_size = 3
+
+    #print("Test 3x3x3 block size")
+    new_block_size = 3
+
+    print("Choosing new full block size, now", new_block_size, "was", block_size)
+    block_size = [new_block_size, new_block_size, new_block_size, block_size[-1]]
+
+
+  #  block_size = [3, 3, 3, block_size[-1]]
+   # block_size = [2, 2, 2, block_size[-1]]
+    # overlap = np.array(block_size, dtype=np.int8) - 1  # [0,0,0,0]  #
+    # overlap *= 0
+   # overlap = np.ones_like(overlap, dtype=np.int8)
+   # print("overlap is DISABLED", overlap)
+    print("overlap is", overlap)
+    mask = mask_data
+    # data = padding(data, block_size, overlap)
+    # mask = padding(mask_data, block_size[:3], overlap[:3]).astype(np.bool)
+    # mask_noise = padding(mask_noise, block_size[:3], overlap[:3]).astype(np.bool)
+
+    ##data = np.delete(data, b0_loc, axis=-1)
+
+    # Random string generator for temp files
+   # length = 10
+    #tempname = '/' + "".join([random.choice(string.letters+string.digits) for x in range(1, length)])
+    #tempdir = tempfile.gettempdir() + tempname + "_"
+
+    # PCA truncation for original, full length dataset
+
+    ##data = np.insert(data, b0_loc, b0, axis=-1)
+    full_block = np.append(block_size[:-1], data.shape[-1])
+    # Trop long sur 64 directions
+    #full_block = np.append(block_size[:-1], 5)
+    #full_block = (3,3,3,5)
+    # print("Now ZCA whitening each volume separately")
+    # data_block = im2col_nd(data, np.append(data.shape[:3], 1), np.zeros(4, dtype='uint16')).T
+    # data_whitened, ZCA, ZCA_inverse, data_mean = ZCA_whitening(data_block)
+
+    # data_whitened = col2im_nd(data_whitened, full_block, orig_shape, overlap)
+    # data_whitened = data_whitened[:orig_shape[0], :orig_shape[1],
+    #                               :orig_shape[2], :orig_shape[3]]
+
+    # nib.save(nib.Nifti1Image(data_whitened, affine), filename + '_ZCA.nii.gz')
+
+    # data = data_whitened
+
+    print("Now doing SPCA truncation on blocks of shape", full_block)
+
+    #data = PCA_truncate(data, full_block, overlap)
+
+    print(data.shape)
+    padded_shape = data.shape
+    #print(data.shape, full_block, overlap, 'fail here')
+    #data = im2col_nd(data, full_block, overlap).T
+    print("block et transpose", data.shape)
+
+    # SPCA_idx = np.nonzero(np.sum(data, axis=0))[0]
+    # data_mean = np.mean(data, axis=0, keepdims=True)
+    data_norm2 = 1.#np.sqrt(np.sum(data**2, axis=0, keepdims=True))
+    #data_norm2 = np.ones_like(data_norm2)
+    ####
+    data_mean = 0.
+    #data_norm2 = np.ones_like(data_norm2)
+    ###
+
+    data -= data_mean
+    data /= data_norm2
+    # data[np.isnan(data)] = 0
+
+    #data = data.astype('float64')
+
+    #print(data.shape, data_mean.shape, "centering is disabled, norm2 disabled")
+   # 1/0
+    t0 = time()
+
+ #   n_components = np.ceil(.05 * data.shape[0])
+  #  alpha = 0.05
+   # batch_size = np.ceil(.03 * data.shape[0])
+    #n_iter = 50
+    #n_iter = 1
+    ridge_alpha = 0.01
+    random_state = 3453
+
+    n_iter = 10  # #50#args.iter #* 100 #
+
+    spca_disabled = True
+    use_abs = False
+    use_clip = True
+
+    if spca_disabled:
+        print("SPCA disabled", filename)
+        # data_SPCA = nib.load(args.input).get_data().astype(np.float64)# + '_mixte_stabilized_denoised_lpca.nii').get_data().astype(np.float64)
+        # data_SPCA = np.abs(data_SPCA) #[data_SPCA<0]=0
+
+        # if crop:
+        #     data_SPCA = data_SPCA[:,ca:cb,...]##[40:129,40:129,...]
+        # data = (data_SPCA - data_mean_vol) / data_std_vol
+        # data *= mask_data[..., None]
+
+        # data = padding(data, full_block, overlap)
+
+        #data_SPCA = gold_standard
+        #print(data.shape, full_block, padded_shape, overlap)
+        #data = col2im_nd(data, full_block, padded_shape, overlap)
+        #data = im2col_nd(data, full_block, overlap)
+
+  #   else:
+  #       if use_abs:
+  #           data = np.abs(data)
+  #       elif use_clip:
+  #           data[data < 0] = 0
+
+  #       ###data *= mask[..., None]
+  #       data = im2col_nd(data, full_block, overlap).T
+  #       #alpha = args.lambda_lasso
+
+  #       # SPCA in scikit learn divides alpha by the number of features,
+  #       # so multiply by n_features to return to a sensible value
+  #       alpha = 1.5 / np.sqrt(np.prod(full_block) )  # * block_size[0]) # 0.3
+  #       print("alpha orig", args.lambda_lasso, "alpha new", alpha, data.shape)
+
+  #       n_components = full_block[-1]  # * full_block[0] #* 8 # block_size[0] * # 65 #args.batchsize # WTF? np.ceil(args.batchsize * data.shape[0])
+  #       ##batch_size = np.ceil(.1 * data.shape[0])
+  #       batch_size = np.ceil(.4 * np.prod(full_block)).astype(np.int16)
+
+  #       if args.cores is None:
+  #           n_jobs = -1
+  #       else:
+  #           n_jobs = args.cores
+  #       #n_jobs = 1
+
+  #       print("comp", n_components, "alpha", alpha, "batch", batch_size, "train size", SPCA_idx.shape)
+
+  #       # SPCA = MiniBatchSparsePCA(n_components=n_components, n_jobs=n_jobs,
+  #       #                           alpha=alpha, batch_size=batch_size, verbose=1,
+  #       #                           random_state=random_state, ridge_alpha=ridge_alpha,
+  #       #                           n_iter=n_iter, shuffle=True)
+
+  #       #SPCA_data = np.ascontiguousarray(data[:, np.sum(data, axis=0) != 0].reshape(data.shape[0], -1)).T
+  #       ##SPCA_idx = SPCA_idx[:10]
+  #       #SPCA_data = np.asfortranarray(data.T)
+  #       step = 1  # block_size[0]
+  #       #SPCA_data = data.T
+  #       #print("cut", SPCA_data.shape, "orig", data.shape, "train", SPCA_data[::step, :].shape)
+
+  #       from scilpy.metrics.visual_metrics import RMSE, SSIM
+  #       rmse = []
+  #       ssim = []
+  #       for alpha in [1.]:  # [0.00001, 0.0001, 0.001, 0.01, 0.05, 0.1, 0.5, 1., 1.2, 1.5]:  # 0.001, 0.005, 0., 0.01, , 1.8, 2.
+  #           for n_components in [int(orig_shape[-1]*3)]:  # [1, 65//3, 65//2, 65, 62*2, 65*3, 65*4]:
+  #             #  if "10" in args.input:
+  #             #      mult = 2.
+  #             #  elif "20" in args.input:
+  #             #      mult= 1.5
+  #             #  elif "30" in args.input:
+  #             #      mult = 2.
+  #             #  else:
+  #             #      print("Couldn't find SNR in filename, defaulting to n_comp = N dirs")
+  #             #      mult = 1
+  #               mult = 2
+  #               #n_components = np.ceil(mult * orig_shape[-1])
+
+  #               print("alpha", alpha, "n_comp", n_components)
+
+  #               SPCA = SparsePCA(n_components=n_components, n_jobs=n_jobs,
+  #                                alpha=alpha, verbose=2, random_state=random_state,
+  #                                ridge_alpha=ridge_alpha, max_iter=n_iter)
+
+  #             #  SPCA_data = np.asfortranarray(data[:, SPCA_idx].T)
+  #               SPCA_data = np.asfortranarray(data.T)
+  #               #print(type(SPCA_data),SPCA_data.dtype,SPCA_data.shape)
+  #               SPCA.fit(SPCA_data)
+  #               a = SPCA.transform(SPCA_data)
+
+  #             #  del SPCA_data
+  #               # print("\n", SPCA.components_.shape, a.shape, "shape")
+
+  #               # inv = np.zeros_like(data, dtype='float64')
+
+  #              #  for i in [SPCA.components_.shape[0]]:  # range(SPCA.components_.shape[0]):
+  #              #      inv[:, SPCA_idx] = np.dot(a[:, :i], SPCA.components_[:i, :]).T
+
+  #              #      inv *= data_norm2
+  #              #      inv += data_mean
+
+  #              #      data2 = col2im_nd(inv, full_block, padded_shape, overlap)
+  #              #      data_SPCA = ((data2 * data_std_vol) + data_mean_vol).astype(original_dtype)
+  #              #      data_SPCA = data_SPCA[:orig_shape[0], :orig_shape[1],
+  #              #                            :orig_shape[2], :orig_shape[3]]
+
+  #              #      mask_SPCA = mask[:orig_shape[0], :orig_shape[1], :orig_shape[2]]
+  #              #      #data_SPCA = applymask(data_SPCA, mask_SPCA)
+
+  #              #      mask_SPCA = np.logical_and(mask_SPCA, gold_standard[..., 0] > 0)
+  #              #      nib.save(nib.Nifti1Image(mask_SPCA.astype(np.int16), np.eye(4)), 'mask_SPCA.nii.gz')
+
+  #              #      rmse_cur = RMSE(data_SPCA[mask_SPCA], gold_standard[mask_SPCA])
+  #              #      ssim_cur = SSIM(data_SPCA[mask_SPCA], gold_standard[mask_SPCA])
+  #              #      rmse += [rmse_cur]
+  #              #      ssim += [ssim_cur]
+
+  #              #      print("RMSE is ", rmse_cur, "SSIM", ssim_cur, "alpha", alpha, "n_comp", i)
+  #              # #     1/0
+  #              #  nib.save(nib.Nifti1Image(data_SPCA, affine), filename + '_' + str(alpha) + '_' + str(n_components) + '_SPCA.nii.gz')
+  #              #  nib.save(nib.Nifti1Image(data2, affine), filename + '_' + str(alpha) + '_' + str(n_components) + '_data.nii.gz')
+  #              #  nib.save(nib.Nifti1Image(data_orig - data_SPCA, affine), filename + '_' + str(alpha) + '_' + str(n_components) + '_diff_SPCA.nii.gz')
+
+  #       np.save(filename + '_spca_RMSE.npy', np.array(rmse))
+  #       np.save(filename + '_spca_SSIM.npy', np.array(ssim))
+  #    #   1/0
+
+  # #      SPCA.fit(SPCA_data)
+  #  #     a = SPCA.transform(SPCA_data)
+  #       del SPCA_data
+
+  #     #  print(SPCA.error_, SPCA.components_.shape)
+  #    #   1/0
+
+  #       #inv = np.zeros_like(data, dtype='float64')
+  #       #inv[:, SPCA_idx] = np.dot(a, SPCA.components_).T
+  #       inv = np.dot(a, SPCA.components_).T
+  #       inv *= data_norm2
+  #       inv += data_mean
+  #       print("\nSparse PCA time :", time()-t0)
+
+  #       print(inv.min(), inv.max(), inv.shape, data.shape)
+  #       #inv[inv < 0] = 0
+  #       #print(inv.min(), inv.max())
+  #       #inv = data + data_mean
+  #       #data *= data_norm2
+  #       #data += data_mean
+  #       #data = col2im_nd(data, full_block, padded_shape, overlap)
+  #       print(SPCA.components_.shape, a.shape)
+  #       print(np.sum(SPCA.components_ != 0), np.sum(a != 0))
+  #       #1/0
+  #       #weigths = 1.# / np.sum(SPCA.components_ != 0, axis=0).squeeze()
+  #       weigths = np.ones(a.shape[0],dtype=np.float64)
+  #       #print(weigths.shape, "weigths shape")
+  #       print(inv.shape)
+  #       data = col2im_nd(inv, full_block, padded_shape, overlap, weigths)
+
+  #       del a, inv
+  #       print(data.shape)
+  #      # 1/0
+  #       ##data = np.insert(data, b0_loc, b0, axis=-1)
+  #       #data = data[:orig_shape[0], :orig_shape[1],
+  #       #            :orig_shape[2], :orig_shape[3]]
+  #       #data = (data*data_std_vol)+data_mean_vol
+  #       print(data.min(), data.max())
+
+  #       if debug:
+  #           data_SPCA = ((data * data_std_vol) + data_mean_vol).astype(original_dtype)
+  #           data_SPCA = data_SPCA[:orig_shape[0], :orig_shape[1],
+  #                                 :orig_shape[2], :orig_shape[3]]
+  #           mask_SPCA = mask[:orig_shape[0], :orig_shape[1], :orig_shape[2]]
+  #           print(data_SPCA.min(), data_SPCA.max())
+  #           #data_SPCA = applymask(data_SPCA, mask_SPCA)
+  #           #print(data_SPCA.min(), data_SPCA.max())
+  #           ##data_SPCA[data_SPCA < 0] = 0
+  #           #data_SPCA[..., 0] = np.ones_like(data_SPCA[..., 0]) * 32767
+  #           print(data_orig.min(), data_orig.max())
+  #           print(data.min(), data.max())
+  #           print(data_SPCA.min(), data_SPCA.max())
+  #           nib.save(nib.Nifti1Image(data_SPCA, affine), filename + '_SPCA.nii.gz')
+  #           nib.save(nib.Nifti1Image(data, affine), filename + '_data.nii.gz')
+  #           ##data = padding(data_SPCA, block_size, overlap)
+  #           #nib.save(nib.Nifti1Image(data_SPCA, affine), filename + '_SPCAv2.nii.gz')
+  #           nib.save(nib.Nifti1Image(data_orig - data_SPCA, affine),
+  #                    filename + '_diff_SPCA.nii.gz')
+
+    # from scilpy.metrics.visual_metrics import SSIM, RMSE
+    #print(RMSE(data_SPCA[mask_data], gold_standard[mask_data]))
+    #print(SSIM(data_SPCA[mask_data], gold_standard[mask_data]))
+   # 1/0
+    new_block_size = np.floor((block_size[-1] + num_b0s)**(1/3)).astype(np.int8)
+    if new_block_size == 1:
+        new_block_size = 2
+
+    new_block_size = 3
+    #filename += "_ml_3x3_"
+
+    print("Choosing new  block size, now", new_block_size, "was", block_size)
+    block_size = [new_block_size, new_block_size, new_block_size, block_size[-1]]
+
+ #   block_size = [2, 2, 2, block_size[-1]]
+    overlap = np.array(block_size, dtype=np.int16) - 1
+    # overlap*=0
+  #  overlap = np.ones_like(overlap)
+    # overlap *= 0
+    # print("overlap is DISABLED")
+   # overlap = np.ones_like(overlap, dtype=np.int8)
+    print("overlap is", overlap)
+
+    param_alpha['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
+    param_D['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
+    print("new alpha", param_alpha['lambda1'], param_D['lambda1'])
+
+    # print("Augmenting padding")
+    # data = padding(data, block_size, overlap)
+    # mask = padding(mask, block_size[:3], overlap[:3])
+
+    #data = padding(nib.load('../dwis.nii.gz').get_data()[:,24:27,...], block_size, overlap)
+
+    b0 = data[..., b0_loc]
+    data = np.delete(data, b0_loc, axis=-1)
+    #del inv, SPCA, SPCA_data#, data_SPCA
+
+    # neighbors_shape = data.shape[:-1] + ((data.shape[-1]) * block_size[-1],)
+    ####data_neighbors = np.memmap(tempdir + "data_neighbors", dtype=np.float64,
+    ####                           mode='w+', shape=neighbors_shape)
+    # print(neighbors_shape)
+    neighbors_shape = data.shape[:-1] + (data.shape[-1] * (block_size[-1] + num_b0s),)
+    print(neighbors_shape, data.shape[-1], block_size[-1])
+    # 1/0
+    # data_neighbors = np.zeros(neighbors_shape, dtype=original_dtype)
+
+    #print(data.shape, data_neighbors.shape, neighbors.shape, block_size)
+
+    # print(data.shape)
+    # print(np.delete(np.arange(data.shape[-1]), b0_loc))
+    # print(range(len(neighbors)))
+    # Parse all indices, minus where the b0s are located since
+    # they are removed from possible neigbors
+
+    # neighbors_idx =   # list(range(data.shape[-1]))
+
+    # for i in b0_loc:
+    #     del(neighbors_idx[i])
+    indexes = []
+    for i in range(len(neighbors)):
+        # b = i + (block_size[-1]-1+num_b0s) * i
+        # b1 = b + num_b0s
+
+        # data_neighbors[..., b:b1] = b0
+        # data_neighbors[..., b1:b1+block_size[-1]] = \
+        #     data[..., (i,) + tuple(neighbors[i])]
+
+        print((i,) + tuple(neighbors[i]))
+        indexes += [(i,) + tuple(neighbors[i])]
+    # 1/0
+
+    if debug:
+        nib.save(nib.Nifti1Image(data_neighbors, affine),
+                 filename + '_neighbors.nii.gz')
+
+    # nib.save(nib.Nifti1Image(data_neighbors, affine),
+    #              filename + '_neighbors.nii.gz')
+
+    # data_neighbors[:,:,:,:]=0#=np.zeros_like(data_neighbors)
+    # data = np.insert(data, b0_loc, b0, axis=-1)
+    # step = len(indexes[0])
+    # for i, idx in enumerate(indexes):
+    #     data_neighbors[..., i*step:(i+1)*step] = data[..., idx]
+    # nib.save(nib.Nifti1Image(data_neighbors, affine),
+    #              filename + '_neighbors2.nii.gz')
+    # # print(np.sum(np.abs(data_neighbors-data_neighbors)))
+    # #print (neighbors, bvecs[neighbors], data_neighbors.shape)
+    # 1/0
+    #
+    # denoised_shape = data.shape[:-1] + (data_neighbors.shape[-1],)
+    # data_denoised = np.zeros(denoised_shape, dtype=np.int16)
+    ####data_denoised = np.memmap(tempdir + "data_denoised", dtype=np.float64,
+    ####                          mode='w+', shape=denoised_shape)
+
+    # print(data_denoised.shape, data.shape, data_neighbors.shape)
+
+    b0_block_size = tuple(block_size[:-1]) + ((block_size[-1] + num_b0s,))
+    print(b0_block_size, block_size[:-1], tuple((block_size[-1] + num_b0s,)), block_size[-1], num_b0s)
+
+    no_ml = False
+    if no_ml:
+        print("load padded")
+        data_denoised = nib.load(filename + '_padded.nii.gz').get_data()
+    else:
+
+        # from scilpy.metrics.visual_metrics import RMSE, SSIM
+      #  from itertools import product
+        # rmse = []
+        # ssim = []
+        # data = np.insert(data, b0_loc, b0, axis=-1)
+
+        for alpha_ml in [0.1]:  # , 0.3, 0.5, 0.8, 1.2, 1.5, 1.8]: #nbiter, K in product([50,100,150,200], [48, 96, 144, 192]): #
+            # data = np.delete(data, b0_loc, axis=-1)
+            nbiter = 50
+            K = np.asscalar(np.prod(b0_block_size))
+
+            param_D['iter'] = nbiter
+            param_D['K'] = K  # // 2
+            #alpha_ml = 0.3
+            print("param run", K, nbiter, alpha_ml)
+            param_alpha['lambda1'] = alpha_ml
+            param_D['lambda1'] = alpha_ml
+            # denoised_shape = np.insert(np.empty_like(data), b0_loc, np.empty_like(b0), axis=-1).shape[:-1] + (data_neighbors.shape[-1],)
+            denoised_shape = data.shape[:-1] + (neighbors_shape[-1],)
+            # print(denoised_shape)
+            # print(np.insert(np.empty_like(data), b0_loc, np.empty_like(b0), axis=-1).shape[:-1] + (data_neighbors.shape[-1],))
+            # 1/0
+            denoised_shape = data.shape[:-1] + (data.shape[-1] + num_b0s,)
+            data_denoised = np.zeros(denoised_shape, np.float64)
+            print(data_denoised.shape)
+            # 1/0
+            # ##del data
+            # data = np.insert(data, b0_loc, b0, axis=-1)
+            # for i in range(0, data_neighbors.shape[-1], b0_block_size[-1]):
+            step = len(indexes[0]) + num_b0s
+            for i, idx in enumerate(indexes):
+                # print(i, data_neighbors.shape[-1], b0_block_size)
+                print(i, idx)
+                #print(data_denoised[..., i:i + block_size[-1] + num_b0s].shape,
+                #      data_neighbors[..., i:i + block_size[-1] + num_b0s].shape)
+              #  noise_std = np.std(data_neighbors[..., i:i + b0_block_size[-1]][mask_noise])
+                #noise_std = [1] * b0_block_size[-1]
+
+             #   print("Cheap noise trick test stuff...")
+            #    print(neighbors[i], (0,) + tuple(neighbors[i]), data_std_vol.shape)
+          #      noise_std = np.mean(data_std_vol[[0] + neighbors[i]])
+            #    i % b0_block_size[-1]
+             #   neighbors[i % b0_block_size[-1]]
+              #  data_std_vol[neighbors[i % b0_block_size[-1]]]
+                # noise_std = np.hstack((data_std_vol[b0_loc],
+                #                        data_std_vol[i % b0_block_size[-1] + num_b0s],
+                #                        data_std_vol[neighbors[i % b0_block_size[-1]]]))
+
+              #  print("noise std is", noise_std)
+                #param_D['iter'] = args.iter
+                # noise_std = sigma #sigma[i//b0_block_size[-1]] #
+                # data_denoised[..., i:i + b0_block_size[-1]] = \
+                print(i, i*step, (i + 1)*step)
+                # print(data[..., idx].shape, b0.shape)
+                # print(np.insert(data[..., idx], (0,), b0, axis=-1).shape)
+                # print(b0_loc + idx)
+                dwi_idx = tuple(np.where(idx <= b0_loc, idx, np.array(idx) + num_b0s))
+                print(dwi_idx)
+                # data_denoised[..., i*step:(i + 1)*step] = \
+                data_denoised[..., b0_loc + dwi_idx] += \
+                    denoise(np.insert(data[..., idx], (0,), b0, axis=-1),
+                    # denoise(data_neighbors[..., i:i + b0_block_size[-1]],
+                            b0_block_size, overlap, param_alpha, param_D,
+                            sigma, 512, mask, mask,
+                            mask, args.no_whitening, filename,
+                            dtype=np.float64, debug=debug)
+                # 1/0
+                # if 'D' in param_alpha:
+                #     del param_alpha['D']  # Test no warm restart
+
+            divider = np.bincount(np.array(indexes, dtype=np.int16).ravel())
+            # print(divider, len(divider))
+            divider = np.insert(divider, b0_loc, len(indexes))
+            # print(divider, len(divider))
+            print(b0_loc, len(indexes), divider.shape)
+            # divider = np.ones_like(data_denoised) * divider
+            data_denoised = data_denoised[:orig_shape[0],
+                                          :orig_shape[1],
+                                          :orig_shape[2],
+                                          :orig_shape[3]] / divider
+
+            nib.save(nib.Nifti1Image(data_denoised.astype(original_dtype), affine),
+                     filename + '_denoised.nii.gz')
+
+            # nib.save(nib.Nifti1Image(divider, affine),
+            #          filename + '_divider.nii.gz')
+    #         # 1/0
+    #         if debug:
+    #             nib.save(nib.Nifti1Image(data_denoised, affine), filename + '_padded.nii.gz')
+
+    #         # data_denoised = data
+
+    #         # for i in range(data.shape[-1]):
+
+    #         #     data_denoised[..., (i,) + tuple(neighbors[i])] = \
+    #         #             denoise(data_denoised[..., (i,) + tuple(neighbors[i])],
+    #         #                     b0_block_size, overlap, param_alpha, param_D,
+    #         #                     0, 512, mask, mask,
+    #         #                     mask_noise, args.no_whitening, filename,
+    #         #                     dtype=np.float32, debug=debug)
+    #         #     del param_alpha['D'] ## Test no warm restart
+    #         # 1/0
+    #             #data_denoised[..., i:i + b0_block_size[-1]]=data_neighbors[..., i:i + b0_block_size[-1]]
+    #             #print(np.sum(np.abs(data_denoised[..., i:i + b0_block_size[-1]]-data_neighbors[..., i:i + b0_block_size[-1]])))
+
+    #         # data_denoised[..., 1:] = denoise(data_neighbors, block_size, overlap, param_alpha, param_D,
+    #         #                                      args.std, args.batchsize, mask_data, mask_train, mask_noise,
+    #         # args.no_whitening, filename, dtype='float64')
+    #         # print(data_denoised.shape, data.shape)
+    #         ###########data_denoised = np.insert(data_denoised, b0_loc, b0, axis=-1)
+    #         #####data_denoised[..., b0_loc] = data[..., b0_loc]
+    #     #
+    #         # Averaging
+    #         denoised2_shape = data_denoised.shape[:-1] + (neighbors.shape[0],)
+    #         data_denoised2 = np.zeros(denoised2_shape, dtype=original_dtype)
+    #         ####data_denoised2 = np.memmap(tempdir + "data_denoised2", dtype=np.float64,
+    #         ####                           mode='w+', shape=denoised2_shape)
+
+    #         ###########data_denoised2 = np.insert(data_denoised2, b0_loc, b0, axis=-1)
+    #         ####data_denoised2[..., b0_loc] = data[..., b0_loc]
+
+    #         #print ("Test wavelets")
+    #         #import pywt
+
+    #         #data_coarse, data_wav = pywt.dwt2(data_denoised2, 'bior5.5', mode='sym')
+
+    #         #details = []
+    #         # for wav in data_wav:
+
+    #         print("Now averaging stuff")
+    #         #print (neighbors)
+    #         #print (data_denoised2.shape)
+    #         #
+    #         b = 0
+    #         if debug:
+    #             data_patched = np.zeros_like(data_denoised)
+    #         ####data_patched = np.memmap(tempdir + "data_patched", dtype=np.float64,
+    #         ####                         mode='w+', shape=denoised_shape)
+    #         #
+    #         for i in range(neighbors.shape[0]):
+    #             print(i, neighbors[i], (i*b0_block_size[-1]+1))
+    #         #print(data_denoised2.shape, data_denoised.shape, data_patched.shape)
+
+    #         print("test nlm data")
+    #         #data_nlm = np.zeros_like(data_denoised2)
+    #         #idx_b0s = range(0, data_neighbors.shape[-1], b0_block_size[-1])
+    #         #print(idx_b0s)
+
+    #         for i in range(neighbors.shape[0]):
+    #             idx = np.where(neighbors == i)
+    #             same_blocks = (i * (b0_block_size[-1])+1,) + tuple(idx[0]*b0_block_size[-1] + idx[1] + num_b0s + 1)
+    #             data_denoised2[..., i] = np.mean(data_denoised[..., same_blocks], axis=-1) # * data_std_vol[i+1]) + data_mean_vol[i+1]
+    #             # print(i, data_std_vol[i+1])
+    #             #data_nlm_std = np.std(((data_denoised[..., same_blocks] * data_std_vol[i+1]) + data_mean_vol[i+1])[mask_noise])
+    #             #data_nlm[..., i] = nlm((data_denoised[..., same_blocks] * data_std_vol[i+1]) + data_mean_vol[i+1], data_nlm_std)
+
+    #             print(i, neighbors[i], b, b+len(neighbors[idx])+1, idx, same_blocks)
+    #             #data_patched[..., ] = data_denoised[..., idx_b0s[i]]
+    #             # print(data_std_vol.shape, data_mean_vol.shape, b)
+    #             if debug:
+    #                 data_patched[..., b:b+len(neighbors[idx])+1] = (data_denoised[..., same_blocks] * data_std_vol[i+1]) + data_mean_vol[i+1]
+    #             b += len(neighbors[idx]) + 1
+
+    #         if debug:
+    #             nib.save(nib.Nifti1Image(data_denoised2, affine), filename + '_denoised2.nii.gz')
+    #             nib.save(nib.Nifti1Image(data_patched, affine), filename + '_patched.nii.gz')
+    #             del data_patched
+
+    #         neighbors_last = neighbors_shape[-1]
+    #         ##############del data_neighbors
+
+    #         #1/0
+    #         #data_denoised[..., 1:orig_shape[-1]] = data_denoised[..., 1:data_neighbors.shape[3]+1:block_size[-1]]
+    #         #data_denoised = data_denoised[:orig_shape[0], :orig_shape[1], :orig_shape[2], :orig_shape[3]]
+
+    #         idx_b0s = range(0, neighbors_last, b0_block_size[-1])
+    #         print(idx_b0s)
+
+    #         b0 = np.mean(data_denoised[..., idx_b0s], axis=-1, keepdims=True)# * data_std_vol[0]) + data_mean_vol[0], axis=-1, keepdims=True)
+    #        # b0_std = np.std(((data_denoised[..., idx_b0s] * data_std_vol[0]) + data_mean_vol[0])[mask_noise])
+    #      #   b0_std = data_std_vol[b0_loc]
+    #         # b0_nlm = b0  # nlmeans(np.ascontiguousarray(b0), b0_std, rician=False)
+
+    #         if debug:
+    #             nib.save(nib.Nifti1Image((data_denoised[..., idx_b0s] * data_std_vol[0]) + data_mean_vol[0], affine),
+    #                      filename + '_b0s.nii.gz')
+
+    #         ###data = (data * data_std_vol) + data_mean_vol
+    #         #print(data.shape, data_denoised.shape)
+    #         data_denoised = np.insert(data_denoised2, b0_loc, b0, axis=-1)
+    #         data_denoised = data_denoised[:orig_shape[0],
+    #                                       :orig_shape[1],
+    #                                       :orig_shape[2],
+    #                                       :orig_shape[3]]
+    #         del data_denoised2
+    #         # data_nlm = np.insert(data_nlm, b0_loc, b0_nlm, axis=-1)
+    #         # data_nlm = data_nlm[:orig_shape[0],
+    #         #                     :orig_shape[1],
+    #         #                     :orig_shape[2],
+    #         #                     :orig_shape[3]]
+
+    #         ##data_denoised = ((data_denoised * data_std_vol) + data_mean_vol)
+    #         #data_denoised[data_denoised < 0] = 0
+
+    #         #print("applying masks")
+
+    #         #data_denoised = applymask(data_denoised, mask_data)
+    #         #data_nlm = applymask(data_nlm, mask_data)
+
+    #         nib.save(nib.Nifti1Image(data_denoised.astype(original_dtype), affine),
+    #                  filename + '_denoised.nii.gz')
+    #         # nib.save(nib.Nifti1Image(data_nlm.astype(original_dtype), affine),
+    #         #          filename + str(alpha_ml) + '_nlm.nii.gz')
+
+    #         if debug:
+
+    #             data = np.insert(data, b0_loc, b0, axis=-1)
+    #             data = data[:orig_shape[0], :orig_shape[1], :orig_shape[2], :orig_shape[3]]
+    #             #data_SPCA = applymask(data_SPCA, mask_data)
+    #             #data_orig = applymask(data_orig, mask_data)
+    #             print("sum of nans", np.sum(np.isnan(data_denoised)))
+
+    #             diff_abs = np.abs(data_orig - data_denoised)
+    #             print(np.min(diff_abs), np.max(diff_abs), np.min(data_orig), np.min(data_denoised), np.max(data_orig), np.max(data_denoised))
+    #             print("Sum diff", np.sum(diff_abs[diff_abs > 10**-6]))
+    #             del diff_abs
+
+    #             nib.save(nib.Nifti1Image(data_orig - data_denoised, affine),
+    #                      filename + str(alpha_ml) + '_diff.nii.gz')
+    #             # nib.save(nib.Nifti1Image(data_orig - data_nlm, affine),
+    #             #          filename + str(alpha_ml) + '_diff_nlm.nii.gz')
+    #             nib.save(nib.Nifti1Image(data_SPCA - data_denoised, affine),
+    #                      filename + str(alpha_ml) + '_diff_ML.nii.gz')
+
+    #             print(np.max(np.abs(data - data_denoised)),
+    #                   np.min(np.abs(data - data_denoised)))
+
+    #         # data_denoised[np.isnan(data_denoised)] = 0
+
+    #         # rmse_cur = RMSE(data_denoised[mask_data], gold_standard[mask_data])
+    #         # ssim_cur = SSIM(data_denoised[mask_data], gold_standard[mask_data])
+    #         # rmse += [rmse_cur]
+    #         # ssim += [ssim_cur]
+
+    #         # print("RMSE is ", rmse_cur, "SSIM", ssim_cur, "alpha", alpha_ml)
+
+    # # np.save(filename + '_RMSE_ml_nowarmres_ml_' + str(alpha_ml) + '_' + str(K) + '_' + str(nbiter) + '.npy', np.array(rmse))
+    # # np.save(filename + '_SSIM_ml_nowarmres_ml_' + str(alpha_ml) + '_' + str(K) + '_' + str(nbiter) + '.npy', np.array(ssim))
+
+
+if __name__ == "__main__":
+    main()
