@@ -32,10 +32,13 @@ You will also need a compiler and required build tools, which would be
 #### 2. Get some more dependencies with pip
 
 ```shell
-pip install cython nibabel cythongsl scikit-learn
+pip install cython nibabel cythongsl
 ```
 
 #### 3. Build the cython files.
+*prendre ma branche de scilpy add_stabilizer_script à la place*
+https://bitbucket.org/sciludes/scilpy/pull-request/104/stabilisation-script/diff
+
 From the NLSAM root folder, run
 ```shell
 python setup.py build_ext -i
@@ -47,10 +50,11 @@ This will build the NLSAM cython files and also the spams library, but feel free
 
 #### 4. Check everything went well
 Run the tests
-
+ 
+#### 4. b Ajouter nlsam au python path, nlsam/script au path
 
 ## Using the NLSAM algorithm
-For now, get the stabilisation script from scilpy, https://bitbucket.org/sciludes/scilpy/pull-request/104/stabilisation-script or you can skip it if you don't have terribly noisy data. The script subfolder has my old personal version, which might do weird imports. 
+For now, get the stabilisation script from scilpy, https://bitbucket.org/sciludes/scilpy/pull-request/104/stabilisation-script or you can skip it if you don't have terribly noisy data. The nlsam subfolder has my old personal version, which might do weird imports. 
 
 Run the denoising itself, like this
 ```shell
