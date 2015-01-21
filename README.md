@@ -58,7 +58,7 @@ For now, get the stabilisation script from scilpy, https://bitbucket.org/scilude
 
 Run the denoising itself, like this
 ```shell
-caller.py noisy_data.nii.gz N_neighbors bval bvec -sigma sigma.nii.gz -o denoised_data.nii.gz -mask_data mask.nii.gz
+nlsam noisy_data.nii.gz N_neighbors bval bvec -o denoised_data.nii.gz -mask_data mask.nii.gz
 ```
 where N_neighbors is the number of angular neighbors in a block, I personnaly suggest 5. Afterward, go take a long coffee break/come back tomorrow. You should also have at least 12/16 go of ram for a large dataset (1.2mm at 41 DWIs takes approx 16go of ram).
 
