@@ -12,8 +12,8 @@ if not have_cython_gsl:
     raise ValueError('cannot find gsl package (required for hyp1f1), \
         try pip install cythongsl and sudo apt-get install libgsl0-dev libgsl0ldbl')
 
-ext = [Extension('scilpy.denoising.stabilizer',
-                ['scilpy/denoising/stabilizer.pyx'],
+ext = [Extension('nlsam.stabilizer',
+                ['nlsam/stabilizer.pyx'],
                 libraries=cython_gsl.get_libraries(),
                 library_dirs=[cython_gsl.get_library_dir()],
                 cython_include_dirs=[cython_gsl.get_cython_include_dir()],
