@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-# Caller for the 3D and 4D denoising
 
 from __future__ import division, print_function
 
@@ -32,7 +31,7 @@ from ast import literal_eval
 
 
 DESCRIPTION = """
-    Convenient script to call the denoising dictionnary learning/sparse coding
+    Convenient script to call the denoising dictionary learning/sparse coding
     functions. It enables the user to select a whole range of parameters to
     test instead of relying on scripts that call the relevant scripts.
     """
@@ -72,7 +71,7 @@ def buildArgsParser():
                    help='Path of the image file to denoise.')
 
     p.add_argument('block_size', action='store', metavar='block_size',
-                   type=str, help='Number of angular neighbors used for denoising.')
+                   type=int, help='Number of angular neighbors used for denoising.')
 
     p.add_argument('bvals', action='store', metavar='bvals',
                    help='Path of the bvals file, in FSL format.')
@@ -80,87 +79,87 @@ def buildArgsParser():
     p.add_argument('bvecs', action='store', metavar='bvecs',
                    help='Path of the bvecs file, in FSL format.')
 
-    p.add_argument('-sigma', action='store', required=False, type=str,
-                   help='Value of sigma or path to sigma numpy array.')
+    # p.add_argument('-sigma', action='store', required=False, type=str,
+    #                help='Value of sigma or path to sigma numpy array.')
 
-    p.add_argument('-gs', action='store', required=False, type=str, default=None,
-                   help='Comparison dataset for crossval.')
+    # p.add_argument('-gs', action='store', required=False, type=str, default=None,
+    #                help='Comparison dataset for crossval.')
 
-    p.add_argument('-D', action='store', metavar='D',
-                   required=False, default=None, type=str,
-                   help='Path to a prelearned dictionnary D in npy format to \
-                   use for the sparse coding step. Supplying D will skip the \
-                   dictionnary learning part.')
+    # p.add_argument('-D', action='store', metavar='D',
+    #                required=False, default=None, type=str,
+    #                help='Path to a prelearned dictionnary D in npy format to \
+    #                use for the sparse coding step. Supplying D will skip the \
+    #                dictionnary learning part.')
 
     # p.add_argument('-shuffle', action='store_true', required=False,
     #                help='If True, the input volume is randomly shuffled \
     #                before the learning part and unshuffled after the \
     #                reconstruction.')
 
-    p.add_argument('-overlap', action='store', metavar='overlap',
-                   required=False, default=None, type=str,
-                   help='Specifies overlap between blocks, ranging from 0 \
-                   (no overlap) to min(block_size)-1 (full overlap)')
+    # p.add_argument('-overlap', action='store', metavar='overlap',
+    #                required=False, default=None, type=str,
+    #                help='Specifies overlap between blocks, ranging from 0 \
+    #                (no overlap) to min(block_size)-1 (full overlap)')
 
-    p.add_argument('-no_whitening', action='store_false', required=False,
-                   help='If True, do not apply ZCA whitening. Each block \
-                   will be mean centered and scaled to unit l2 norm. ')
+    # p.add_argument('-no_whitening', action='store_false', required=False,
+    #                help='If True, do not apply ZCA whitening. Each block \
+    #                will be mean centered and scaled to unit l2 norm. ')
 
-    p.add_argument('-nb_atoms_D', action='store', metavar='nb_atoms_D',
-                   required=False, default=128, type=int,
-                   help='Number of atoms in the learned dictionnary D.')
+    # p.add_argument('-nb_atoms_D', action='store', metavar='nb_atoms_D',
+    #                required=False, default=128, type=int,
+    #                help='Number of atoms in the learned dictionnary D.')
 
-    p.add_argument('-batchsize', action='store', metavar='batchsize',
-                   required=False, default=512, type=float,
-                   help='Size of a minibatch for the dictionnary \
-                   learning algorithm.')
+    # p.add_argument('-batchsize', action='store', metavar='batchsize',
+    #                required=False, default=512, type=float,
+    #                help='Size of a minibatch for the dictionnary \
+    #                learning algorithm.')
 
-    p.add_argument('-lambda_D', action='store', metavar='lambda_D',
-                   required=False, default=None, type=float,
-                   help='Lambda parameter used for the penalisation in the \
-                   dictionnary learning algorithm.')
+    # p.add_argument('-lambda_D', action='store', metavar='lambda_D',
+    #                required=False, default=None, type=float,
+    #                help='Lambda parameter used for the penalisation in the \
+    #                dictionnary learning algorithm.')
 
-    p.add_argument('-mode_D', action='store', metavar='mode_D',
-                   required=False, default=2, type=int,
-                   help='Type of the solved problem for the dictionnary \
-                   learning algorithm. See spams documentation for more info')
+    # p.add_argument('-mode_D', action='store', metavar='mode_D',
+    #                required=False, default=2, type=int,
+    #                help='Type of the solved problem for the dictionnary \
+    #                learning algorithm. See spams documentation for more info')
 
-    p.add_argument('-mode_alpha', action='store', metavar='mode_alpha',
-                   required=False, default=2, type=int,
-                   help='Type of the solved problem for the sparse coding \
-                   step. See spams documentation for more info')
+    # p.add_argument('-mode_alpha', action='store', metavar='mode_alpha',
+    #                required=False, default=2, type=int,
+    #                help='Type of the solved problem for the sparse coding \
+    #                step. See spams documentation for more info')
 
-    p.add_argument('-pos_D', action='store_true', required=False,
-                   default=False, help='Enforces positivity contraints for D \
-                   in the dictionnary learning algorithm.')
+    # p.add_argument('-pos_D', action='store_true', required=False,
+    #                default=False, help='Enforces positivity contraints for D \
+    #                in the dictionnary learning algorithm.')
 
-    p.add_argument('-debug', action='store_true', required=False,
-                   default=False, help='Print debug info and saves intermediate datasets. \
-                   May be heavy on RAM usage')
+    # p.add_argument('-debug', action='store_true', required=False,
+    #                default=False, help='Print debug info and saves intermediate datasets. \
+                   # May be heavy on RAM usage')
 
-    p.add_argument('-pos_alpha', action='store_true', required=False,
-                   help='Enforces positivity contraints for alpha in the \
-                   lasso algorithm.')
+    # p.add_argument('-pos_alpha', action='store_true', required=False,
+    #                help='Enforces positivity contraints for alpha in the \
+    #                lasso algorithm.')
 
-    # p.add_argument('-group_lasso', action='store', metavar='group_lasso',
+    # # p.add_argument('-group_lasso', action='store', metavar='group_lasso',
     #                required=False, default=False, type=int,
     #                help='Use the group lasso algorithm instead of the regular \
     #                lasso algorithm.')
 
-    p.add_argument('-lambda_lasso', action='store', metavar='lambda_lasso',
-                   required=False, default=None, type=float,
-                   help='Lambda parameter used for the penalisation in the \
-                   lasso algorithm.')
+    # p.add_argument('-lambda_lasso', action='store', metavar='lambda_lasso',
+    #                required=False, default=None, type=float,
+    #                help='Lambda parameter used for the penalisation in the \
+    #                lasso algorithm.')
 
-    p.add_argument('-iter', action='store', metavar='iter',
-                   required=False, default=1000, type=int,
-                   help='Number of iterations in the dictionnary learning \
-                   algorithm. A negative value specifies the number of second \
-                   used for training instead of the number of iterations')
+    # p.add_argument('-iter', action='store', metavar='iter',
+    #                required=False, default=1000, type=int,
+    #                help='Number of iterations in the dictionnary learning \
+    #                algorithm. A negative value specifies the number of second \
+    #                used for training instead of the number of iterations')
 
-    p.add_argument('-std', action='store', dest='std',
-                   metavar='std', required=False, default=None, type=int,
-                   help='Standard deviation of the noise.')
+    # p.add_argument('-std', action='store', dest='std',
+    #                metavar='std', required=False, default=None, type=int,
+    #                help='Standard deviation of the noise.')
 
     p.add_argument('-cores', action='store', dest='cores',
                    metavar='cores', required=False, default=None, type=int,
@@ -171,29 +170,29 @@ def buildArgsParser():
                    help='Path and prefix for the saved denoised file. \
                    The name is always appended with _denoised.nii.gz')
 
-    p.add_argument('-mask_noise', action='store', dest='mask_noise',
-                   metavar='', required=False, default=None, type=str,
-                   help='Path to a binary mask. Data inside the mask will \
-                   be considered as pure noise. Since the noise estimation \
-                   relies on background noise data, be careful to not include\
-                   the skull or other random artifacts in the mask.')
+    # p.add_argument('-mask_noise', action='store', dest='mask_noise',
+    #                metavar='', required=False, default=None, type=str,
+    #                help='Path to a binary mask. Data inside the mask will \
+    #                be considered as pure noise. Since the noise estimation \
+    #                relies on background noise data, be careful to not include\
+    #                the skull or other random artifacts in the mask.')
 
-    p.add_argument('-mask_train', action='store', dest='mask_train',
-                   metavar='', required=False, default=None, type=str,
-                   help='Path to a binary mask. Data inside the mask will be \
-                   used as training samples for the dictionnary learning \
-                   algorithm.')
+    # p.add_argument('-mask_train', action='store', dest='mask_train',
+    #                metavar='', required=False, default=None, type=str,
+    #                help='Path to a binary mask. Data inside the mask will be \
+    #                used as training samples for the dictionnary learning \
+    #                algorithm.')
 
-    p.add_argument('-mask_data', action='store', dest='mask_data',
+    p.add_argument('-mask', action='store', dest='mask_data',
                    metavar='', required=False, default=None, type=str,
                    help='Path to a binary mask. Only the data inside the mask \
                    will be reconstructed by the sparse coding algorithm.')
 
-    p.add_argument('-mask_wm', action='store', dest='mask_wm',
-                   metavar='', required=False, default=None, type=str,
-                   help='Path to a binary white matter mask. Only the data \
-                   inside this mask wil be used for estimating \
-                   the fiber response function in the CSD fODFs computation.')
+    # p.add_argument('-mask_wm', action='store', dest='mask_wm',
+    #                metavar='', required=False, default=None, type=str,
+    #                help='Path to a binary white matter mask. Only the data \
+    #                inside this mask wil be used for estimating \
+    #                the fiber response function in the CSD fODFs computation.')
 
     return p
 

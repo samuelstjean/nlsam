@@ -37,21 +37,22 @@ DESCRIPTION = """
 
 def buildArgsParser():
 
-    p = argparse.ArgumentParser(description=DESCRIPTION)
+    p = argparse.ArgumentParser(description=DESCRIPTION,
+                                formatter_class=argparse.RawTextHelpFormatter)
 
     p.add_argument('input', action='store', metavar='input',
                    help='Path of the image file to stabilize.')
 
     p.add_argument('-N', action='store', dest='N',
                    metavar='int', required=True, type=int,
-                   help='Number of receiver coils of the scanner. \
-                   Use N=1 in the case of a SENSE (GE, Phillips) reconstruction and \
-                   N >= 1 for GRAPPA reconstruction (Siemens).')
+                   help='Number of receiver coils of the scanner. \n' +
+                   'Use N=1 in the case of a SENSE (GE, Phillips) reconstruction and \n' +
+                   'N >= 1 for GRAPPA reconstruction (Siemens).')
 
     p.add_argument('-o', action='store', dest='savename',
                    metavar='string', required=False, default=None, type=str,
-                   help='Path and prefix for the saved transformed file. \
-                   The name is always appended with _stabilized.nii.gz')
+                   help='Path and prefix for the saved transformed file. \n' +
+                   'The name is always appended with _stabilized.nii.gz')
 
     p.add_argument('-cores', action='store', dest='n_cores',
                    metavar='int', required=False, default=None, type=int,
@@ -59,35 +60,35 @@ def buildArgsParser():
 
     p.add_argument('-mask', action='store', dest='mask',
                    metavar='string', default=None, type=str,
-                   help='Path to a binary mask. Only the data inside the ' +
+                   help='Path to a binary mask. Only the data inside the \n' +
                         'mask will be used for computations.')
 
     p.add_argument('-noise_est', action='store', dest='noise_method',
-                   metavar='string', required=True, default=None, type=str,
-                   help='Noise estimation method used for estimating sigma. \
-                   local_std : Compute local noise standard deviation with correction factor. \
-                   No a priori needed.\
-                   piesno : Use PIESNO estimation, assumes the presence of background \
-                   in the data.')
+                   metavar='string', required=False, default='local_std', type=str,
+                   help='Noise estimation method used for estimating sigma. \n' +
+                   'local_std (default) : Compute local noise standard deviation with correction factor. \n' +
+                   'No a priori needed.\n' +
+                   'piesno : Use PIESNO estimation, assumes the presence of background \n' +
+                   'in the data.')
 
     p.add_argument('-smooth', action='store', dest='smooth_method',
-                   metavar='string', required=True, default=None, type=str,
-                   help='Smoothing method used for initialising m_hat.' +
-                   'local_mean : Compute 3D local mean, might blur edges.' +
-                   'non_local_means : Compute 3D nlmeans from dipy, slower but does not blur edges.' +
-                   'sh_smoothing : Fit SH for smoothing the raw signal. Really fast, and does not overblur.' +
-                   'Also requires the bvals/bvecs to be given' +
+                   metavar='string', required=False, default='sh_smooth', type=str,
+                   help='Smoothing method used for initialising m_hat.\n' +
+                   'local_mean : Compute 3D local mean, might blur edges.\n' +
+                   'non_local_means : Compute 3D nlmeans from dipy, slower but does not blur edges.\n' +
+                   'sh_smoothing (default): Fit SH for smoothing the raw signal. Really fast, and does not overblur.\n' +
+                   'Also requires the bvals/bvecs to be given\n' +
                    'no_smoothing : Just use the data as-is for initialisation.')
 
     p.add_argument('-bvals', action='store', dest='bvals',
                    metavar='bvals', type=str, default='',
-                   help='Path of the bvals file, in FSL format. \
-                   Required for -smooth_method sh_smooth')
+                   help='Path of the bvals file, in FSL format. \n' +
+                   'Required for -smooth_method sh_smooth')
 
     p.add_argument('-bvecs', action='store', dest='bvecs',
                    metavar='bvecs', type=str, default='',
-                   help='Path of the bvecs file, in FSL format. \
-                   Required for -smooth_method sh_smooth')
+                   help='Path of the bvecs file, in FSL format. \n' +
+                   'Required for -smooth_method sh_smooth')
 
     return p
 
