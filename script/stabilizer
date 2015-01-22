@@ -175,8 +175,8 @@ def main():
     else:
         raise ValueError("method " + smooth_method + " is not recognized!")
 
-    nib.save(nib.Nifti1Image((m_hat), affine), filename + "_m_hat.nii.gz")
-    nib.save(nib.Nifti1Image((np.abs(data-m_hat)), affine), filename + "_diff.nii.gz")
+    nib.save(nib.Nifti1Image(m_hat, affine), filename + "_m_hat.nii.gz")
+    nib.save(nib.Nifti1Image(np.abs(data-m_hat), affine), filename + "_diff.nii.gz")
 
     print("Estimating noise with method " + noise_method)
 
@@ -188,7 +188,9 @@ def main():
 
         for idx in range(data.shape[-2]):
             print("Now processing slice", idx+1, "out of", data.shape[-2])
-            sigma[..., idx, :], mask_noise[..., idx] = piesno(data[..., idx, :],  N)
+            sigma[..., idx, :], mask_noise[..., idx] = piesno(data[..., idx, :],  N=N, return_mask=True)
+
+        nib.save(nib.Nifti1Image(mask_noise.astype(np.int16), affine), filename + "_mask_noise.nii.gz")
 
     elif noise_method == 'local_std':
         sigma_3D = local_standard_deviation(data, n_cores=n_cores)
