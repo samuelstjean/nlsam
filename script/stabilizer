@@ -19,8 +19,8 @@ from dipy.denoise.noise_estimate import estimate_sigma, piesno
 
 from scipy.ndimage.filters import convolve
 
-from scilpy.denoising.smoothing import local_standard_deviation, sh_smooth
-from scilpy.denoising.stabilizer import chi_to_gauss, fixed_point_finder, corrected_sigma
+from nlsam.smoothing import local_standard_deviation, sh_smooth
+from nlsam.stabilizer import chi_to_gauss, fixed_point_finder, corrected_sigma
 
 
 DESCRIPTION = """
