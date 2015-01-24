@@ -54,16 +54,16 @@ def buildArgsParser():
                    help='Path and prefix for the saved transformed file. \n' +
                    'The name is always appended with _stabilized.nii.gz')
 
-    p.add_argument('-cores', action='store', dest='n_cores',
+    p.add_argument('--cores', action='store', dest='n_cores',
                    metavar='int', required=False, default=None, type=int,
                    help='Number of cores to use for multiprocessing.')
 
-    p.add_argument('-mask', action='store', dest='mask',
+    p.add_argument('--mask', action='store', dest='mask',
                    metavar='string', default=None, type=str,
                    help='Path to a binary mask. Only the data inside the \n' +
                         'mask will be used for computations.')
 
-    p.add_argument('-noise_est', action='store', dest='noise_method',
+    p.add_argument('--noise_est', action='store', dest='noise_method',
                    metavar='string', required=False, default='local_std', type=str,
                    help='Noise estimation method used for estimating sigma. \n' +
                    'local_std (default) : Compute local noise standard deviation with correction factor. \n' +
@@ -71,21 +71,21 @@ def buildArgsParser():
                    'piesno : Use PIESNO estimation, assumes the presence of background \n' +
                    'in the data.')
 
-    p.add_argument('-smooth', action='store', dest='smooth_method',
+    p.add_argument('--smooth', action='store', dest='smooth_method',
                    metavar='string', required=False, default='sh_smooth', type=str,
                    help='Smoothing method used for initialising m_hat.\n' +
                    'local_mean : Compute 3D local mean, might blur edges.\n' +
                    'non_local_means : Compute 3D nlmeans from dipy, slower but does not blur edges.\n' +
-                   'sh_smoothing (default): Fit SH for smoothing the raw signal. Really fast, and does not overblur.\n' +
+                   'sh_smooth (default): Fit SH for smoothing the raw signal. Really fast, and does not overblur.\n' +
                    'Also requires the bvals/bvecs to be given\n' +
                    'no_smoothing : Just use the data as-is for initialisation.')
 
-    p.add_argument('-bvals', action='store', dest='bvals',
+    p.add_argument('--bvals', action='store', dest='bvals',
                    metavar='bvals', type=str, default='',
                    help='Path of the bvals file, in FSL format. \n' +
                    'Required for -smooth_method sh_smooth')
 
-    p.add_argument('-bvecs', action='store', dest='bvecs',
+    p.add_argument('--bvecs', action='store', dest='bvecs',
                    metavar='bvecs', type=str, default='',
                    help='Path of the bvecs file, in FSL format. \n' +
                    'Required for -smooth_method sh_smooth')
@@ -156,7 +156,7 @@ def main():
         m_hat = np.zeros_like(data, dtype=np.float32)
         size = (3, 3, 3)
         k = np.ones(size) / np.sum(size)
-        conv_out = np.zeros_like(data[..., 0], dtype=np.float32)
+        conv_out = np.zeros_like(data[..., 0], dtype=np.float64)
 
         for idx in range(data.shape[-1]):
             convolve(data[..., idx], k, mode='reflect', output=conv_out)
