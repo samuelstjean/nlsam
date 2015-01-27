@@ -4,15 +4,17 @@ from __future__ import division, print_function
 
 import numpy as np
 from numpy.testing import assert_almost_equal, assert_equal
-from scipy.stats import norm
-from scipy.special import factorialk
 
-from nlsam.stabilizer import (_test_marcumq_cython, _test_beta,
-    _test_fixed_point_k, _test_xi, fixed_point_finder, _chi_to_gauss,
-    _test_inv_cdf_gauss, _test_factorial)
+from scipy.special import factorialk
+from scipy.stats import norm
+
+from scilpy.denoising.stabilizer import (_test_marcumq_cython, _test_beta,
+    _test_fixed_point_k, _test_xi, fixed_point_finder, chi_to_gauss,
+    _test_inv_cdf_gauss, _test_multifactorial)
 
 # hispeed is the closed source java reference implementation,
-# which most values are taken from.
+# from which most values are taken from.
+
 
 def test_inv_cdf_gauss():
     loc = np.random.randint(-10, 10)
@@ -43,10 +45,10 @@ def test_fixed_point_finder():
 
 def test_chi_to_gauss():
     # Values taken from hispeed.DistributionalMapping.nonCentralChiToGaussian
-    assert_almost_equal(_chi_to_gauss(470, 600, 80, 12), 331.2511087335721, decimal=3)
-    assert_almost_equal(_chi_to_gauss(700, 600, 80, 12), 586.5304199340127, decimal=3)
-    assert_almost_equal(_chi_to_gauss(700, 600, 80, 1), 695.0548001366581, decimal=3)
-    assert_almost_equal(_chi_to_gauss(470, 600, 80, 1), 463.965319619292, decimal=3)
+    assert_almost_equal(chi_to_gauss(470, 600, 80, 12), 331.2511087335721, decimal=3)
+    assert_almost_equal(chi_to_gauss(700, 600, 80, 12), 586.5304199340127, decimal=3)
+    assert_almost_equal(chi_to_gauss(700, 600, 80, 1), 695.0548001366581, decimal=3)
+    assert_almost_equal(chi_to_gauss(470, 600, 80, 1), 463.965319619292, decimal=3)
 
 
 def test_marcumq():
@@ -59,15 +61,16 @@ def test_marcumq():
 
 
 def test_factorial():
-    assert_equal(_test_factorial(10, 1), factorialk(10, 1))
-    assert_almost_equal(_test_factorial(30, 2), factorialk(30, 2))
-    assert_almost_equal(_test_factorial(40, 3), factorialk(40, 3))
+    assert_almost_equal(_test_multifactorial(10, 1), factorialk(10, 1), decimal=0)
+    assert_almost_equal(_test_multifactorial(20, 2), factorialk(20, 2), decimal=0)
+    assert_almost_equal(_test_multifactorial(20, 3), factorialk(20, 3), decimal=0)
+    assert_almost_equal(_test_multifactorial(0, 3), factorialk(0, 3), decimal=0)
 
 
-test_marcumq()
 test_chi_to_gauss()
 test_fixed_point_finder()
 test_xi()
 test_beta()
 test_inv_cdf_gauss()
 test_factorial()
+test_marcumq()

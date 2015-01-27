@@ -1,6 +1,6 @@
 # cython: wraparound=False, cdivision=True, boundscheck=False
 
-from __future__ import division
+from __future__ import division,  print_function
 
 cimport cython
 

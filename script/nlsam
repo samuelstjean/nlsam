@@ -904,6 +904,11 @@ def main():
                                           :orig_shape[2],
                                           :orig_shape[3]] / divider
 
+            if use_abs:
+                data_denoised = np.abs(data_denoised)
+            elif use_clip:
+                data_denoised[data_denoised < 0] = 0
+
             nib.save(nib.Nifti1Image(data_denoised.astype(original_dtype), affine),
                      filename + '_denoised.nii.gz')
 
