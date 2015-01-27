@@ -1,10 +1,11 @@
 #!/usr/bin/env python
+
 from distutils.core import setup
 from Cython.Distutils import Extension
 from Cython.Distutils import build_ext
 
 from glob import glob
-from os.path import splitext, join, split
+from os.path import splitext, join
 
 import numpy
 from dipy.utils.optpkg import optional_package
@@ -17,7 +18,7 @@ if not have_cython_gsl:
 
 
 ext_modules = []
-for pyxfile in glob(join('scilpy', 'denoising', '*.pyx')):
+for pyxfile in glob(join('nlsam', '*.pyx')):
 
     ext_name = splitext(pyxfile)[0].replace('/', '.')
     ext = Extension(ext_name,

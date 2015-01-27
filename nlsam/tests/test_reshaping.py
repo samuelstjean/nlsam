@@ -5,7 +5,7 @@ from __future__ import division, print_function
 import numpy as np
 from numpy.testing import assert_almost_equal
 
-from scilpy.denoising.utils import col2im_nd, im2col_nd
+from nlsam.utils import col2im_nd, im2col_nd
 
 
 def test_reshaping():
