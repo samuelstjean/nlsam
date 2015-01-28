@@ -211,7 +211,7 @@ def main():
     affine = vol.get_affine()
 
     use_abs = False
-    use_clip = True
+    use_clip = False
 
     if use_abs:
         data = np.abs(data)
