@@ -534,8 +534,8 @@ def main():
     n_iter = 10  # #50#args.iter #* 100 #
 
     spca_disabled = True
-    use_abs = False
-    use_clip = True
+    # use_abs = False
+    # use_clip = True
 
     if spca_disabled:
         print("SPCA disabled", filename)
@@ -785,7 +785,7 @@ def main():
         # data_neighbors[..., b1:b1+block_size[-1]] = \
         #     data[..., (i,) + tuple(neighbors[i])]
 
-        print((i,) + tuple(neighbors[i]))
+        # print((i,) + tuple(neighbors[i]))
         indexes += [(i,) + tuple(neighbors[i])]
     # 1/0
 

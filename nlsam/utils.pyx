@@ -499,6 +499,7 @@ def col2im_nd(R, block_shape, end_shape, overlap, weights=None, order='F'):
     else:
         raise ValueError("3D or 4D supported only!", A.shape)
 
+    div[div == 0] = 1
     return (A / div).astype(dtype)
 
    # if len(block_shape) == 3:

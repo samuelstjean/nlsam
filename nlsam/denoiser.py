@@ -27,7 +27,7 @@ def processer(data, mask, block_size, overlap, D, param_alpha, downscaling, beta
     orig_shape = data.shape
     # print(data.shape, mask.shape)
     # mask = np.repeat(mask[..., None], orig_shape[-1], axis=-1)
-    mask_array = im2col_nd(mask, block_size[:3], overlap[:3]).T
+    mask_array = im2col_nd(np.repeat(mask[..., None], data.shape[-1], axis=-1), block_size, overlap).T
     train_idx = np.sum(mask_array, axis=0) > mask_array.shape[0]/2
     # print(mask_array.shape, train_idx.shape)
 
@@ -37,7 +37,7 @@ def processer(data, mask, block_size, overlap, D, param_alpha, downscaling, beta
 
     sigma2 = local_standard_deviation(data)**2
     # print(sigma2.shape)
-    var_array = im2col_nd(sigma2, block_size[:3], overlap[:3]).T
+    var_array = im2col_nd(np.repeat(sigma2[..., None], data.shape[-1], axis=-1), block_size, overlap).T
     # print(var_array.shape)
     X = im2col_nd(data, block_size, overlap).T
     X_full_shape = X.shape
@@ -96,7 +96,7 @@ def denoise(data, block_size, overlap, param_alpha, param_D, noise_std=None,
     #X_shape = (np.prod(np.array(data.shape) + 1), np.prod(block_size))
     #X = np.zeros(X_shape, dtype=dtype)
     # no overlapping blocks for training
-    X = im2col_nd(data, block_size, [0, 0, 0, 0]).T
+    X = im2col_nd(data, block_size, (0, 0, 0, 0)).T
 
     # I, J, K = 2*block_size[0]-1, 2*block_size[1]-1, 2*block_size[2]-1
     # print(I,J,K, data.shape)
@@ -283,7 +283,8 @@ def denoise(data, block_size, overlap, param_alpha, param_D, noise_std=None,
         step = overlap[0] + 1
 
         mask = mask_data
-        mask_data = im2col_nd(mask_data, block_size[:3], [0, 0, 0]).T
+        mask_data = im2col_nd(np.repeat(mask_data[..., None], data.shape[-1], axis=-1), block_size, (0, 0, 0, 0)).T
+        # mask_data = im2col_nd(mask_data, block_size[:3], [0, 0, 0]).T
         train_idx = np.sum(mask_data, axis=0) > mask_data.shape[0]/2
         train_data = np.asfortranarray(X[:, train_idx], dtype=dtype)
         train_data /= np.sqrt(np.sum(train_data**2, axis=0, keepdims=True))
@@ -294,8 +295,13 @@ def denoise(data, block_size, overlap, param_alpha, param_D, noise_std=None,
         print("N iter per batch is", param_D['iter'])
         # param_D['iter'] = int(param_D['iter'] * np.ceil(X.shape[1]/param_D['batchsize']))
         print("N iter total is", param_D['iter'])
-        print (param_D)
+        # print (param_D)
+
         D = spams.trainDL(train_data, **param_D)
+        D /= np.sqrt(np.sum(D**2, axis=0, keepdims=True, dtype=dtype))
+
+        param_alpha['D'] = D
+        param_D['D'] = D
         print ("Training done : total time = ",
                time()-start, np.min(D), np.max(D))
 
@@ -325,14 +331,16 @@ def denoise(data, block_size, overlap, param_alpha, param_D, noise_std=None,
         param_D['batchsize'] = 500 #train_data.shape[1]//10
 
         # print("train data shape", train_data.shape, 'X shape', X.shape, 'dtype', train_data.dtype, X.dtype)
-        print(param_D)
+        # print(param_D)
 
         #train_idx = np.nonzero(np.sum(train_data_mask, axis=0, keepdims=True))
         #train_data = np.asfortranarray(X, dtype=dtype)
         #train_data = np.asfortranarray(X[train_data_mask].reshape(X.shape[0], -1))
-        mask = mask_data
-        mask_data = im2col_nd(mask_data, block_size[:3], [0, 0, 0]).T
+
+        mask = np.copy(mask_data)
+        mask_data = im2col_nd(np.repeat(mask_data[..., None], data.shape[-1], axis=-1), block_size, (0, 0, 0, 0)).T
         train_idx = np.sum(mask_data, axis=0) > mask_data.shape[0]/2
+
         print(X.shape, train_idx.shape, mask_data.shape)
         train_data = np.asfortranarray(X[:, train_idx], dtype=dtype)
         print(np.min(train_data), np.max(train_data))
@@ -340,6 +348,8 @@ def denoise(data, block_size, overlap, param_alpha, param_D, noise_std=None,
         print(train_data.shape, X.shape, train_idx.shape)
        ## print(np.sum(train_data**2,0,keepdims=True))
         train_data /= np.sqrt(np.sum(train_data**2, axis=0, keepdims=True), dtype=dtype)
+
+        # train_data[np.isnan(train_data)] = 0
         #print(train_data.shape, np.sum(train_data**2,0,keepdims=True).shape)
         #print(np.sum(train_data**2,0,keepdims=True))
         #print(train_data.dtype)
@@ -348,6 +358,7 @@ def denoise(data, block_size, overlap, param_alpha, param_D, noise_std=None,
         # param_D['lambda1'] = 0.5
         #train_data = np.asfortranarray(im2col_nd(data.mean(-1, keepdims=True), (3,3,3,1), (0,0,0,0)).T)
         D = spams.trainDL(train_data, **param_D)
+        D /= np.sqrt(np.sum(D**2, axis=0, keepdims=True, dtype=dtype))
 
         # D = X[:, X.sum(0) > 0].reshape(X.shape[0], -1)
         # idx = np.random.randint(0, D.shape[1], param_D['K'])
@@ -438,7 +449,7 @@ def denoise(data, block_size, overlap, param_alpha, param_D, noise_std=None,
     #param_alpha['lambda1'] = int(param_D['K'])*X.shape[-1]
     param_alpha['pos'] = True
 
-    print(param_alpha)
+    # print(param_alpha)
     #param_alpha['L'] = int(param_D['K'] * 0.2)
     #param_alpha['eps'] = 512.**2
     #print(X.shape)
@@ -462,7 +473,7 @@ def denoise(data, block_size, overlap, param_alpha, param_D, noise_std=None,
     # X[~mask_data] = 0
     #del param_alpha['pos']
 
-    param_alpha['D'] /= np.sqrt(np.sum(param_alpha['D']**2, axis=0, keepdims=True, dtype=dtype))
+
     #print(X.shape)
 
     param_alpha['L'] = int(0.5 * X.shape[0])
@@ -483,7 +494,7 @@ def denoise(data, block_size, overlap, param_alpha, param_D, noise_std=None,
     # print(data_pad.shape)
     print(block_size, overlap)
     print(data.shape)
-    print(param_alpha)
+    # print(param_alpha)
     # 1/0
     #gprime = lambda w: np.array(1. / (2. * np.sqrt(np.abs(w.todense())) + np.finfo(float).eps), dtype=dtype, order='F')
 
@@ -528,7 +539,9 @@ def denoise(data, block_size, overlap, param_alpha, param_D, noise_std=None,
 
     print("temps fit :", time()-deb)
     print("data_out", data_denoised.min(), data_denoised.max())
-    return (data_denoised.astype(dtype)/divider)[:orig_shape[0], :orig_shape[1], :orig_shape[2]]
+
+    divider[divider == 0] = 1
+    return (data_denoised/divider)[:orig_shape[0], :orig_shape[1], :orig_shape[2]].astype(dtype)
 
   #   while True:
   #               # i,j,k = (0,0,0)
