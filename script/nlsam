@@ -166,9 +166,8 @@ def buildArgsParser():
                    help='Number of cores to use for multithreading')
 
     p.add_argument('-o', action='store', dest='savename',
-                   metavar='savename', required=False, default=None, type=str,
-                   help='Path and prefix for the saved denoised file. \
-                   The name is always appended with _denoised.nii.gz')
+                   metavar='savename', required=True, type=str,
+                   help='Path and prefix for the saved denoised file.')
 
     # p.add_argument('-mask_noise', action='store', dest='mask_noise',
     #                metavar='', required=False, default=None, type=str,
@@ -287,15 +286,15 @@ def main():
     else:
         mask_train = None
 
-    if args.savename is None:
-        #temp, ext = str.split(os.path.basename(args.input), '.', 1)
-        #filename = os.path.dirname(os.path.realpath(args.input)) + '/' + temp
-        filename = os.path.dirname(os.path.realpath(args.input)) + '/' + os.path.splitext(args.input)[0]
+    # if args.savename is None:
+    #     #temp, ext = str.split(os.path.basename(args.input), '.', 1)
+    #     #filename = os.path.dirname(os.path.realpath(args.input)) + '/' + temp
+    #     filename = os.path.dirname(os.path.realpath(args.input)) + '/' + os.path.splitext(args.input)[0]
 
-        if filename[-4:] == '.nii':
-            filename = filename[:-4]
-    else:
-        filename = args.savename
+    #     if filename[-4:] == '.nii':
+    #         filename = filename[:-4]
+    # else:
+    filename = args.savename
 
     # Testing neighbors stuff
     bvals, bvecs = read_bvals_bvecs(args.bvals, args.bvecs)
@@ -521,24 +520,24 @@ def main():
 
     #print(data.shape, data_mean.shape, "centering is disabled, norm2 disabled")
    # 1/0
-    t0 = time()
+    # t0 = time()
 
  #   n_components = np.ceil(.05 * data.shape[0])
   #  alpha = 0.05
    # batch_size = np.ceil(.03 * data.shape[0])
     #n_iter = 50
     #n_iter = 1
-    ridge_alpha = 0.01
-    random_state = 3453
+    # ridge_alpha = 0.01
+    # random_state = 3453
 
-    n_iter = 10  # #50#args.iter #* 100 #
+    # n_iter = 10  # #50#args.iter #* 100 #
 
-    spca_disabled = True
+    # spca_disabled = True
     # use_abs = False
     # use_clip = True
 
-    if spca_disabled:
-        print("SPCA disabled", filename)
+    # if spca_disabled:
+        # print("SPCA disabled", filename)
         # data_SPCA = nib.load(args.input).get_data().astype(np.float64)# + '_mixte_stabilized_denoised_lpca.nii').get_data().astype(np.float64)
         # data_SPCA = np.abs(data_SPCA) #[data_SPCA<0]=0
 
@@ -909,8 +908,7 @@ def main():
             elif use_clip:
                 data_denoised[data_denoised < 0] = 0
 
-            nib.save(nib.Nifti1Image(data_denoised.astype(original_dtype), affine),
-                     filename + '_denoised.nii.gz')
+            nib.save(nib.Nifti1Image(data_denoised.astype(original_dtype), affine), filename)
 
             # nib.save(nib.Nifti1Image(divider, affine),
             #          filename + '_divider.nii.gz')
