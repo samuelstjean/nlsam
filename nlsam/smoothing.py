@@ -148,7 +148,9 @@ def homomorphic_noise_estimation(data):
     k = np.ones(size) / np.sum(size)
 
     for idx in range(data.shape[-1]):
-        m_hat[..., idx] = np.log(np.abs(data[..., idx] - convolve(data[..., idx], k)))
+        conv_out = np.abs(data[..., idx] - convolve(data[..., idx], k))
+        pos = (conv_out != 0)
+        m_hat[pos,  idx] = np.log(conv_out[pos])
         low_pass[..., idx] = gaussian_filter(m_hat[..., idx], blur, mode='reflect')
 
     low_pass = np.median(low_pass, axis=-1)
