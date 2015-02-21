@@ -68,7 +68,7 @@ def _local_standard_deviation(arr):
         Map of standard deviation of the noise.
     """
 
-    size = (3, 3, 3)
+    size = (5, 5, 5)
     k = np.ones(size) / np.sum(np.ones(size))
 
     low_pass_arr = np.empty_like(arr, dtype=np.float32)
@@ -144,7 +144,7 @@ def homomorphic_noise_estimation(data):
     low_pass = np.zeros_like(data, dtype=np.float32)
 
     blur = 3.4
-    size = (3, 3, 3)
+    size = (5, 5, 5)
     k = np.ones(size) / np.sum(size)
 
     for idx in range(data.shape[-1]):
