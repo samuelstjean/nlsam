@@ -154,7 +154,5 @@ def homomorphic_noise_estimation(data):
         low_pass[..., idx] = gaussian_filter(m_hat[..., idx], blur, mode='reflect')
 
     low_pass = np.median(low_pass, axis=-1)
-    print(np.min(low_pass[low_pass > 0]), np.max(low_pass), low_pass.shape)
-    print(np.min(np.sqrt(2) * np.exp(low_pass + euler_mascheroni/2)), np.max(np.sqrt(2) * np.exp(low_pass + euler_mascheroni/2)))
-    1/0
+
     return np.sqrt(2) * np.exp(low_pass + euler_mascheroni/2)
