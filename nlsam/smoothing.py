@@ -133,3 +133,24 @@ def local_standard_deviation(arr, n_cores=None):
     sigma = np.median(result, axis=-1)
 
     return gaussian_filter(sigma, blur, mode='reflect')
+
+
+def homomorphic_noise_estimation(data):
+
+    euler_mascheroni = 0.577215664901532860606512090082402431042
+
+    data = data.astype(np.float32)
+    m_hat = np.zeros_like(data, dtype=np.float32)
+    low_pass = np.zeros_like(data, dtype=np.float32)
+
+    blur = 3.4
+    size = (3, 3, 3)
+    k = np.ones(size) / np.sum(size)
+
+    for idx in range(data.shape[-1]):
+        m_hat[..., idx] = np.log(np.abs(data[..., idx] - convolve(data[..., idx], k)))
+        low_pass[..., idx] = gaussian_filter(m_hat[..., idx], blur, mode='reflect')
+
+    low_pass = np.median(low_pass, axis=-1)
+
+    return np.sqrt(2) * np.exp(low_pass + euler_mascheroni/2)
