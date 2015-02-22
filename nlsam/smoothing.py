@@ -132,7 +132,7 @@ def local_standard_deviation(arr, n_cores=None):
 
     sigma = np.median(result, axis=-1)
 
-    return gaussian_filter(sigma, blur, mode='reflect')
+    return sigma #gaussian_filter(sigma, blur, mode='reflect')
 
 
 def homomorphic_noise_estimation(data):
