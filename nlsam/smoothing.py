@@ -132,7 +132,7 @@ def local_standard_deviation(arr, n_cores=None):
 
     sigma = np.median(result, axis=-1)
 
-    size = (3, 3, 3)
+    size = (5, 5, 5)
     k = np.ones(size) / np.sum(np.ones(size))
 
     return convolve(sigma, k, mode='reflect') #gaussian_filter(sigma, blur, mode='reflect')
