@@ -132,7 +132,10 @@ def local_standard_deviation(arr, n_cores=None):
 
     sigma = np.median(result, axis=-1)
 
-    return convolve(sigma, (3,3,3), mode='reflect') #gaussian_filter(sigma, blur, mode='reflect')
+    size = (3, 3, 3)
+    k = np.ones(size) / np.sum(np.ones(size))
+
+    return convolve(sigma, k, mode='reflect') #gaussian_filter(sigma, blur, mode='reflect')
 
 
 def homomorphic_noise_estimation(data):
