@@ -45,7 +45,7 @@ def sh_smooth(data, gtab, sh_order=4):
 
     # Just give back the signal for the b0s since we can't really do anything about it
     if np.sum(gtab.b0s_mask) > 1:
-        pred_sig[..., where_b0s] = np.mean(data[..., where_b0s], axis=-1)
+        pred_sig[..., where_b0s] = np.mean(data[..., where_b0s], axis=-1, keepdims=True)
     else:
         pred_sig[..., where_b0s] = data[..., where_b0s]
 
@@ -132,10 +132,11 @@ def local_standard_deviation(arr, n_cores=None):
 
     sigma = np.median(result, axis=-1)
 
-    size = (5, 5, 5)
-    k = np.ones(size) / np.sum(np.ones(size))
+    # size = (5, 5, 5)
+    # k = np.ones(size) / np.sum(np.ones(size))
+    # convolve(sigma, k, mode='reflect') #
 
-    return convolve(sigma, k, mode='reflect') #gaussian_filter(sigma, blur, mode='reflect')
+    return gaussian_filter(sigma, blur, mode='reflect')
 
 
 def homomorphic_noise_estimation(data):
@@ -159,3 +160,18 @@ def homomorphic_noise_estimation(data):
     low_pass = np.median(low_pass, axis=-1)
 
     return np.sqrt(2) * np.exp(low_pass + euler_mascheroni/2)
+
+
+def local_noise_map_std(noise_map):
+
+    size = (3, 3, 3)
+    k = np.ones(size) / np.sum(np.ones(size))
+
+    mean_squared_noise = np.empty_like(noise_map, dtype=np.float32)
+    mean_noise = np.empty_like(noise_map, dtype=np.float32)
+
+    convolve(noise_map**2, k, mode='reflect', output=mean_squared_noise)
+    convolve(noise_map, k, mode='reflect', output=mean_noise)
+
+    # Variance = mean(x**2) - mean(x)**2
+    return np.sqrt(mean_squared_noise - mean_noise**2)
