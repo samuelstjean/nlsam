@@ -678,7 +678,7 @@ def denoise(data, block_size, overlap, param_alpha, param_D, variance, n_iter=10
     print('Multiprocessing Stuff')
     time_multi = time()
     pool = Pool(processes=n_cores)
-
+    print("cores", n_cores)
     downscaling = 1.
     beta = 0.5
     gamma = 1
