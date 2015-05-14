@@ -14,60 +14,150 @@ except ImportError:
             raise ValueError("Couldn't find spams library")
 
 from time import time
+from itertools import repeat
+from multiprocessing import Pool, cpu_count
 # from copy import copy
 
-from nlsam.utils import sparse_dot, im2col_nd, col2im_nd, padding
+# from scipy.sparse.linalg import lsqr as sparse_lstsq
+
+from scilpy.denoising.utils import sparse_dot, im2col_nd, col2im_nd, padding
+# from nlsam.smoothing import local_standard_deviation
+import scipy.sparse as ssp
+# from sklearn.linear_model import LassoCV, LassoLars, Lasso
+# from scipy.optimize import nnls
+
+# import warnings
+# warnings.filterwarnings("ignore")
 #from sklearn.decomposition import MiniBatchDictionaryLearning as DL
 # from scipy.sparse import csc_matrix
-from nlsam.smoothing import local_standard_deviation
+# from nlsam.smoothing import local_standard_deviation
 
 
-def processer(data, mask, block_size, overlap, D, param_alpha, downscaling, beta=0.5, dtype=np.float64):
+def universal_worker(input_pair):
+    """http://stackoverflow.com/a/24446525"""
+    function, args = input_pair
+    return function(*args)
+
+
+def pool_args(function, *args):
+    return zip(repeat(function), zip(*args))
+
+
+def greedy_set_finder(sets):
+    """Returns a list of subsets that spans the input sets with a greedy algorithm
+    http://en.wikipedia.org/wiki/Set_cover_problem#Greedy_algorithm"""
+
+    sets = [set(s) for s in sets]
+    universe = set()
+
+    for s in sets:
+        universe = universe.union(s)
+        sets
+
+    # max_number = len(sets)
+    output = []
+
+    while len(universe) != 0:
+
+        max_intersect = 0
+
+        for i, s in enumerate(sets):
+
+            n_intersect = len(s.intersection(universe))
+
+            # if n_intersect == max_number:
+            #     element = i
+            #     break
+
+            if n_intersect > max_intersect:
+                max_intersect = n_intersect
+                element = i
+
+        output.append(tuple(sets[element]))
+        universe = universe.difference(sets[element])
+
+    return output
+
+
+# def processer(data, mask, variance, block_size, overlap, param_alpha, param_D, downscaling, beta=0.5, gamma=1., dtype=np.float64, eps=1e-10, n_iter=10):
+def processer(arglist):
+
+    data, mask, variance, block_size, overlap, param_alpha, param_D, downscaling, beta, gamma, dtype, eps, n_iter = arglist
 
     orig_shape = data.shape
-    # print(data.shape, mask.shape)
-    # mask = np.repeat(mask[..., None], orig_shape[-1], axis=-1)
-    mask_array = im2col_nd(np.repeat(mask[..., None], data.shape[-1], axis=-1), block_size, overlap).T
+    var_array = variance[mask]
+    mask = np.repeat(mask[..., None], orig_shape[-1], axis=-1)
+    mask_array = im2col_nd(mask, block_size, overlap).T
     train_idx = np.sum(mask_array, axis=0) > mask_array.shape[0]/2
-    # print(mask_array.shape, train_idx.shape)
 
-    # If mask is empty, return a bunch of zeros
-    if np.sum(train_idx) == 0:
+    X = im2col_nd(data, block_size, overlap).T
+    # var_array = im2col_nd(np.repeat(variance[..., None], orig_shape[-1], axis=-1), block_size, overlap).T
+
+    # If mask is empty, return a bunch of zeros as blocks
+    if not np.any(train_idx):
         return np.zeros_like(data)
 
-    sigma2 = local_standard_deviation(data)**2
-    # print(sigma2.shape)
-    var_array = im2col_nd(np.repeat(sigma2[..., None], data.shape[-1], axis=-1), block_size, overlap).T
-    # print(var_array.shape)
-    X = im2col_nd(data, block_size, overlap).T
     X_full_shape = X.shape
     X = np.asfortranarray(X[:, train_idx], dtype=dtype)
+    # var_array = var_array[:, train_idx].squeeze()
 
-    param_alpha['W'] = np.array(np.ones((D.shape[-1], X.shape[-1]), dtype=dtype) * beta * var_array[var_array.shape[0]//2, train_idx], order='F')
+    # param_alpha['lambda1'] = (2 * np.log(X.shape[0]))**((1+gamma)/2)
+    # w = np.ones((param_alpha['D'].shape[1], X.shape[1]), dtype=dtype, order='F')
+    # eps = np.ones((X.shape[1]), dtype=dtype, order='F')
+    # alpha = np.ones((param_alpha['D'].shape[1], X.shape[1]), dtype=dtype, order='F')
+    # alpha = ssp.lil_matrix((param_alpha['D'].shape[1], X.shape[1]), dtype=dtype)
+    # alpha_old = np.ones((param_alpha['D'].shape[1], X.shape[1]), dtype=dtype, order='F')
+    W = np.ones((param_alpha['D'].shape[1], X.shape[1]), dtype=dtype, order='F')
+    eps = np.finfo(dtype).eps
+    param_alpha['mode'] = 1
+    param_alpha['lambda1'] = np.asscalar(np.percentile(var_array, 95))
     param_alpha['L'] = int(0.5 * X.shape[0])
-    param_alpha['lambda1'] = downscaling * 1.2 / np.sqrt(np.prod(block_size))
+    # param_alpha['lambda1'] = np.asscalar(var_array.max())
+    X_old = np.ones_like(X)
+    # X_orig = np.copy(X)
+    # X_converged = np.empty_like(X)
+    not_converged = np.ones(X.shape[1], dtype=np.bool)
+    alpha_converged = np.zeros((param_alpha['D'].shape[1], X.shape[1]), dtype=dtype)
+    L2_norm = np.sqrt(np.sum(X**2, axis=0, dtype=np.float32))
+    # X_init = np.copy(X)
+    # print(alpha_converged.shape)
+    # alpha = np.ones_like(alpha_converged)
+    # old_conv = np.ones(X.shape[1], dtype=np.bool)
 
-    # print(param_alpha['W'].shape, param_alpha['D'].shape, X.shape)
-    # print(var_array.shape, var_array[var_array.shape[0]//2, train_idx].shape, np.sum(train_idx))
-    # 1/0
-    # print(param_alpha['W'].dtype, param_alpha['D'].dtype, X.dtype)
-    # print(param_alpha['W'].flags, param_alpha['D'].flags, X.flags)
-    # print(data.shape, sigma2.shape, block_size, overlap)
-    # print(train_idx.shape, orig_shape)
-    alpha = spams.lassoWeighted(X, **param_alpha)
-    X = sparse_dot(D, alpha)
-    # print(alpha.shape, X_full_shape, X.shape, train_idx.shape)
-    weigths = np.zeros(X_full_shape[1], dtype=dtype)
-    weigths[train_idx] = 1. / np.array((np.abs(alpha) > 1e-15).sum(axis=0) + 1., dtype=dtype).squeeze()
-    X2 = np.zeros(X_full_shape, dtype=dtype)
-    # print(X2.shape, X.shape, X2[:, train_idx].shape, np.sum(train_idx), train_idx.shape)
+    for i in range(n_iter):
+
+        if np.all(not_converged == 0):
+            print("broke the loop", i, np.abs(X - X_old).max(), np.abs(X_old - X).min(), np.max(X), np.min(X), np.max(X) * 0.02)
+            break
+
+        param_alpha['W'] = W
+        alpha = spams.lassoWeighted(np.asfortranarray(X[:, not_converged]), **param_alpha)
+        X[:, not_converged] = sparse_dot(param_alpha['D'], alpha)
+
+        # Convergence if max(X-X_old) < 2 % max(X)
+        X_conv = np.max(np.abs(X[:, not_converged] - X_old[:, not_converged]), axis=0) > (np.max(X[:, not_converged], axis=0) * 0.02)
+        # X_conv = (np.sqrt(np.sum((X[:, not_converged] - X_old[:, not_converged])**2, axis=0)) / np.sqrt(np.sum(X[:, not_converged]**2, axis=0))) > 10**-5
+        x, y, idx = ssp.find(alpha)
+        #alpha_converged[:, not_converged] = alpha.toarray()
+        alpha_converged[:, not_converged][x, y] = idx
+        not_converged[not_converged] = np.logical_or(X_conv, np.any(X[:, not_converged] < 0, axis=0))
+
+        W = np.array(np.maximum(np.repeat(np.sum(np.abs(X[:, not_converged] - X_old[:, not_converged]), axis=0, keepdims=True), param_alpha['D'].shape[1], axis=0), eps), dtype=dtype, order='F', copy=False)
+        X_old[:, not_converged] = X[:, not_converged]
+
+    alpha = alpha_converged
+
+    # X = sparse_dot(param_alpha['D'], alpha)
+    weigths = np.ones(X_full_shape[1], dtype=dtype, order='F')
+    weigths[train_idx] = 1. / np.array((alpha != 0).sum(axis=0) + 1., dtype=dtype).squeeze()
+    X2 = np.zeros(X_full_shape, dtype=dtype, order='F')
+
     X2[:, train_idx] = X
-    # print(weigths.shape, X2.shape, train_idx.shape)
-    # del param_alpha['W']
+
     return col2im_nd(X2, block_size, orig_shape, overlap, weigths)
 
 
-def denoise(data, block_size, overlap, param_alpha, param_D, noise_std=None,
+def denoise(data, block_size, overlap, param_alpha, param_D, variance, n_iter=10, noise_std=None,
             batchsize=512, mask_data=None, mask_train=None, mask_noise=None,
             whitening=True, savename=None, dtype=np.float64, debug=False):
     print(block_size)
@@ -96,7 +186,8 @@ def denoise(data, block_size, overlap, param_alpha, param_D, noise_std=None,
     #X_shape = (np.prod(np.array(data.shape) + 1), np.prod(block_size))
     #X = np.zeros(X_shape, dtype=dtype)
     # no overlapping blocks for training
-    X = im2col_nd(data, block_size, (0, 0, 0, 0)).T
+    no_over = (0, 0, 0, 0)
+    X = im2col_nd(data, block_size, no_over).T
 
     # I, J, K = 2*block_size[0]-1, 2*block_size[1]-1, 2*block_size[2]-1
     # print(I,J,K, data.shape)
@@ -121,19 +212,19 @@ def denoise(data, block_size, overlap, param_alpha, param_D, noise_std=None,
   #  xorig = copy(X)
 
     # Using only training mask data
-    if mask_train is None:
-        print ("No mask specified for the training data. In order to limit \
-                \nnoisy samples, a mask consisting of half the volume size \
-                \nwill be used.")
+    # if mask_train is None:
+    #     print ("No mask specified for the training data. In order to limit \
+    #             \nnoisy samples, a mask consisting of half the volume size \
+    #             \nwill be used.")
 
-        # Defining the edges of approximately half the mask
-        a = np.array(data.shape) // 2 - np.array(data.shape) // 4
-        b = np.array(data.shape) // 2 + np.array(data.shape) // 4
+    #     # Defining the edges of approximately half the mask
+    #     a = np.array(data.shape) // 2 - np.array(data.shape) // 4
+    #     b = np.array(data.shape) // 2 + np.array(data.shape) // 4
 
-        mask_train = np.zeros(data.shape[:3], dtype=bool, order='F')
-        mask_train[a[0]:b[0]+1, a[1]:b[1]+1, a[2]:b[2]+1] = 1
+    #     mask_train = np.zeros(data.shape[:3], dtype=bool, order='F')
+    #     mask_train[a[0]:b[0]+1, a[1]:b[1]+1, a[2]:b[2]+1] = 1
 
-    print (np.min(X), np.max(X), X.shape)
+    print(np.min(X), np.max(X), X.shape)
 
     # Whitening with ZCA
     # http://ufldl.stanford.edu/wiki/index.php/Implementing_PCA/Whitening
@@ -223,11 +314,11 @@ def denoise(data, block_size, overlap, param_alpha, param_D, noise_std=None,
 
     #nib.save(nib.Nifti1Image(X_deblock, np.eye(4)), 'whitening.nii.gz')
 
-    deb = time()
+    # deb = time()
     # X = np.array(X, dtype=dtype, order='F')
     #X = spams.normalize(X)
 
-    print ('temps pour shifter X en fortran order :', time()-deb)
+    # print ('temps pour shifter X en fortran order :', time()-deb)
 
     #mask_train = padding(mask_train, block_size, overlap)
     #mask_train = mask_train[..., 0]
@@ -262,33 +353,40 @@ def denoise(data, block_size, overlap, param_alpha, param_D, noise_std=None,
     # param_alpha['pos'] = True
     param_D['posAlpha'] = True
     param_D['posD'] = True
+    param_alpha['pos'] = True
     # param_D['whiten'] = True
     param_D['mode'] = 2
     param_D['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
-    print(param_D['lambda1'])
+    #print(param_D['lambda1'])
+    # param_D['mode'] = 1
+    # param_D['lambda1'] = np.asscalar(np.percentile(variance, 90))
+    # print(np.sqrt(param_D['lambda1']))
     # print(1. / np.sqrt(np.prod(block_size)))
     # 1/0
     param_D['K'] = int(2*np.prod(block_size))
-    param_D['iter'] = 1000
+
     # param_alpha['D'] = np.load('/home/local/USHERBROOKE/stjs2902/Bureau/phantomas_mic/b1000/D.npy')
 
     if 'D' in param_alpha:
         print ("D is already supplied, \
                \nhot-starting dictionnary learning from D")
-        D = param_alpha['D']
-        param_D['D'] = D
-        param_D['iter'] = 100
+        # D = param_alpha['D']
+        param_D['D'] = param_alpha['D'] #D
+        param_D['iter'] = 150
 
         start = time()
-        step = overlap[0] + 1
+        step = block_size[0]
 
         mask = mask_data
-        mask_data = im2col_nd(np.repeat(mask_data[..., None], data.shape[-1], axis=-1), block_size, (0, 0, 0, 0)).T
-        # mask_data = im2col_nd(mask_data, block_size[:3], [0, 0, 0]).T
+        mask_data = im2col_nd(np.repeat(mask_data[..., None], data.shape[-1], axis=-1), block_size, no_over).T
         train_idx = np.sum(mask_data, axis=0) > mask_data.shape[0]/2
-        train_data = np.asfortranarray(X[:, train_idx], dtype=dtype)
+        train_data = X[:, train_idx]
+        train_data = np.asfortranarray(train_data[:, np.any(train_data != 0, axis=0)], dtype=dtype)
+        # train_data = np.asfortranarray(train_data[train_data>0], dtype=dtype)
+        # train_data = np.asfortranarray(train_data[:, np.sum(train_data > 0, axis=1) == train_data.shape[0]], dtype=dtype)
         train_data /= np.sqrt(np.sum(train_data**2, axis=0, keepdims=True))
-        print("train data shape", train_data.shape, 'X shape', X.shape)
+        # train_data[np.isnan(train_data)] = 0
+        print("train data shape", train_data.shape, 'X shape', X.shape, train_data.min(), train_data.max())
 
         # param_D['verbose'] = True
 
@@ -296,14 +394,12 @@ def denoise(data, block_size, overlap, param_alpha, param_D, noise_std=None,
         # param_D['iter'] = int(param_D['iter'] * np.ceil(X.shape[1]/param_D['batchsize']))
         print("N iter total is", param_D['iter'])
         # print (param_D)
+        param_alpha['D'] = spams.trainDL(train_data, **param_D)
+        param_alpha['D'] /= np.sqrt(np.sum(param_alpha['D']**2, axis=0, keepdims=True, dtype=dtype))
+        param_D['D'] = param_alpha['D']
 
-        D = spams.trainDL(train_data, **param_D)
-        D /= np.sqrt(np.sum(D**2, axis=0, keepdims=True, dtype=dtype))
-
-        param_alpha['D'] = D
-        param_D['D'] = D
         print ("Training done : total time = ",
-               time()-start, np.min(D), np.max(D))
+               time()-start, np.min(param_alpha['D']), np.max(param_alpha['D']))
 
     else:
         # if 'batchsize' not in param_D:
@@ -311,6 +407,8 @@ def denoise(data, block_size, overlap, param_alpha, param_D, noise_std=None,
         if 'K' not in param_D:
             print ('No dictionnary size specified. 256 atoms will be chosen.')
             param_D['K'] = 256
+
+        param_D['iter'] = 150
 
         start = time()
         # param_D['verbose'] = True
@@ -324,7 +422,7 @@ def denoise(data, block_size, overlap, param_alpha, param_D, noise_std=None,
         # idx_non_zero = (train_data.sum(0) > 0).reshape(train_data.shape[0], -1)
         # train_data = train_data[:, idx_non_zero]
         # train_idx = np.nonzero(np.sum(X, axis=0) > X.shape[0]/2)[0]
-        step = overlap[0] + 1
+        step = block_size[0]
         # print ("Step train size assumes full overlap!", step, X[:, train_idx].shape)
         # train_data = np.asfortranarray(X[:, train_idx].reshape(X.shape[0], -1))
 
@@ -336,20 +434,41 @@ def denoise(data, block_size, overlap, param_alpha, param_D, noise_std=None,
         #train_idx = np.nonzero(np.sum(train_data_mask, axis=0, keepdims=True))
         #train_data = np.asfortranarray(X, dtype=dtype)
         #train_data = np.asfortranarray(X[train_data_mask].reshape(X.shape[0], -1))
-
-        mask = np.copy(mask_data)
-        mask_data = im2col_nd(np.repeat(mask_data[..., None], data.shape[-1], axis=-1), block_size, (0, 0, 0, 0)).T
+        mask = mask_data
+        # mask_data = mask_data.astype(np.int16)
+        # print(mask_data.sum(), np.min(mask_data[...,None]*data), np.max(mask_data[...,None]*data))
+        mask_data = im2col_nd(np.repeat(mask_data[..., None], data.shape[-1], axis=-1), block_size, no_over).T
+        # print(mask_data.sum(), mask_data.shape)
         train_idx = np.sum(mask_data, axis=0) > mask_data.shape[0]/2
-
-        print(X.shape, train_idx.shape, mask_data.shape)
-        train_data = np.asfortranarray(X[:, train_idx], dtype=dtype)
-        print(np.min(train_data), np.max(train_data))
+        # print(mask_data.shape[0]/2, train_idx.max())
+        # 1/0
+        # print(mask_data.sum(), mask_data.dtype, mask_data.shape, train_idx.dtype, train_idx.sum(), train_idx.shape)
+        # print(X.shape, train_idx.shape, mask_data.shape, train_idx.dtype, np.sum(train_idx))
+        train_data = X[:, train_idx]
+        train_data = np.asfortranarray(train_data[:, np.any(train_data != 0, axis=0)], dtype=dtype)
+        # print((np.sum(np.abs(train_data), axis=0) > 0).shape, np.any(train_data != 0, axis=0).shape)
+        # print(np.all((np.sum(np.abs(train_data), axis=0) > 0) == np.any(train_data != 0, axis=0)))
+        # 1/0
+        # print(np.sum(train_data>0), np.sum(train_data>0,axis=1), train_data.shape)
+        # print(np.sum(train_data > 0, axis=0).shape)
+        # print(train_data.shape, "train data shape full")
+        # train_data = np.asfortranarray(train_data[:, np.sum(train_data > 0, axis=0) == train_data.shape[0]], dtype=dtype)
+        # train_data = np.asfortranarray(X[:, mask_data], dtype=dtype)
+        # print(np.min(train_data), np.max(train_data), np.min(X), np.max(X))
         # train_data = np.asfortranarray(X)
-        print(train_data.shape, X.shape, train_idx.shape)
+        print("train data shape", train_data.shape, 'X shape', X.shape, train_idx.shape, train_data.min(), train_data.max())
        ## print(np.sum(train_data**2,0,keepdims=True))
+        # print(train_data.min(), train_data.max(), X[:, train_idx].min(), X[:, train_idx].max(), X.min(), X.max(), dtype)
+        # print(train_idx.min(), train_idx.max(), train_idx.dtype, np.sum(mask_data, axis=0).dtype)
+        # print(X[:, train_idx].min(), X[:, train_idx].max())
+        # print(np.sum(np.sqrt(np.sum(train_data**2, axis=0, keepdims=True), dtype=dtype)==0), np.sum(train_data**2, axis=0, keepdims=True).shape, mask_data.shape[0]/2)
+        # 1/0
         train_data /= np.sqrt(np.sum(train_data**2, axis=0, keepdims=True), dtype=dtype)
-
+        # 1/0
         # train_data[np.isnan(train_data)] = 0
+        # print(train_data.min(), train_data.max())
+        # print(X[:, train_idx].min(), X[:, train_idx].max())
+        # print(np.min(train_idx), np.max(train_idx))
         #print(train_data.shape, np.sum(train_data**2,0,keepdims=True).shape)
         #print(np.sum(train_data**2,0,keepdims=True))
         #print(train_data.dtype)
@@ -357,20 +476,21 @@ def denoise(data, block_size, overlap, param_alpha, param_D, noise_std=None,
         #1/0
         # param_D['lambda1'] = 0.5
         #train_data = np.asfortranarray(im2col_nd(data.mean(-1, keepdims=True), (3,3,3,1), (0,0,0,0)).T)
-        D = spams.trainDL(train_data, **param_D)
-        D /= np.sqrt(np.sum(D**2, axis=0, keepdims=True, dtype=dtype))
-
+        param_alpha['D'] = spams.trainDL(train_data, **param_D)
+        # print ("Training done : total time = ",
+        #        time()-start, np.min(param_alpha['D']), np.max(param_alpha['D']))
         # D = X[:, X.sum(0) > 0].reshape(X.shape[0], -1)
         # idx = np.random.randint(0, D.shape[1], param_D['K'])
         #
         # print(D.shape)
-        param_alpha['D'] = D
+        param_alpha['D'] /= np.sqrt(np.sum(param_alpha['D']**2, axis=0, keepdims=True, dtype=dtype))
+        # param_alpha['D'] = D
 
         print ("Training done : total time = ",
-               time()-start, np.min(D), np.max(D))
+               time()-start, np.min(param_alpha['D']), np.max(param_alpha['D']))
 
         if savename is not None:
-            np.save(savename + '_D.npy', D)
+            np.save(savename + '_D.npy', param_alpha['D'])
     # np.save('D.npy', D)
     # 1/0
     # Solving for alpha
@@ -447,7 +567,7 @@ def denoise(data, block_size, overlap, param_alpha, param_D, noise_std=None,
     # del param_alpha['lambda1']
     param_alpha['lambda1'] = 1.2 / np.sqrt(np.prod(block_size)) #noise_std#**2 # np.ones(X.shape[-1], dtype=np.float64) * 515.**2
     #param_alpha['lambda1'] = int(param_D['K'])*X.shape[-1]
-    param_alpha['pos'] = True
+
 
     # print(param_alpha)
     #param_alpha['L'] = int(param_D['K'] * 0.2)
@@ -473,10 +593,9 @@ def denoise(data, block_size, overlap, param_alpha, param_D, noise_std=None,
     # X[~mask_data] = 0
     #del param_alpha['pos']
 
-
     #print(X.shape)
 
-    param_alpha['L'] = int(0.5 * X.shape[0])
+    # param_alpha['L'] = int(0.5 * X.shape[0])
     ##param_alpha['lambda1'] = 3. / np.sqrt(np.prod(block_size))
 
     #param_alpha['A0'] = csc_matrix((param_alpha['D'].shape[1], X.shape[1]), dtype=dtype)
@@ -486,14 +605,15 @@ def denoise(data, block_size, overlap, param_alpha, param_D, noise_std=None,
     # param_alpha['L'] = int(X.shape[0])
     # param_alpha['lambda1'] = 0.2
 
-    I, J, K = 3*block_size[0], 3*block_size[1], 3*block_size[2]
+    # I, J, K = 3*block_size[0], 3*block_size[1], 3*block_size[2]
     # orig_shape = data.shape
+    print(data.shape)
     data = padding(data, block_size, overlap)
     # #data_pad = padding(data, (I,J,K, 3), (I-1,J-1,K-1,0))
     # data_out = np.zeros(data_pad.shape, dtype=dtype)
     # print(data_pad.shape)
     print(block_size, overlap)
-    print(data.shape)
+    print(data.shape, "after padding")
     # print(param_alpha)
     # 1/0
     #gprime = lambda w: np.array(1. / (2. * np.sqrt(np.abs(w.todense())) + np.finfo(float).eps), dtype=dtype, order='F')
@@ -518,460 +638,136 @@ def denoise(data, block_size, overlap, param_alpha, param_D, noise_std=None,
     # 1/0
     # from sklearn.linear_model import LassoLarsCV, MultiTaskLassoCV, MultiTaskLasso, LassoLars, LassoCV, MultiTaskElasticNetCV
 
-    data_denoised = np.zeros_like(data)
+    # data_denoised = np.zeros_like(data)
+    # first_iter = True
+
+    # for downscaling in [1]:#, 1,1]:#0.75, 0.5]:
+
+    # divider = np.zeros_like(data, dtype=np.int16)
+
+    # if param_alpha['numThreads'] == -1:
+    #     n_cores = cpu_count()
+    # else:
+
+    n_cores = param_alpha['numThreads']
+    # print(n_cores)
+    param_alpha['numThreads'] = 1
+    param_D['numThreads'] = 1
+    # print(param_alpha['numThreads'], param_D['numThreads'])
+    # if first_iter:
+    #     variance = local_standard_deviation(data)**2
+    # else:
+    #     variance = local_standard_deviation(data_denoised)**2
+
+# Critere d'arret -> variance a zero?
+
+# for i in range(0, data.shape[0]):#, I-block_size[0]):
+#     for j in range(0, data.shape[1]):#, J-block_size[1]):
+    # for k in range(data.shape[2] - block_size[2]):#0, , K-block_size[2]):
+
+    #             # print("Current block processed", k)
+    #             data_subset = data[..., k:k+block_size[2], :] #i+I, j:j+J] #, k:k+K]
+    #             mask_subset = mask[..., k:k+block_size[2]] #i+I, j:j+J] #, k:k+K]
+    #             # # variance_subset = 1. #variance[..., k:k+block_size[2]]
+
+    #             data_denoised[..., k:k+block_size[2], :] += processer(data_subset, mask_subset,
+    #                                                         block_size, overlap, param_alpha, downscaling, beta=0.5, gamma=0.25)
+    #             divider[..., k:k+block_size[2], :] += np.ones_like(data_subset, dtype=np.int16)
+    # data_subset = data_denoised
+
+    print('Multiprocessing Stuff')
+    time_multi = time()
+    pool = Pool(processes=n_cores)
+
+    downscaling = 1.
+    beta = 0.5
+    gamma = 1
+
+    eps = 1e-10
+
+    # variance *=2
+    # variance = local_standard_deviation(data)**2
+    # import nibabel as nib
+    # nib.save(nib.Nifti1Image(np.sqrt(variance), np.eye(4)), "var.nii")
+    # 1/0
+    print(np.max(variance),np.min(variance))
+    # print(n_cores. data.shape[1], data.shape[1]/n_cores**2)
+
+    arglist = [(data[:, k:k+block_size[1], ...], mask[:, k:k+block_size[1]], variance[:, k:k+block_size[1]], block_size_subset, overlap_subset, param_alpha_subset, param_D_subset, downscaling_subset, beta_subset, gamma_subset, dtype_subset, eps_subset, n_iter_subset)
+               for k, block_size_subset, overlap_subset, param_alpha_subset, param_D_subset, downscaling_subset, beta_subset, gamma_subset, dtype_subset, eps_subset, n_iter_subset
+               in zip(range(data.shape[1] - block_size[1] + 1),
+                      repeat(block_size),
+                      repeat(overlap),
+                      repeat(param_alpha),
+                      repeat(param_D),
+                      repeat(downscaling),
+                      repeat(beta),
+                      repeat(gamma),
+                      repeat(dtype),
+                      repeat(eps),
+                      repeat(n_iter))]
+
+    data_denoised = pool.map(processer, arglist)
+    pool.close()
+    pool.join()
+
+    param_alpha['numThreads'] = n_cores
+    param_D['numThreads'] = n_cores
+
+    print('Multiprocessing done', time()-time_multi)
+    # print(len(data_denoised))
+    # print(np.asarray(data_denoised).shape)
+    # print(type(data_denoised), type(data_denoised[0]), data_denoised[0][0].shape, type(data_denoised[0][1]), data_denoised[0][1].shape )
+    #data_subset = np.zeros_like(data)
+
+
+
+
+      #   n_slices = len(data_denoised)
+      #   X2 = np.zeros((data_denoised[0][0].shape[0], data_denoised[0][0].shape[1] * n_slices), dtype=dtype, order='F')
+      #   weigths = np.zeros(data_denoised[0][1].shape[0] * n_slices, dtype=dtype, order='F')
+
+      #   # Put together the multiprocessed results
+      #   for k in range(n_slices): #0, , K-block_size[2]):
+      #       # print(k, type(data_denoised), type(data_denoised[k]))
+      #       # print(k * n_slices, (k+1) * n_slices + 1)
+      #       # print(X2[k * n_slices:(k+1) * n_slices + 1].shape, weigths[k * n_slices:(k+1) * n_slices + 1].shape, data_denoised[k][0].shape, data_denoised[k][1].shape)
+      #       # print(weigths.shape)
+
+      #       idx = k * data_denoised[k][0].shape[1], (k+1) * data_denoised[k][0].shape[1]
+      #       # print(len(range(idx[0],idx[1])), len(data_denoised), weigths.shape, idx, data_denoised[k][0].shape, data_denoised[k][1].shape)
+      #       # print(X2[:, range(k, k+n_slices)].shape, weigths[range(k, k+n_slices)].shape, X2.shape, weigths.shape)
+      #     #  print(range(k * n_slices, (k+1) * n_slices))
+      #       X2[:, k * data_denoised[k][0].shape[1]:(k+1) * data_denoised[k][0].shape[1]], weigths[k * data_denoised[k][0].shape[1]:(k+1) * data_denoised[k][0].shape[1]] = data_denoised[k]
+
+      #       # print(idx)
+      # #  1/0
+      #       # print(np.min(X2[:, idx[0]:idx[1]]), np.max(X2[:, idx[0]:idx[1]]), np.min(weigths[idx[0]:idx[1]]), np.max(weigths[idx[0]:idx[1]]))
+      #       # print(np.alltrue(X2[:, idx[0]:idx[1]] == data_denoised[k][0]),  np.alltrue(weigths[idx[0]:idx[1]] == data_denoised[k][1]))
+      #       # print(X2[:, idx[0]:idx[1]].shape == data_denoised[k][0].shape,  weigths[idx[0]:idx[1]].shape == data_denoised[k][1].shape)
+      #   # weigths = np.ones_like(weigths)
+      #   print(X2.shape, weigths.shape, X2.min(), X2.max(), weigths.min(), weigths.max())
+      #   data_subset = col2im_nd(X2, block_size, data.shape, overlap, weigths)
+        # print(np.sum(np.isnan(data_subset)), data_subset.shape)
+
+    # Put together the multiprocessed results
+    data_subset = np.zeros_like(data)
     divider = np.zeros_like(data, dtype=np.int16)
+    ones = np.ones_like(data_denoised[0], dtype=np.int16)
 
-    # for i in range(0, data.shape[0]):#, I-block_size[0]):
-    #     for j in range(0, data.shape[1]):#, J-block_size[1]):
-    for k in range(data.shape[-2] - block_size[-2]):#0, , K-block_size[2]):
+    for k in range(len(data_denoised)):
+        data_subset[:, k:k+block_size[1], ...] += data_denoised[k]
+        divider[:, k:k+block_size[1], ...] += ones
 
-                # print("Current block processed", k)
-                data_subset = data[..., k:k+block_size[2], :] #i+I, j:j+J] #, k:k+K]
-                mask_subset = mask[..., k:k+block_size[2]] #i+I, j:j+J] #, k:k+K]
-
-                for downscaling in [1]:#, 0.75, 0.5]:
-                    data_subset = processer(data_subset, mask_subset, block_size, overlap, D, param_alpha, downscaling)
-
-                # print(data_denoised.shape, data_denoised[..., k:k+block_size[2], :].shape, data_subset.shape)
-                # print(k, k+block_size[2])
-                data_denoised[..., k:k+block_size[2], :] += data_subset #, k:k+K] = data_subset
-                divider[..., k:k+block_size[2], :] += np.ones_like(data_subset, dtype=np.int16)
-
+    data_subset /= divider
+            # print(data_denoised.shape, data_denoised[..., k:k+block_size[2], :].shape, data_subset.shape)
+            # print(k, k+block_size[2])
+            #  data_subset #, k:k+K] = data_subset
+    print(np.sum(np.isnan(data_subset)), 'nans')
+        # divider[divider == 0] = 1
+        # data_subset /= divider
+        # first_iter = False
+        # data = data_subset
     print("temps fit :", time()-deb)
-    print("data_out", data_denoised.min(), data_denoised.max())
-
-    divider[divider == 0] = 1
-    return (data_denoised/divider)[:orig_shape[0], :orig_shape[1], :orig_shape[2]].astype(dtype)
-
-  #   while True:
-  #               # i,j,k = (0,0,0)
-  #               # I,J,K = data.shape[:-1]
-  #               pad_shape = data.shape#[i:i+I, j:j+J, k:k+K].shape
-  #               # print(pad_shape,block_size,overlap)
-  #               X_full = im2col_nd(data, block_size, overlap).T
-  #               X = np.asfortranarray(X_full[:, train_idx], dtype=dtype)
-  #               X_full_shape = X_full.shape
-  #               del X_full
-  #               # bmean = np.mean(data_pad[i:i+I, j:j+J, k:k+K], axis=-1, keepdims=True)
-
-  #               # list_groups = np.arange(0, X.shape[-1], block_size[1], dtype=np.int32)
-  #               # param_alpha['list_groups'] = list_groups
-  #               # param_D['lambda1'] = 2*1.2 / np.sqrt(np.prod(block_size))
-  #               # alpha = spams.lasso(X, **param_alpha)
-  #               # X = sparse_dot(D, alpha)
-  #               # alpha = LassoCV().fit(D, X).coef_.T
-  #               print(sigma2.shape, X_full_shape, X.shape, "sigma2.shape, X_full_shape, X.shape")
-
-  #               # We want lambda_n / sqrt(n) -> 0 and
-  #               # lambda_n n**(gamma-1)/2 -> infinity
-  #               # alpha, res, _, _ = np.linalg.lstsq(D, X)
-  #               gamma = 2
-  #               beta = 0.5
-  #               # 1/0
-  #               var_array = im2col_nd(sigma2, block_size, overlap)[train_idx]#[:, 0]
-  #               # param_alpha['lambda1'] = 0
-  #               # param_alpha['W'] = np.array(1./(np.abs(alpha)**gamma + np.finfo(float).eps), dtype=dtype, order='F')
-  #               # print(np.ones((D.shape[-1], X.shape[-1]), order='F', dtype=dtype).shape, var_array.shape)
-  #               param_alpha['W'] = np.ones((D.shape[-1], X.shape[-1]), order='F', dtype=dtype) * beta * var_array[:, var_array.shape[1]//2]#* np.median(var_array, axis=-1)[:, None].T
-  #               param_alpha['W'] = param_alpha['W'].astype(dtype, copy=False, order='F')
-  #               param_alpha['L'] = int(0.5 * X.shape[0])
-  #               param_alpha['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
-  #               print(param_alpha.keys())
-  #               print(param_alpha['D'].shape, param_alpha['W'].shape, X.shape)
-  #               print(param_alpha['D'].dtype, param_alpha['W'].dtype, X.dtype)
-
-  #               time1 = time()
-  #               alpha = spams.lassoWeighted(X, **param_alpha)
-  #               X = sparse_dot(D, alpha)
-  #               print(alpha.shape)
-  #               # del param_alpha['W']
-  #               print("solving time 1 :", time()-time1)
-
-  #               weights = 1. / np.array((np.abs(alpha) > 1e-15).sum(axis=0) + 1., dtype=dtype).squeeze()
-
-  #               w = np.zeros(X_full_shape[1], dtype=dtype)
-  #               w[train_idx] = weights
-  #               X2 = np.zeros(X_full_shape, dtype=dtype)
-  #               X2[:, train_idx] = X
-  #               # X = X2
-  #               data_out = col2im_nd(X2, block_size, pad_shape, overlap, w)
-  #               del X2
-
-
-  #               # local_variance = local_standard_deviation(data_out)**2
-  #               # print(local_variance.shape)
-  #               # var_array = im2col_nd(local_variance, block_size[:3], overlap[:3])[train_idx]#[:, 0]
-  #               # param_alpha['W'] = np.ones((D.shape[-1], X.shape[-1]), order='F', dtype=dtype) * beta * var_array[:, var_array.shape[1]//2]# np.median(var_array, axis=-1)[:, None].T
-  #               del param_alpha['W']
-  #               param_alpha['L'] = int(0.5 * X.shape[0])
-  #               param_alpha['lambda1'] = 0.75 * 1.2 / np.sqrt(np.prod(block_size))
-  #               # print(param_alpha.keys())
-  #               # print(param_alpha['D'].shape, param_alpha['W'].shape, X.shape)
-  #               X = im2col_nd(data_out, block_size, overlap).T
-  #               X = np.asfortranarray(X[:, train_idx], dtype=dtype)
-  #               time1 = time()
-  #               alpha = spams.lasso(X, **param_alpha)
-  #               X = sparse_dot(D, alpha)
-  #               print("solving time 2 :", time()-time1)
-
-  #               weights = 1. / np.array((np.abs(alpha) > 1e-15).sum(axis=0) + 1., dtype=dtype).squeeze()
-  #               w = np.zeros(X_full_shape[1], dtype=dtype)
-  #               w[train_idx] = weights
-  #               X2 = np.zeros(X_full_shape, dtype=dtype)
-  #               X2[:, train_idx] = X
-  #               data_out = col2im_nd(X2, block_size, pad_shape, overlap, w)
-  #               del X2
-
-  #               param_alpha['L'] = int(0.5 * X.shape[0])
-  #               param_alpha['lambda1'] = 0.5 * 1.2 / np.sqrt(np.prod(block_size))
-  #               # print(param_alpha.keys())
-  #               # print(param_alpha['D'].shape, param_alpha['W'].shape, X.shape)
-  #               X = im2col_nd(data_out, block_size, overlap).T
-  #               X = np.asfortranarray(X[:, train_idx], dtype=dtype)
-  #               time1 = time()
-  #               alpha = spams.lasso(X, **param_alpha)
-  #               X = sparse_dot(D, alpha)
-  #               print("solving time 3 :", time()-time1)
-
-  #               weights = 1. / np.array((np.abs(alpha) > 1e-15).sum(axis=0) + 1., dtype=dtype).squeeze()
-  #               w = np.zeros(X_full_shape[1], dtype=dtype)
-  #               w[train_idx] = weights
-  #               X2 = np.zeros(X_full_shape, dtype=dtype)
-  #               X2[:, train_idx] = X
-  #               # X = X2
-  #               data_out = col2im_nd(X2, block_size, pad_shape, overlap, w)
-  #               del X2
-
-  #               param_alpha['L'] = int(0.5 * X.shape[0])
-  #               param_alpha['lambda1'] = 0.25 * 1.2 / np.sqrt(np.prod(block_size))
-  #               # print(param_alpha.keys())
-  #               # print(param_alpha['D'].shape, param_alpha['W'].shape, X.shape)
-  #               X = im2col_nd(data_out, block_size, overlap).T
-  #               X = np.asfortranarray(X[:, train_idx], dtype=dtype)
-  #               time1 = time()
-  #               alpha = spams.lasso(X, **param_alpha)
-  #               X = sparse_dot(D, alpha)
-  #               print("solving time 4 :", time()-time1)
-
-
-  #               weights = 1. / np.array((np.abs(alpha) > 1e-15).sum(axis=0) + 1., dtype=dtype).squeeze()
-  #               w = np.zeros(X_full_shape[1], dtype=dtype)
-  #               w[train_idx] = weights
-  #               X2 = np.zeros(X_full_shape, dtype=dtype)
-  #               X2[:, train_idx] = X
-  #               # X = X2
-  #               data_out = col2im_nd(X2, block_size, pad_shape, overlap, w)
-  #               del X2
-
-  #               param_alpha['L'] = int(0.5 * X.shape[0])
-  #               param_alpha['lambda1'] = 0.05 * 1.2 / np.sqrt(np.prod(block_size))
-  #               # print(param_alpha.keys())
-  #               # print(param_alpha['D'].shape, param_alpha['W'].shape, X.shape)
-  #               X = im2col_nd(data_out, block_size, overlap).T
-  #               X = np.asfortranarray(X[:, train_idx], dtype=dtype)
-  #               time1 = time()
-  #               alpha = spams.lasso(X, **param_alpha)
-  #               X = sparse_dot(D, alpha)
-  #               print("solving time 5 :", time()-time1)
-
-  #               # print(alpha.shape)
-  #               # del param_alpha['W']
-
-  #               # We want lambda_n / sqrt(n) -> 0 and
-  #               # lambda_n n**(gamma-1)/2 -> infinity
-  #               # alpha, res, _, _ = np.linalg.lstsq(D, X)
-  #               # param_alpha['W'] = np.array(1./(np.abs(alpha)**gamma + np.finfo(float).eps), dtype=dtype, order='F')
-  #               # alpha = spams.lassoWeighted(X, **param_alpha)
-  #               # X = sparse_dot(D, alpha)
-
-  #               # 1/0
-  #               # param_alpha['L'] = int(0.2 * X.shape[0])
-  #               # print(alpha.shape)
-  #               # ((alpha).mean(axis=0) - alpha.mean(axis=0)**2)
-  #               # param_alpha['W'] = gprime(alpha) #np.ones(alpha.shape, dtype=np.float64, order='F') * ((alpha**2).mean(axis=0) - alpha.mean(axis=0)**2)
-
-  #               # alpha, res, _, _ = np.linalg.lstsq(D, X)
-  #               # param_alpha['W'] = np.array(1./(np.abs(alpha)**gamma + np.finfo(float).eps), dtype=dtype, order='F')
-  #               # alpha = spams.lassoWeighted(X, **param_alpha)
-  #               # X = sparse_dot(D, alpha)
-  #               # param_alpha['lambda1'] = 0.75*1.2 / np.sqrt(np.prod(block_size))
-  #               # alpha = spams.lasso(X, **param_alpha)
-  #               # X = sparse_dot(D, alpha)
-
-  #               # # param_alpha['L'] = int(0.25 * X.shape[0])
-  #               # # param_alpha['W'] = gprime(alpha)#np.ones_like(alpha, dtype=np.float64, order='F') * ((alpha**2).mean(axis=0) - alpha.mean(axis=0)**2)
-  #               # param_alpha['lambda1'] = 0.5*1.2 / np.sqrt(np.prod(block_size))
-  #               # alpha = spams.lasso(X, **param_alpha)
-  #               # X = sparse_dot(D, alpha)
-
-  #               # # param_alpha['L'] = int(0.3 * X.shape[0])
-  #               # # param_alpha['W'] = gprime(alpha)#np.ones_like(alpha, dtype=np.float64, order='F') * ((alpha**2).mean(axis=0) - alpha.mean(axis=0)**2)
-  #               # param_alpha['lambda1'] = 0.25*1.2 / np.sqrt(np.prod(block_size))
-  #               # alpha = spams.lasso(X, **param_alpha)
-  #               # X = sparse_dot(D, alpha)
-
-  #               # # param_alpha['W'] = gprime(alpha)#np.ones_like(alpha, dtype=np.float64, order='F') * ((alpha**2).mean(axis=0) - alpha.mean(axis=0)**2)
-  #               # param_alpha['lambda1'] = 0.05*1.2 / np.sqrt(np.prod(block_size))
-  #               # alpha = spams.lasso(X, **param_alpha)
-  #               # X = sparse_dot(D, alpha)
-
-
-
-  #               # param_D['lambda1'] = 0.01*1.2 / np.sqrt(np.prod(block_size))
-  #               # alpha = spams.lasso(X, **param_alpha)
-  #               # X = sparse_dot(D, alpha)
-  #               # param_alpha['L'] = int(0.35 * X.shape[0])
-  #               # param_D['lambda1'] = 0.05*1.2 / np.sqrt(np.prod(block_size))
-  #               # alpha = spams.lasso(X, **param_alpha)
-  #               # X = sparse_dot(D, alpha)
-  #               # param_D['lambda1'] = 3*.012 / np.sqrt(np.prod(block_size))
-  #               # alpha = spams.lasso(X, **param_alpha)
-  #               # X = sparse_dot(D, alpha)
-
-
-  #               # param_D['lambda1'] = 3*.012 / np.sqrt(np.prod(block_size))
-  #               # alpha = spams.lasso(X, **param_alpha)
-  #               # X = sparse_dot(D, alpha)
-
-
-  #               # param_D['lambda1'] = 3*.012 / np.sqrt(np.prod(block_size))
-  #               # alpha = spams.lasso(X, **param_alpha)
-  #               # X = sparse_dot(D, alpha)
-  #               # param_alpha['lambda1'] /= 10
-  #               # alpha = spams.lasso(X, **param_alpha)
-  #               # X = sparse_dot(D, alpha)
-
-  #               # print(alpha.shape, D.T.shape, X.T.shape)
-  #               # alpha = MultiTaskLassoCV(n_alphas=5, alphas=0.2*np.ones(D.shape[1]), fit_intercept=True, n_jobs=8).fit(D, X).coef_.T
-  #               # print(alpha.shape, D.T.shape, X.T.shape)
-  #               # print(np.sum(np.abs(alpha),0))
-  #               # X = sparse_dot(D, alpha)
-  #               # param_alpha['lambda1'] /= 5
-  #               # alpha = spams.lasso(X, **param_alpha)
-  #               # X = sparse_dot(D, alpha)
-
-  #               # param_alpha['lambda1'] /= 2
-  #               # alpha = spams.lasso(X, **param_alpha)
-  #               # X = sparse_dot(D, alpha)
-
-  #               # list_groups = np.array([0], dtype=np.int32)
-  #               # list_groups = np.arange(0, X.shape[-1], overlap[0]+1, dtype=np.int32)
-  #               # param_alpha['list_groups'] = list_groups
-  #               # param_alpha['eps'] = 0.5*1.2 / np.sqrt(np.prod(block_size))
-  #               # args = param_alpha['lambda1'], param_alpha['pos'], param_alpha['mode']
-  #               # del param_alpha['lambda1'], param_alpha['pos'], param_alpha['mode']
-  #               # alpha = spams.somp(X, **param_alpha)
-  #               # X = sparse_dot(D, alpha)
-  #               # del param_alpha['list_groups'], param_alpha['eps']
-  #               # param_alpha['lambda1'], param_alpha['pos'], param_alpha['mode'] = args
-
-
-
-  #               # print(alpha.shape, D.T.shape, X.T.shape)
-  #               # alpha = MultiTaskElasticNetCV(n_alphas=5, fit_intercept=True, n_jobs=8).fit(D, X).coef_.T
-  #               # print(alpha.shape, D.T.shape, X.T.shape)
-  #               # print(np.sum(np.abs(alpha),0))
-  #               # X = sparse_dot(D, alpha)
-
-  #               #param_alpha['L'] = int(0.2 * X.shape[0])
-  #               # param_alpha['lambda1'] = 0.6 / np.sqrt(np.prod(block_size))
-  #               # # param_D['iter'] = 100
-  #               # # param_alpha['D'] = np.sqrt(np.sum(X**2, axis=0, keepdims=True))
-  #               # # D = spams.trainDL(X, **param_D)
-  #               # alpha = spams.lasso(X, **param_alpha)
-  #               # X = sparse_dot(D, alpha)
-
-
-  #               weights = 1. / np.array((np.abs(alpha) > 1e-15).sum(axis=0) + 1., dtype=dtype).squeeze()
-  #               #print(block_size, pad_shape, overlap, dtype)
-  #               ##X=im2col_nd(data_pad[i:i+I, j:j+J, k:k+K], block_size, overlap).T
-  #               # print(np.sum(np.isnan(data_out[i:i+I, j:j+J, k:k+K])))
-  #               w = np.zeros(X_full_shape[1], dtype=dtype)
-  #               w[train_idx] = weights
-  #               X2 = np.zeros(X_full_shape, dtype=dtype)
-  #               X2[:, train_idx] = X
-  #               X = X2
-
-  #               data_out = col2im_nd(X, block_size, pad_shape, overlap, w) #[i:i+I, j:j+J, k:k+K]
-
-  #               # aa = data_out[i:i+I, j:j+J, k:k+K]
-  #               # data_out[i:i+I, j:j+J, k:k+K] *= (bmean / np.mean(data_out[i:i+I, j:j+J, k:k+K], axis=-1, keepdims=True))
-  #               # print(np.sum(np.isnan(data_out[i:i+I, j:j+J, k:k+K])), data_out[i:i+I, j:j+J, k:k+K].shape)
-
-  #   # temp = np.zeros(data.shape[:-1] + (6,),dtype=np.float32)
-  #   # temp[...,0]=b0
-  #   # temp[..., 1:] = data_out
-  #   # data_out = temp
-  #   # print("removed b0s")
-
-  #   print("temps fit :", time()-deb)
-  #   print ("data_out", data_out.min(), data_out.max())
-  #   return data_out.astype(dtype)[:orig_shape[0], :orig_shape[1], :orig_shape[2]]
-
-  #   1/0
-
-  #   alpha = spams.lasso(X, **param_alpha)
-  #   print(alpha.shape)
-  #   del param_alpha['mode']
-  #   del param_alpha['lambda1']
-  #   del param_alpha['pos']
-
-  #   #param_alpha['eps'] = (noise_std**2) / (overlap[0]+1)
-  #   #param_alpha['L'] = int(0.15*X.shape[0])
-
-  #   #param_alpha['L'] = int(0.15 * X.shape[0])
-  #   #alpha = spams.omp(X, **param_alpha)
-
-  #   # param_alpha['mode'] = 0
-  #   # param_alpha['pos'] = 0
-  #   # param_alpha['lambda1'] = 0
-  #   ###from sklearn.decomposition import sparse_encode
-  #   ###print("shapes :", X.T.shape, D.T.shape)
-  #   ###alpha = sparse_encode(X.T, D.T, n_jobs=8, algorithm='omp').T
-  #   ###DL = DictionaryLearning(n_components=D.shape[0], alpha=1, n_iter=500)
-  #   ####dico.set_params(transform_algorithm='omp', **kwargs)
-  #   ####alpha = DL.transform(X)
-  #   ###patches = np.dot(code, V)
-
-  #   #from sklearn.linear_model import RandomizedLasso
-  #   #RLasso = RandomizedLasso(n_jobs=8, fit_intercept=False, normalize=False)
-  #   #RLasso.fit(D, X)
-  #   #alpha = RLasso.coef_
-
-  #   #param_alpha['B'] = truc
-  #   print ("Fit alpha lasso: total time = ", time()-start)
-  #   #from scipy.sparse import csc_matrix
-  #   #alpha = csc_matrix((alpha.shape[0], alpha.shape[1]))
-  #   #start = time()
-  #   ####alpha = spams.cd(X, D, alpha, mode=2, itermax=1000,
-  #   ####                 lambda1=param_alpha['lambda1'])
-  #   #print ("Fit alpha cd: total time = ", time()-start)
-
-  #   #print ("Using pre-masking")
-  #   #mask_data = param_alpha['B']
-  #   #print (mask_data.shape, X.shape)
-  #   # mask_data est en 2d et deja arrange pour juste contenir le train data
-
-  #   #del param_alpha['B']
-  #   #print (X_cut.flags, X_cut.shape, X.shape)
-  #   #alpha = spams.lasso(X_cut, **param_alpha)
-  #   #print ("Fit alpha : total time = ", time()-start)
-
-  #   #X_cut_recon = sparse_dot(D, alpha)
-  #   #print (X_cut_recon.shape, X[mask_data].shape)
-  #   #X = np.zeros_like(X)  #X_cut_recon.shape
-  #   #X[mask_data] = X_cut_recon#.ravel()
-  #   #del X_cut_recon, X_cut
-  #   #print (np.max(alpha), np.min(alpha))
-  #   print ("sparsity alpha", alpha.nnz, np.prod(alpha.shape), alpha.nnz/np.prod(alpha.shape), alpha.shape)
-  #   start = time()
-  #   X = sparse_dot(D, alpha)
-  #   print(np.min(X), np.max(X), np.sum(X<0), np.sum(X>0))
-
-  #   # print(D.shape)
-  #   # print(np.sum(D**2,0))
-  #   # print(np.sum(D**2,0).shape)
-  #   # 1/0
-
-  #   # Test new normalisation factor
-  #   #weights = np.zeros(alpha.shape[-1], dtype=np.float64)
-  #   #weights = 1 / (1 + np.asarray(alpha != np.zeros((1, alpha.shape[1]))).sum(axis=0, keepdims=True))
-
-  #   #weights = np.ones_like(weights)
-  #   weights = 1. / np.array((np.abs(alpha) > 1e-15).sum(axis=0) + 1., dtype=dtype).squeeze()
-  #   # weights = np.ones_like(weights)
-  #   print(alpha.shape, weights.shape)
-  #   print(weights[len(weights)//2-10:len(weights)//2+10])
-  #   #print(alpha)
-  #   print((np.abs(alpha) > 1e-7).sum(axis=0))
-  # #  1/0
-  #   #print("weights", weights.shape)
-  #   #for idx in range(alpha.shape[-1]):
-  #   #    weights[idx] = len(alpha[:, idx].data)
-
-  #   #plt.figure()
-  #   #plt.hist(alpha[alpha>0].todense().T, 256)
-  #   #plt.plot(np.sort(alpha[alpha>0].todense(), axis=None))
-  #   #plt.savefig(savename+'_histo_alpha.png')
-  #   #plt.clf()
-  #   #plt.hist(X[X>0].T, 256)
-  #   #plt.plot(np.sort(X[X>0], axis=None))
-  #   #plt.savefig(savename+'_histo_X.png')
-
-  #   #1/0
-  #   #X = X_normalised    #################################################################################
-  #   #1/0
-  #   print ("X", X.min(), X.max())
-  # #  print ("Diff", np.sum(np.abs(X-xorig)))
-
-  #   #1/0
-  #   #del D, alpha
-  #   print ("mult sparse : total time = ", time()-start)
-
-  #   #print ("Objective value = ", R, np.min(X), np.max(X))
-  #   del param_D, D, param_alpha, alpha
-
-  #   if whitening:
-  #       print ("Inverting ZCA")
-  #       X_recon = np.dot(np.linalg.inv(ZCA), X*X_norm2) + X_mean
-  #       #np.dot(U * np.sqrt(s + epsilon), U.T) + X_mean
-  #   else:
-  #       print("Inverting normalisation")
-  #       X_recon = (X * X_norm2 * X_std) + X_mean
-
-  #   #X_recon[param_alpha['B']==0] = xorig[param_alpha['B']==0]
-  #  # print ("Diff", np.sum(np.abs((X_recon-xorig)[mask_data.astype('bool')])))
-  #   #print(X_recon.min(), X_recon.max(), xorig.min(), xorig.max())
-  #   #1/0
-  #   deb = time()
-  #   print (X_recon.shape, (block_size), orig_shape, overlap)
-  #   X_deblock = col2im_nd(X_recon, (block_size), orig_shape, overlap, weights)
-  #   print(X_deblock.shape)
-  #   # X_deblock = X_deblock[:orig_shape[0], :orig_shape[1],
-  #   #                       :orig_shape[2], :orig_shape[3]]
-  #   print ("temps deblock :", time()-deb)
-  #   print ("Max", X_deblock.max(), "Min", X_deblock.min())
-  #   print(X_deblock.shape)
-  #   #print ("Somme des negatifs", np.sum(X_deblock < 0))
-
-  #   # Removing negligible values
-  #   #print ("Stuff below zero", np.sum(X_deblock < 0),
-  #   #       np.sum(X_deblock[X_deblock < 0]))
-  #   #print (np.min(X_deblock), np.max(X_deblock[X_deblock<0]))
-  #   #X_deblock[X_deblock < 10**-8] = 0
-  #   #print ("Stuff below zero, after thresholding", np.sum(X_deblock < 0),
-  #   #       np.sum(X_deblock[X_deblock < 0]))
-
-
-
-
-  #   # print(X_recon[:,::3].shape, X_recon[:,1::3].shape, X_recon[:,2::3].shape, X_recon.shape)
-  #   # print("block_size", block_size, orig_shape,X_recon[:,:-1:3].shape)
-  #   # o1 = col2im_nd(X_recon[:, 0::3],  (block_size),   (55,3,55,5), (0,0,0,0), weights)
-  #   # o2 = col2im_nd(X_recon[:, 1::3], (block_size),   (55,3,55,5), (0,0,0,0), weights)
-  #   # o3 = col2im_nd(X_recon[:, 2::3], (block_size),   (55,3,55,5), (0,0,0,0), weights)
-
-
-
-  #   # import nibabel as nib
-  #   # print(o1.shape,o2.shape, o3.shape)
-  #   # nib.save(nib.Nifti1Image(o1,np.eye(4)),'o1.nii.gz')
-  #   # nib.save(nib.Nifti1Image(o2,np.eye(4)),'o2.nii.gz')
-  #   # nib.save(nib.Nifti1Image(o3,np.eye(4)),'o3.nii.gz')
-  #   # nib.save(nib.Nifti1Image(X_deblock,np.eye(4)),'X_deblock.nii.gz')
-
-  #   # 1/0
-
-
-  #   # import nibabel as nib
-  #   # nib.save(nib.Nifti1Image(X_deblock,np.eye(4)),'X_deblock.nii.gz')
-  #   # 1/0
-  #   for i in range(block_size[-1]):
-  #       X_deblock[..., i] += block_mean[i]
-
-  #   # temp = np.zeros(data.shape[:-1] + (6,),dtype=np.float32)
-  #   # temp[...,0]=b0
-  #   # temp[..., 1:] = X_deblock
-  #   # X_deblock = temp
-
-  #   return X_deblock.astype(dtype)
+    print("data_out", data_subset.min(), data_subset.max(), np.sum(data_subset<0))
+    return data_subset #.astype(dtype)[:orig_shape[0], :orig_shape[1], :orig_shape[2]]
