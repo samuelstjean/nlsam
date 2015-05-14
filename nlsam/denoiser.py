@@ -707,7 +707,7 @@ def denoise(data, block_size, overlap, param_alpha, param_D, variance, n_iter=10
                       repeat(eps),
                       repeat(n_iter))]
 
-    data_denoised = map(processer, arglist)
+    data_denoised = pool.map(processer, arglist)
     pool.close()
     pool.join()
 
