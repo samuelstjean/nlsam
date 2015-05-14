@@ -297,14 +297,14 @@ def denoise(data, block_size, overlap, param_alpha, param_D, variance, n_iter=10
         X_mean = 0.#np.zeros_like(X)
         X_std = 1.#np.ones_like(X)
 
-        X -= X_mean
-        X /= X_std
-        X[np.isnan(X)] = 0
+        # X -= X_mean
+        # X /= X_std
+        # X[np.isnan(X)] = 0
 
         # X_norm2 = np.sqrt(np.sum(X**2, axis=0, keepdims=True, dtype=dtype))
         X_norm2 = 1.#np.ones_like(X_norm2)
-        X /= X_norm2
-        X[np.isnan(X)] = 0
+        # X /= X_norm2
+        # X[np.isnan(X)] = 0
 
     #X_recon = ((X * X_norm2 * X_std) + X_mean)
     #print(np.sum(np.abs(X_recon-xorig)))
@@ -707,7 +707,7 @@ def denoise(data, block_size, overlap, param_alpha, param_D, variance, n_iter=10
                       repeat(eps),
                       repeat(n_iter))]
 
-    data_denoised = pool.map(processer, arglist)
+    data_denoised = map(processer, arglist)
     pool.close()
     pool.join()
 
