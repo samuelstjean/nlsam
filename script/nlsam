@@ -551,7 +551,7 @@ def main():
     #data_norm2 = np.ones_like(data_norm2)
     ###
 
- 
+
     new_block_size = 3
     #filename += "_ml_3x3_"
 
@@ -647,21 +647,7 @@ def main():
     b0_block_size = tuple(block_size[:-1]) + ((block_size[-1] + num_b0s,))
     print(b0_block_size, block_size[:-1], tuple((block_size[-1] + num_b0s,)), block_size[-1], num_b0s)
 
-    no_ml = False
-    if no_ml:
-        print("load padded")
-        data_denoised = nib.load(filename + '_padded.nii.gz').get_data()
-    else:
-
-        # from scilpy.metrics.visual_metrics import RMSE, SSIM
-      #  from itertools import product
-        # rmse = []
-        # ssim = []
-        # data = np.insert(data, b0_loc, b0, axis=-1)
-
-        # for alpha_ml in [0.1]:  # , 0.3, 0.5, 0.8, 1.2, 1.5, 1.8]: #nbiter, K in product([50,100,150,200], [48, 96, 144, 192]): #
-    # data = np.delete(data, b0_loc, axis=-1)
-    nbiter = 50
+    nbiter = 150
     K = np.asscalar(np.prod(b0_block_size))
 
     param_D['iter'] = nbiter
