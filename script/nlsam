@@ -492,6 +492,7 @@ def main():
     #print(data.dtype, data.min(-1), data.max(-1))
 
     #print("Test 3x3x3 block size")
+    orig_shape = data.shape
     new_block_size = 3
 
     print("Choosing new full block size, now", new_block_size, "was", block_size)
@@ -746,7 +747,7 @@ def main():
     elif use_clip:
         data_denoised[data_denoised < 0] = 0
 
-            nib.save(nib.Nifti1Image(data_denoised.astype(original_dtype), affine), filename)
+    nib.save(nib.Nifti1Image(data_denoised.astype(original_dtype), affine), filename)
 
 
 if __name__ == "__main__":
