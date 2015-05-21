@@ -129,7 +129,6 @@ def local_standard_deviation(arr, n_cores=None):
 
     fwhm = 10
     blur = fwhm / np.sqrt(8 * np.log(2))
-
     sigma = np.median(result, axis=-1)
 
     # size = (5, 5, 5)
@@ -174,4 +173,9 @@ def local_noise_map_std(noise_map):
     convolve(noise_map, k, mode='reflect', output=mean_noise)
 
     # Variance = mean(x**2) - mean(x)**2
-    return np.sqrt(mean_squared_noise - mean_noise**2)
+    local_std = np.sqrt(mean_squared_noise - mean_noise**2)
+
+    fwhm = 10
+    blur = fwhm / np.sqrt(8 * np.log(2))
+
+    return gaussian_filter(local_std, blur, mode='reflect')

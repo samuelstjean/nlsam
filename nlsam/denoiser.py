@@ -1,17 +1,19 @@
 from __future__ import division, print_function
 
 import numpy as np
-
 try:
-    from spams import spams
+    from nlsam.spams import spams
 except ImportError:
     try:
-        import spams
+        from spams import spams
     except ImportError:
         try:
-            from spams_python import spams
+            import spams
         except ImportError:
-            raise ValueError("Couldn't find spams library")
+            try:
+                from spams_python import spams
+            except ImportError:
+                raise ValueError("Couldn't find spams library")
 
 from time import time
 from itertools import repeat

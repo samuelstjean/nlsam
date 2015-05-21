@@ -246,13 +246,17 @@ cdef double _fixed_point_finder(double m_hat, double sigma, int N, int max_iter=
         int n_iter = 0
 
     with nogil:
+        # If m_hat is below the noise floor, return 0 instead of negatives
+        # as per Bai 2014
+        # if m_hat < sqrt(0.5 * M_PI) * sigma
+        #     return 0
 
         delta = _beta(N) * sigma - m_hat
 
         if fabs(delta) < 1e-15:
             return 0
         elif delta > 0:
-            m = _beta(N) * sigma + delta
+           m = _beta(N) * sigma + delta
         else:
             m = m_hat
 
@@ -270,7 +274,7 @@ cdef double _fixed_point_finder(double m_hat, double sigma, int N, int max_iter=
                 break
 
         if delta > 0:
-            return -t1
+           return -t1
 
         return t1
 

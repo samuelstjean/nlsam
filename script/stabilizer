@@ -187,9 +187,9 @@ def main():
         sigma = np.zeros_like(data, dtype=np.float32)
         mask_noise = np.zeros(data.shape[:-1], dtype=np.bool)
 
-        for idx in range(data.shape[-2]):
-            print("Now processing slice", idx+1, "out of", data.shape[-2])
-            sigma[..., idx, :], mask_noise[..., idx] = piesno(data[..., idx, :],  N=N, return_mask=True)
+        for idx in range(data.shape[1]):
+            print("Now processing coronal slice", idx+1, "out of", data.shape[1])
+            sigma[:, idx, ...], mask_noise[:, idx, :] = piesno(data[:, idx, ...],  N=N, return_mask=True)
 
         nib.save(nib.Nifti1Image(mask_noise.astype(np.int16), affine), filename + "_mask_noise.nii.gz")
 
