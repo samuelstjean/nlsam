@@ -7,6 +7,7 @@ from multiprocessing import Pool, cpu_count
 from dipy.core.geometry import cart2sphere
 from dipy.reconst.shm import sph_harm_ind_list, real_sph_harm, lazy_index
 from scipy.ndimage.filters import convolve, gaussian_filter
+from scipy.special import digamma
 
 
 def sh_smooth(data, gtab, sh_order=4):
@@ -140,25 +141,25 @@ def local_standard_deviation(arr, n_cores=None):
 
 def homomorphic_noise_estimation(data):
 
-    euler_mascheroni = 0.577215664901532860606512090082402431042
+    euler_mascheroni = -digamma(1)
 
-    data = data.astype(np.float32)
-    m_hat = np.zeros_like(data, dtype=np.float32)
-    low_pass = np.zeros_like(data, dtype=np.float32)
+    conv_out = np.empty_like(data[..., 0], dtype=np.float32)
+    m_hat = np.empty_like(data, dtype=np.float32)
+    low_pass = np.empty_like(data, dtype=np.float32)
 
-    blur = 3.4
-    size = (3, 3, 3)
+    blur = 4.8
+    size = (5, 5, 5)
     k = np.ones(size) / np.sum(size)
 
     for idx in range(data.shape[-1]):
-        conv_out = np.abs(data[..., idx] - convolve(data[..., idx], k))
-        pos = (conv_out != 0)
-        m_hat[pos,  idx] = np.log(conv_out[pos])
+        convolve(data[..., idx], k, mode='reflect', output=conv_out)
+        m_hat[...,  idx] = np.log(np.abs(data[..., idx] - conv_out) + 1e-6)
         low_pass[..., idx] = gaussian_filter(m_hat[..., idx], blur, mode='reflect')
 
-    low_pass = np.median(low_pass, axis=-1)
+    # low_pass = np.median(low_pass, axis=-1)
 
-    return np.sqrt(2) * np.exp(low_pass + euler_mascheroni/2)
+    # return np.sqrt(2) * np.exp(low_pass + euler_mascheroni/2)
+    return np.sqrt(np.exp(low_pass) * 2/np.sqrt(2) * np.exp(euler_mascheroni/2))
 
 
 def local_noise_map_std(noise_map):
