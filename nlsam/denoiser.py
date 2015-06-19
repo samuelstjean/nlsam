@@ -22,7 +22,7 @@ from multiprocessing import Pool, cpu_count
 
 # from scipy.sparse.linalg import lsqr as sparse_lstsq
 
-from scilpy.denoising.utils import sparse_dot, im2col_nd, col2im_nd, padding
+from nlsam.utils import sparse_dot, im2col_nd, col2im_nd, padding
 # from nlsam.smoothing import local_standard_deviation
 import scipy.sparse as ssp
 # from sklearn.linear_model import LassoCV, LassoLars, Lasso
