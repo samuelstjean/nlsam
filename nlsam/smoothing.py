@@ -1,6 +1,7 @@
 from __future__ import division
 
 import numpy as np
+import warnings
 
 from multiprocessing import Pool, cpu_count
 
@@ -11,7 +12,7 @@ from scipy.special import digamma
 
 
 def sh_smooth(data, gtab, sh_order=4):
-    """Smooth the raw diffusion signal with spherical harmonics
+    """Smooth the raw diffusion signal with spherical harmonics.
 
     data : ndarray
         The diffusion data to smooth.
@@ -31,18 +32,27 @@ def sh_smooth(data, gtab, sh_order=4):
     m, n = sph_harm_ind_list(sh_order)
     where_b0s = lazy_index(gtab.b0s_mask)
     where_dwi = lazy_index(~gtab.b0s_mask)
+    pred_sig = np.zeros_like(data)
 
-    x, y, z = gtab.gradients[where_dwi].T
-    r, theta, phi = cart2sphere(x, y, z)
+    # process each b-value separately
+    for unique_bval in np.unique(gtab.bvals[where_dwi]):
+        idx = gtab.bvals == unique_bval
 
-    # Find the sh coefficients to smooth the signal
-    B_dwi = real_sph_harm(m, n, theta[:, None], phi[:, None])
-    sh_coeff = np.linalg.lstsq(B_dwi, data[..., where_dwi].reshape(np.prod(data.shape[:-1]), -1).T)[0]
+        # Check if enough data for requested sh order
+        if np.sum(idx) < (sh_order + 1) * (sh_order + 2) / 2:
+            warnings.warn("bval {0!s} has not enough values for {1!s} sh order. \nPutting back the original values.").format(unique_bval, sh_order)
+            pred_sig[..., idx] = data[..., idx]
+            continue
 
-    # Find the smoothed signal from the sh fit for the given gtab
-    smoothed_signal = np.dot(B_dwi, sh_coeff).T.reshape(data.shape[:-1] + (-1,))
-    pred_sig = np.zeros(smoothed_signal.shape[:-1] + (gtab.bvals.shape[0],))
-    pred_sig[..., ~gtab.b0s_mask] = smoothed_signal
+        x, y, z = gtab.gradients[idx].T
+        r, theta, phi = cart2sphere(x, y, z)
+
+        # Find the sh coefficients to smooth the signal
+        B_dwi = real_sph_harm(m, n, theta[:, None], phi[:, None])
+        sh_coeff = np.linalg.lstsq(B_dwi, data[..., idx].reshape(np.prod(data.shape[:-1]), -1).T)[0]
+
+        # Find the smoothed signal from the sh fit for the given gtab
+        pred_sig[..., idx] = np.dot(B_dwi, sh_coeff).T.reshape(data.shape[:-1] + (-1,))
 
     # Just give back the signal for the b0s since we can't really do anything about it
     if np.sum(gtab.b0s_mask) > 1:
@@ -54,7 +64,7 @@ def sh_smooth(data, gtab, sh_order=4):
 
 
 def _local_standard_deviation(arr):
-    """Standard deviation estimation from local patches
+    """Standard deviation estimation from local patches.
 
     This is the multiprocessed function.
 
@@ -105,7 +115,7 @@ def local_standard_deviation(arr, n_cores=None):
 
     # No multiprocessing for 3D array since we smooth on each separate volume
     if arr.ndim == 3:
-        arr = arr[..., None]
+        # arr = arr[..., None]
         n_cores = 1
 
     if n_cores == 1:
