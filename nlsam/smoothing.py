@@ -38,10 +38,12 @@ def sh_smooth(data, gtab, sh_order=4, same_bval=25):
     where_dwi = lazy_index(~gtab.b0s_mask)
     pred_sig = np.zeros_like(data)
 
-    # Round similar bvals together
-    rounded_bvals = gtab.bvals[where_dwi]
-    # for unique_bval in np.unique(rounded_bvals):
-        
+    # Round similar bvals together for identifying similar shells
+    bvals = gtab.bvals[where_dwi]
+    rounded_bvals = np.zeros_like(bvals)
+    for unique_bval in np.unique(bvals):
+        idx = np.abs(unique_bval - bvals) < same_bval
+        rounded_bvals[idx] = unique_bval
 
     # process each b-value separately
     for unique_bval in np.unique(rounded_bvals):
