@@ -11,7 +11,7 @@ from scipy.ndimage.filters import convolve, gaussian_filter
 from scipy.special import digamma
 
 
-def sh_smooth(data, gtab, sh_order=4):
+def sh_smooth(data, gtab, sh_order=4, same_bval=25):
     """Smooth the raw diffusion signal with spherical harmonics.
 
     data : ndarray
@@ -22,6 +22,10 @@ def sh_smooth(data, gtab, sh_order=4):
 
     sh_order : int, default 4
         Order of the spherical harmonics to fit.
+
+    same_bval : int, default 25
+        All bvalues such that |b_1 - b_2| < same_bval 
+        will be considered as identical for smoothing purpose.
 
     Return
     ---------
@@ -34,13 +38,18 @@ def sh_smooth(data, gtab, sh_order=4):
     where_dwi = lazy_index(~gtab.b0s_mask)
     pred_sig = np.zeros_like(data)
 
+    # Round similar bvals together
+    rounded_bvals = gtab.bvals[where_dwi]
+    # for unique_bval in np.unique(rounded_bvals):
+        
+
     # process each b-value separately
-    for unique_bval in np.unique(gtab.bvals[where_dwi]):
-        idx = gtab.bvals == unique_bval
+    for unique_bval in np.unique(rounded_bvals):
+        idx = rounded_bvals == unique_bval
 
         # Check if enough data for requested sh order
         if np.sum(idx) < (sh_order + 1) * (sh_order + 2) / 2:
-            warnings.warn("bval {0!s} has not enough values for {1!s} sh order. \nPutting back the original values.").format(unique_bval, sh_order)
+            warnings.warn("bval {0!s} has not enough values for {1!s} sh order. \nPutting back the original values.".format(unique_bval, sh_order))
             pred_sig[..., idx] = data[..., idx]
             continue
 
