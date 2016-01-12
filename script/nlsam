@@ -213,7 +213,7 @@ def main():
 
     use_abs = False
     use_clip = False
-    greedy_subsampler = False
+    greedy_subsampler = True
     crop = False
     n_iter = 10
     implausible_signal_hack = True
