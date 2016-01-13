@@ -3,12 +3,9 @@
 
 The reference implementation for the Non Local Spatial and Angular Matching (NLSAM) denoising algorithm for diffusion MRI.
 
-+ Term of use : yes, there are a lot of prints, but they are useful.
-+ There are two bottlenecks I am aware of, the neighboring functions and the cutting into blocks functions.
-+ Don't look at the code, it's horrible
-+ Sorry Elef, I use gpl dependencies (but I'm open to using **working** replacements).
-
 ## How to install
+
+Go grab a [release](https://github.com/samuelstjean/nlsam/releases) (recommended) or read below to build from source
 
 #### 1.a. Windows and Mac : Get a python 2.7 distribution, which can be easily installed with http://continuum.io/downloads#all
 
@@ -17,7 +14,6 @@ The reference implementation for the Non Local Spatial and Angular Matching (NLS
 ```shell
 sudo apt-get install python-numpy python-scipy python-pip libgsl0-dev
 ```
-*P.S. Ca vous prend la gsl pour mac (mrtrix l'utilise aussi), ca s'installe comment?*
 
 Get the GSL, either through your distribution package manager or by using this cmake version : git clone https://github.com/samuelstjean/gsl
 Prebuilt windows gsl : 
@@ -63,24 +59,3 @@ nlsam noisy_data.nii.gz N_neighbors bval bvec -o denoised_data.nii.gz -mask_data
 where N_neighbors is the number of angular neighbors in a block, I personnaly suggest 5. Afterward, go take a long coffee break/come back tomorrow. You should also have at least 12/16 go of ram for a large dataset (1.2mm at 41 DWIs takes approx 16go of ram).
 
 
-
-
-## Old run instructions
------------------------------
-Go to the script subfolder and run
-```shell
-stabilizer.py input.nii.gz -N N -o output
-```
-
-Where N is the number of coils and output the output prefix filename (it's appended with _stabilized.nii.gz automatically)
-
-Now use the stabilized version as the input for the denoising script
-
-stabilizer.py output_stabilized.nii.gz number_of_angular_neighbors bvals bvecs
-
-*5 a l'air de bien marche comme N voisins angulaires, c'est a peu pres le nombre que l'on retrouve
-a egale distance d'un point donne sur des shell bien distribuees, j'ai un script pour compter
-une tonne de metriques pour aider a choisir selon le degre max/degre moyen etc., dont un de visualisation pour
-voir rapidement des points sur la sphere*
-
-nlsam_gui.py __wishlist__
