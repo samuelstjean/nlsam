@@ -195,11 +195,15 @@ def buildArgsParser():
     #                inside this mask wil be used for estimating \
     #                the fiber response function in the CSD fODFs computation.')
 
-    p.add_argument('-nosubsampling', dest='no_subsampling', action='store_true',
+    p.add_argument('--no_subsampling', dest='no_subsampling', action='store_true',
                    default=False, required=False,
                    help='If supplied, process all volumes multiple time, as opposed to ' +
                    'only at least once.')
 
+    p.add_argument('--no_symmetry', dest='no_symmetry', action='store_true',
+                   default=False, required=False,
+                   help='If supplied, assumes the set of bvals/bvecs to already be symmetrized, ' +
+                   'i.e. All points (x,y,z) on the sphere and (-x,-y,-z) were acquired.')
     return p
 
 
@@ -347,12 +351,15 @@ def main():
 
     else:
         rest_of_b0s = None
-    # 1/0
-    # Double bvecs to find neighbors with assumed symmetry
-    sym_bvecs = np.vstack((np.delete(bvecs, b0_loc, axis=0), np.delete(-bvecs, b0_loc, axis=0)))
+
+    # Double bvecs to find neighbors with assumed symmetry if needed
+    if args.no_symmetry:
+        sym_bvecs = np.delete(bvecs, b0_loc, axis=0)
+    else:
+        sym_bvecs = np.vstack((np.delete(bvecs, b0_loc, axis=0), np.delete(-bvecs, b0_loc, axis=0)))
+
     neighbors = (angular_neighbors(sym_bvecs, block_size[-1] - num_b0s) % (data.shape[-1] - num_b0s))[:data.shape[-1] - num_b0s]
-  #  print(neighbors, sym_bvecs, neighbors.shape) #, angular_neighbors(sym_bvecs, block_size[-1] - 1))
-   # 1/0
+
     if args.mask_data is not None:
         mask_data = nib.load(args.mask_data).get_data().squeeze().astype(np.bool)
         mask = nib.load(args.mask_data).get_data().squeeze().astype(np.bool)
