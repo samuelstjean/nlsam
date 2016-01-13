@@ -195,6 +195,11 @@ def buildArgsParser():
     #                inside this mask wil be used for estimating \
     #                the fiber response function in the CSD fODFs computation.')
 
+    p.add_argument('-nosubsampling', dest='no_subsampling', action='store_true',
+                   default=False, required=False,
+                   help='If supplied, process all volumes multiple time, as opposed to ' +
+                   'only at least once.')
+
     return p
 
 
@@ -213,7 +218,12 @@ def main():
 
     use_abs = False
     use_clip = False
-    greedy_subsampler = True
+
+    if args.no_subsampling:
+        greedy_subsampler = False
+    else:
+        greedy_subsampler = True
+
     crop = False
     n_iter = 10
     implausible_signal_hack = True
