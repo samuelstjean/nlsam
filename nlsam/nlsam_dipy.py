@@ -30,21 +30,29 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from __future__ import division, print_function, absolute_import
+
+import sys
 from os.path import splitext
-from nlsam.six import string_types
+
 import numpy as np
+
+PY3 = sys.version_info[0] == 3
+if PY3:
+    string_types = str
+else:
+    string_types = basestring
 
 
 def read_bvals_bvecs(fbvals, fbvecs):
     """
-    Read b-values and b-vectors from the disk
+    Read b-values and b-vectors from disk.
 
     Parameters
     ----------
     fbvals : str
-             path of file with b-values, or None if you don't want to read bvals
+       Full path to file with b-values. None to not read bvals.
     fbvecs : str
-             path of file with b-vectorsl, or None if you don't want to read bvecs
+       Full path of file with b-vectors. None to not read bvecs.
 
     Returns
     -------
@@ -53,9 +61,8 @@ def read_bvals_bvecs(fbvals, fbvecs):
 
     Notes
     -----
-    Files can be either '.bvals'/'.bvecs' or '.txt' or '.npy' (containing arrays
-    stored with the appropriate values).
-
+    Files can be either '.bvals'/'.bvecs' or '.txt' or '.npy' (containing
+    arrays stored with the appropriate values).
     """
 
     # Loop over the provided inputs, reading each one in turn and adding them
@@ -73,7 +80,7 @@ def read_bvals_bvecs(fbvals, fbvecs):
                 elif ext == '.npy':
                     vals.append(np.squeeze(np.load(this_fname)))
                 else:
-                    e_s = "File type %s is not recognized"%ext
+                    e_s = "File type %s is not recognized" % ext
                     raise ValueError(e_s)
             else:
                 raise ValueError('String with full path to file is required')
@@ -95,6 +102,9 @@ def read_bvals_bvecs(fbvals, fbvecs):
     # If bvals is None, you don't need to check that they have the same shape:
     if bvals is None:
         return bvals, bvecs
+
+    if len(bvals.shape) > 1:
+        raise IOError('bval file should have one row')
 
     if max(bvals.shape) != max(bvecs.shape):
             raise IOError('b-values and b-vectors shapes do not correspond')
