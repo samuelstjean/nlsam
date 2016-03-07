@@ -190,7 +190,7 @@ def denoise(data, block_size, overlap, param_alpha, param_D, variance, n_iter=10
     param_alpha['mode'] = 2
     param_alpha['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
     data = padding(data, block_size, overlap)
-    deb = time()
+
     n_cores = param_alpha['numThreads']
     param_alpha['numThreads'] = 1
     param_D['numThreads'] = 1
