@@ -53,42 +53,6 @@ def angular_neighbors(vec, n=5):
     return np.argsort(_angle(vec))[:, 1:n+1]
 
 
-def opening_angle(vec, theta=30, is_degree=True):
-    """
-    Finds the indices of all the vectors in vec that form an opening of less
-    than theta degrees, given an array of m vectors as a m x 3 matrix.
-    Of course this number probably won't be constant for each rows of vec.
-
-    Note that collinear vectors and vectors with an opening of exactly theta
-    degrees are excluded, i.e. we only find indices such that
-    0 < angle_between_vectors < theta.
-
-    Input : vec : A m x 3 array, with m being the number of points, one per line.
-                  Each column has x, y and z coordinates for each vector.
-
-            theta : The max angle between two vectors to be considered neighbors.
-
-            is_degree : Specifies if theta is supplied in degrees or in radians.
-                        Default is to assume theta is expressed in degrees.
-
-    Output : A list of 1D arrays. Each element i of the list has the indices of
-    the vectors that form an opening of less than theta degrees with vector i.
-    """
-
-    angles = _angle(vec)
-    out = []
-
-    if is_degree:
-        theta = np.deg2rad(theta)
-
-    for i in range(angles.shape[0]):
-
-        # We remove collinear vectors as well as those farther than theta
-        out += [np.flatnonzero((0 < angles[i]) & (angles[i] < theta))]
-
-    return out
-
-
 def _angle(vec):
     """
     Inner function that finds the angle between all vectors of the input.
@@ -103,7 +67,7 @@ def _angle(vec):
     # null norm vectors by 0 for sorting purposes.
     # Now each vector will have a angle of pi/2 with the null vector.
 
-    vec /= np.sqrt(np.sum(vec**2, axis=1))[:, None]
+    vec = vec / np.sqrt(np.sum(vec**2, axis=1, keepdims=True))
     vec[np.isnan(np.sum(vec, axis=1))] = 0
 
     angle = np.zeros((vec.shape[0], vec.shape[0]))
