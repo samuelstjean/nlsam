@@ -8,23 +8,13 @@ import numpy as np
 
 import os
 import argparse
-# import tempfile
-# import string
-# import random
+
 
 from nlsam.denoiser import denoise, greedy_set_finder
-# from scilpy.denoising.utils import padding, PCA_truncate, ZCA_whitening, im2col_nd, col2im_nd
 from nlsam.angular_tools import angular_neighbors
 from nlsam.smoothing import local_standard_deviation
-# from sklearn.decomposition import SparsePCA, PCA, MiniBatchSparsePCA, MiniBatchDictionaryLearning
-# from sklearn.linear_model import LassoLarsCV
-# from sklearn.grid_search import GridSearchCV
-# from sklearn.cross_validation import KFold, train_test_split
-
-# from dipy.segment.mask import median_otsu, applymask
 
 from dipy.io.gradients import read_bvals_bvecs
-# from dipy.denoise.nlmeans import nlmeans
 
 from time import time
 from copy import copy
@@ -37,33 +27,6 @@ DESCRIPTION = """
     functions. It enables the user to select a whole range of parameters to
     test instead of relying on scripts that call the relevant scripts.
     """
-
-
-# def nlm(img, sig):
-
-#     # print("nlm sig is", sig)
-#     # from dipy.denoise.nlmeans import nlmeans, nlmeans4D
-#     # return np.mean(nlmeans(np.ascontiguousarray(img), sig, rician=False), axis=-1)
-
-#     w = []
-#     wsum = 0
-#     print("nlm sig is", sig)
-#     for idx in range(img.shape[-1]):
-#         for i in range(img.shape[-1]):
-
-#             inner = np.exp((-(img[..., idx] - img[..., i])**2) / (sig**2))
-#             w += [inner]
-#             wsum += inner
-
-#     for idx in range(len(w)):
-#         w[idx] /= wsum
-
-#     out = 0
-#     for i in range(len(w)):
-#         out += w[i] * img[..., i//img.shape[-1]]
-
-#     return out
-
 
 def buildArgsParser():
 
@@ -84,19 +47,11 @@ def buildArgsParser():
     p.add_argument('-sigma', action='store', required=False, type=str,
                    help='Path to standard deviation volume.')
 
-    # p.add_argument('-gs', action='store', required=False, type=str, default=None,
-    #                help='Comparison dataset for crossval.')
-
     p.add_argument('-D', action='store', metavar='D',
                    required=False, default=None, type=str,
                    help='Path to a prelearned dictionnary D in npy format to \
                    use for the sparse coding step. Supplying D will skip the \
                    dictionnary learning part.')
-
-    # p.add_argument('-shuffle', action='store_true', required=False,
-    #                help='If True, the input volume is randomly shuffled \
-    #                before the learning part and unshuffled after the \
-    #                reconstruction.')
 
     p.add_argument('-overlap', action='store', metavar='overlap',
                    required=False, default=None, type=str,
@@ -143,11 +98,6 @@ def buildArgsParser():
                    help='Enforces positivity contraints for alpha in the \
                    lasso algorithm.')
 
-    # # p.add_argument('-group_lasso', action='store', metavar='group_lasso',
-    #                required=False, default=False, type=int,
-    #                help='Use the group lasso algorithm instead of the regular \
-    #                lasso algorithm.')
-
     p.add_argument('-lambda_lasso', action='store', metavar='lambda_lasso',
                    required=False, default=None, type=float,
                    help='Lambda parameter used for the penalisation in the \
@@ -159,10 +109,6 @@ def buildArgsParser():
                    algorithm. A negative value specifies the number of second \
                    used for training instead of the number of iterations')
 
-    # p.add_argument('-std', action='store', dest='std',
-    #                metavar='std', required=False, default=None, type=int,
-    #                help='Standard deviation of the noise.')
-
     p.add_argument('-cores', action='store', dest='cores',
                    metavar='cores', required=False, default=None, type=int,
                    help='Number of cores to use for multithreading')
@@ -171,31 +117,12 @@ def buildArgsParser():
                    metavar='savename', required=True, type=str,
                    help='Path and prefix for the saved denoised file.')
 
-    # p.add_argument('-mask_noise', action='store', dest='mask_noise',
-    #                metavar='', required=False, default=None, type=str,
-    #                help='Path to a binary mask. Data inside the mask will \
-    #                be considered as pure noise. Since the noise estimation \
-    #                relies on background noise data, be careful to not include\
-    #                the skull or other random artifacts in the mask.')
-
-    # p.add_argument('-mask_train', action='store', dest='mask_train',
-    #                metavar='', required=False, default=None, type=str,
-    #                help='Path to a binary mask. Data inside the mask will be \
-    #                used as training samples for the dictionnary learning \
-    #                algorithm.')
-
     p.add_argument('-mask', action='store', dest='mask_data',
                    metavar='', required=False, default=None, type=str,
                    help='Path to a binary mask. Only the data inside the mask \
                    will be reconstructed by the sparse coding algorithm.')
 
-    # p.add_argument('-mask_wm', action='store', dest='mask_wm',
-    #                metavar='', required=False, default=None, type=str,
-    #                help='Path to a binary white matter mask. Only the data \
-    #                inside this mask wil be used for estimating \
-    #                the fiber response function in the CSD fODFs computation.')
-
-    p.add_argument('--no_subsampling', dest='no_subsampling', action='store_true',
+   p.add_argument('--no_subsampling', dest='no_subsampling', action='store_true',
                    default=False, required=False,
                    help='If supplied, process all volumes multiple time, as opposed to ' +
                    'only at least once.')
@@ -238,22 +165,7 @@ def main():
     elif use_clip:
         data[data < 0] = 0
 
-    # if args.gs is not None:
-    #     gold_standard = nib.load(args.gs).get_data()
-    # else:
-    #     gold_standard = np.ones_like(data, dtype=np.int16)
-
-    # if debug:
-    #     data_orig = copy(data)
-    # else:
-    #     data_orig = np.ones_like(data)
-
     original_dtype = data.dtype
-    # data = data.astype(np.float64)
-
-    print(data.shape, original_dtype)
-
-    print("Input values min and max", data.min(), data.max())
 
     block_size = np.array((3, 3, 3, int(args.block_size)))
     param_D = {}
@@ -293,30 +205,15 @@ def main():
     param_D['mode'] = args.mode_D
     param_D['iter'] = args.iter
     param_D['K'] = args.nb_atoms_D
-    # if args.shuffle is True:
-    #    idx = np.random.permutation(len(rand_seeds[0]))
-
     param_D['posD'] = args.pos_D
-
     param_alpha['pos'] = args.pos_alpha
     param_D['posAlpha'] = args.pos_alpha
-
-    # if args.group_lasso is True:
-    #     raise NotImplementedError()
 
     if args.mask_data is not None:
         mask_train = nib.load(args.mask_data).get_data().squeeze().astype(np.bool)
     else:
         mask_train = None
 
-    # if args.savename is None:
-    #     #temp, ext = str.split(os.path.basename(args.input), '.', 1)
-    #     #filename = os.path.dirname(os.path.realpath(args.input)) + '/' + temp
-    #     filename = os.path.dirname(os.path.realpath(args.input)) + '/' + os.path.splitext(args.input)[0]
-
-    #     if filename[-4:] == '.nii':
-    #         filename = filename[:-4]
-    # else:
     filename = args.savename
 
     # Testing neighbors stuff
@@ -332,19 +229,16 @@ def main():
     if num_b0s > 1:
         mean_b0 = np.mean(data[..., b0_loc], axis=-1)
         dwis = tuple(np.where(bvals > b0_thresh)[0])
-        # print(data.shape)
         data = data[..., dwis]
         bvals = np.take(bvals, dwis, axis=0)
         bvecs = np.take(bvecs, dwis, axis=0)
-        # print(data.shape, mean_b0.shape, b0_loc)
+
         rest_of_b0s = b0_loc[1:]
         b0_loc = b0_loc[0]
-        # print(bvals.shape, bvecs.shape, b0_loc, "bval bvec")
+
         data = np.insert(data, b0_loc, mean_b0, axis=-1)
         bvals = np.insert(bvals, b0_loc, [0.], axis=0)
         bvecs = np.insert(bvecs, b0_loc, [0., 0., 0.], axis=0)
-        # print(data.shape, mean_b0.shape, b0_loc)
-        # print(bvals.shape, bvecs.shape, b0_loc, "bval bvec")
         b0_loc = tuple([b0_loc])
         num_b0s = 1
         print("Averaged b0s, new b0_loc is", b0_loc)
@@ -364,274 +258,64 @@ def main():
         mask_data = nib.load(args.mask_data).get_data().squeeze().astype(np.bool)
         mask = nib.load(args.mask_data).get_data().squeeze().astype(np.bool)
     else:
-        #_, mask = median_otsu(data, median_radius=1, vol_idx=b0_loc)
+
         mask = np.ones_like(data[..., 0], dtype=np.bool)
         mask_data = mask
-        # mask_noise = np.zeros_like(mask, dtype=np.bool)
-        # mask_noise[mask == 0] = 1
 
         if debug:
             nib.save(nib.Nifti1Image(data, affine), filename + '_masked.nii.gz')
             nib.save(nib.Nifti1Image(mask.astype('int8'), affine), filename + '_mask.nii.gz')
             # nib.save(nib.Nifti1Image(mask_noise.astype('int8'), affine), filename + '_mask_noise.nii.gz')
 
-    # if args.mask_noise is not None:
-    #     mask_noise = nib.load(args.mask_noise).get_data().astype(np.bool)
-    # else:
-    #     mask_noise = np.zeros(data.shape[:-1], dtype=np.bool)
-
-    ##mask_data = np.ones_like(mask_data)
-
     if args.sigma is not None:
-        # try:
-            sigma = nib.load(args.sigma).get_data()**2
-            print("Found sigma volume! Using", args.sigma, "as the noise standard deviation")
-            #sigma = np.load(args.sigma) #* np.ones(data.shape[-1], dtype=np.float32)
-        # except:
-
-        # #else:
-        #     sigma = np.ones_like(data[..., 0], dtype=np.bool) #np.array([args.sigma], dtype=np.float32)
-        #     print("No volume found for noise estimation!")
+        sigma = nib.load(args.sigma).get_data()**2
+        print("Found sigma volume! Using", args.sigma, "as the noise standard deviation")
     else:
         print("No volume found for noise estimation, using local variance internally for bounding the reconstruction error")
         sigma = local_standard_deviation(data)**2
         nib.save(nib.Nifti1Image(sigma,np.eye(4)), filename + "_variance.nii.gz")
-        # 1/0
-        #sigma = np.ones_like(data[..., 0], dtype=np.bool) #np.array([args.sigma], dtype=np.float32)
 
     # Always abs b0s, as it makes absolutely no sense physically not to
     print(np.sum(data[..., b0_loc] < 0), "b0s voxel < 0")
-    # data[..., b0_loc] = np.abs(data[..., b0_loc])
-    # print(np.sum(data[..., b0_loc] < 0), "b0s voxel < 0")
     nib.save(nib.Nifti1Image((data[..., b0_loc] < 0).astype(np.int16), np.eye(4)),'implausible_voxels.nii.gz')
     # Implausible signal hack
     print("Number of implausible signal", np.sum(data[..., b0_loc] < data))
-    # broken_idx = np.sum(data[..., b0_loc] < data, axis=-1) > data.shape[-1]//5
-    # print(data[broken_idx, b0_loc].shape, np.max(data, axis=-1, keepdims=True).shape)
-    # data[broken_idx, b0_loc] = np.max(data, axis=-1)[broken_idx]
     if implausible_signal_hack:
         data[..., b0_loc] = np.max(data, axis=-1, keepdims=True)
     print("Number of implausible signal after hack", np.sum(data[..., b0_loc] < data))
 
     nib.save(nib.Nifti1Image(data[..., b0_loc], np.eye(4)),'max_b0s_voxels.nii.gz')
-    # else:
-    #     sigma = 1.
-    # if sigma.shape != data_std_vol.shape:
-    #     print("Assuming one sigma for all volumes")
-    #     for i in range(data.shape[-1]):
-    #         data_std_vol[i] = 1.#sigma / sigma
-        #data_mean_vol[i] = 0
-        #data_std_vol[i] = 89.6808422293
 
-
-    # print("Using MASK_DATA")
-   ### mask_data = np.ones_like(mask_data)
-    crop = False
-    if crop:
-        print("cropping data and mask")
-        ca = 20#80#23
-        cb = 170#150#86#27#data.shape[1]
-        # [90:, 88:96, 40:] [90:140, 90:160, 38:46]
-        # isbi : [:,22:28, :]
-        #mask_data=np.ones_like(data[...,0],dtype=np.bool)
-        data = data[:,ca:cb,...]#[40:129,40:129,...]#[90:150, :165, ...] #88:96, 40:]
-        data_orig = data_orig[:,ca:cb,...]#[40:129,40:129,...]#[90:150, :165, ...]#88:96, 40:]
-        # mask_noise = mask_noise[:,ca:cb,...]#[40:129,40:129,...]#[90:150, :165, ...]#88:96, 40:]
-        mask_data = mask_data[:,ca:cb,...]#[40:129,40:129,...]#[90:150, :165, ...]#88:96, 40:]
-        # gold_standard = gold_standard[:,ca:cb,...]#[40:129,40:129,...]#[90:150, :165, ...]#88:96, 40:]
-        sigma = sigma[:,ca:cb,...]
-        #if debug:
-        #    data_orig = data_orig[90:150, :165, ...]#88:96, 40:]
-        nib.save(nib.Nifti1Image(mask_data.astype(np.int16), np.eye(4)), 'mask_crop.nii.gz')
-        # nib.save(nib.Nifti1Image(gold_standard, np.eye(4)), 'dwis_crop.nii.gz')
-        nib.save(nib.Nifti1Image(data, np.eye(4)), 'data.nii.gz')
-        #nib.save(nib.Nifti1Image(data.astype(np.int16), np.eye(4)), 'gs_cor.nii.gz')
-        #1/0
-    print("Now normalizing each volume separately")
-    data_mean_vol = 0.#np.zeros(data.shape[-1], dtype=np.bool)
-    data_std_vol = 1.#np.ones(data.shape[-1], dtype=np.bool)
-
-    #print(data.shape, mask_data.shape, mask_noise.shape)
-    # for i in range(data.shape[-1]):
-    #     data_mean_vol[i] = np.mean(data[..., i][mask_data])*0
-        #data_std_vol[i] = np.std(data[..., i][mask_noise])
-        #if data_std_vol[i] == 0:
-        #    data_std_vol[i] = 1
-
-    # if os.path.isfile(args.sigma):
-    #     sigma = np.load(args.sigma) #* np.ones(data.shape[-1], dtype=np.float32)
-    #     print("Found sigma npy file! Using", sigma, "as the noise standard deviation")
-    # else:
-    #     sigma = np.ones_like(data[...,0])#, dtype=np.float32) * args.sigma
-
-    # if sigma.shape != data_std_vol.shape:
-    #     print("Assuming one sigma for all volumes")
-        # for i in range(data.shape[-1]):
-        #     data_std_vol[i] = 1.#sigma / sigma
-        #data_mean_vol[i] = 0
-        #data_std_vol[i] = 89.6808422293
-
-    # print(data_std_vol, data_mean_vol)
-    # print("nlm b0")
-    # data[..., 0] = nlmeans(np.ascontiguousarray(data[..., 0]), sigma, rician=False)
-    #data_std_vol[0] =  np.std(data[..., 0][mask_noise])
-    #print(data_std_vol, data_mean_vol)
-    #data_mean_vol[0] = 711.84510908011839
-  #  for i in range(data.shape[-1]):
-   #     print(np.mean(data[..., i][mask_data]), np.std(data[..., i][mask_noise]))
-
-   # print(np.shape(np.repeat(mask_data[..., None], data.shape[-1], axis=-1)))
-    #data_mean_vol = np.mean(data * np.repeat(mask_data[..., None], data.shape[-1], axis=-1), axis=0)
-    #data_std_vol = np.std(data[np.repeat(mask_noise[..., None], data.shape[-1], axis=-1)], axis=0)
- #   data_mean_vol = np.mean(data.reshape(-1, data.shape[-1])[mask_data.ravel()], axis=0)
-  #  data_std_vol = np.std(data.reshape(-1, data.shape[-1])[mask_noise.ravel()], axis=0)
-
-   # print(data.reshape(-1, data.shape[-1]).shape, mask_data.ravel().shape)
-     #, data.reshape(-1, data.shape[-1]).shape, mask_noise.ravel().shape)
-
-  #  1/0
-   # data_std_vol = np.ones_like(data_std_vol) * data[mask_data != 0] # 515.
-
-    # Test b0 pre-denoise
-    # print("pre-denoising the b0s with nlm...")
-    # data[..., b0_loc] = nlm(data[..., b0_loc], data_std_vol[b0_loc])[..., None]
-    # nib.save(nib.Nifti1Image(data[..., b0_loc].astype(np.float32), affine), filename + '_b0nlm.nii.gz')
-
-  #  data_mean_vol = np.zeros_like(data_mean_vol)
-  #  data_std_vol = np.ones_like(data_std_vol)
-
-    #print(data.dtype, data.min(), data.max())
-
-    ##data = np.nan_to_num(data)  # B0 is constant in isbi, so std is 0
-    #print(data.dtype, data.min(), data.max())
-    #print(data.dtype, data_std_vol.shape, data_std_vol.dtype, data_mean_vol.shape, data_mean_vol.dtype)
-    #####data = applymask(data, mask_data)
-    #print(data.dtype, data.min(-1), data.max(-1))
-
-    #print("Test 3x3x3 block size")
     orig_shape = data.shape
     new_block_size = 3
 
     print("Choosing new full block size, now", new_block_size, "was", block_size)
     block_size = [new_block_size, new_block_size, new_block_size, block_size[-1]]
 
-
-  #  block_size = [3, 3, 3, block_size[-1]]
-   # block_size = [2, 2, 2, block_size[-1]]
-    # overlap = np.array(block_size, dtype=np.int8) - 1  # [0,0,0,0]  #
-    # overlap *= 0
-   # overlap = np.ones_like(overlap, dtype=np.int8)
-   # print("overlap is DISABLED", overlap)
     print("overlap is", overlap)
     mask = mask_data
-    # data = padding(data, block_size, overlap)
-    # mask = padding(mask_data, block_size[:3], overlap[:3]).astype(np.bool)
-    # mask_noise = padding(mask_noise, block_size[:3], overlap[:3]).astype(np.bool)
 
-    ##data = np.delete(data, b0_loc, axis=-1)
-
-    # Random string generator for temp files
-   # length = 10
-    #tempname = '/' + "".join([random.choice(string.letters+string.digits) for x in range(1, length)])
-    #tempdir = tempfile.gettempdir() + tempname + "_"
-
-    # PCA truncation for original, full length dataset
-
-    ##data = np.insert(data, b0_loc, b0, axis=-1)
     full_block = np.append(block_size[:-1], data.shape[-1])
-    # Trop long sur 64 directions
-    #full_block = np.append(block_size[:-1], 5)
-    #full_block = (3,3,3,5)
-    # print("Now ZCA whitening each volume separately")
-    # data_block = im2col_nd(data, np.append(data.shape[:3], 1), np.zeros(4, dtype='uint16')).T
-    # data_whitened, ZCA, ZCA_inverse, data_mean = ZCA_whitening(data_block)
-
-    # data_whitened = col2im_nd(data_whitened, full_block, orig_shape, overlap)
-    # data_whitened = data_whitened[:orig_shape[0], :orig_shape[1],
-    #                               :orig_shape[2], :orig_shape[3]]
-
-    # nib.save(nib.Nifti1Image(data_whitened, affine), filename + '_ZCA.nii.gz')
-
-    # data = data_whitened
-
-    print(data.shape)
     padded_shape = data.shape
-    #print(data.shape, full_block, overlap, 'fail here')
-    #data = im2col_nd(data, full_block, overlap).T
-    print("block et transpose", data.shape)
-
-    # SPCA_idx = np.nonzero(np.sum(data, axis=0))[0]
-    # data_mean = np.mean(data, axis=0, keepdims=True)
-    data_norm2 = 1.#np.sqrt(np.sum(data**2, axis=0, keepdims=True))
-    #data_norm2 = np.ones_like(data_norm2)
-    ####
-    data_mean = 0.
-    #data_norm2 = np.ones_like(data_norm2)
-    ###
-
 
     new_block_size = 3
-    #filename += "_ml_3x3_"
 
     print("Choosing new  block size, now", new_block_size, "was", block_size)
     block_size = [new_block_size, new_block_size, new_block_size, block_size[-1]]
 
- #   block_size = [2, 2, 2, block_size[-1]]
     overlap = np.array(block_size, dtype=np.int16) - 1
-    # overlap*=0
-  #  overlap = np.ones_like(overlap)
-    # overlap *= 0
-    # print("overlap is DISABLED")
-   # overlap = np.ones_like(overlap, dtype=np.int8)
-    print("overlap is", overlap)
 
     param_alpha['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
     param_D['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
     print("new alpha", param_alpha['lambda1'], param_D['lambda1'])
 
-    # print("Augmenting padding")
-    # data = padding(data, block_size, overlap)
-    # mask = padding(mask, block_size[:3], overlap[:3])
-
-    #data = padding(nib.load('../dwis.nii.gz').get_data()[:,24:27,...], block_size, overlap)
-
     b0 = data[..., b0_loc]
     data = np.delete(data, b0_loc, axis=-1)
-    #del inv, SPCA, SPCA_data#, data_SPCA
-
-    # neighbors_shape = data.shape[:-1] + ((data.shape[-1]) * block_size[-1],)
-    ####data_neighbors = np.memmap(tempdir + "data_neighbors", dtype=np.float64,
-    ####                           mode='w+', shape=neighbors_shape)
-    # print(neighbors_shape)
     neighbors_shape = data.shape[:-1] + (data.shape[-1] * (block_size[-1] + num_b0s),)
-    print(neighbors_shape, data.shape[-1], block_size[-1])
-    # 1/0
-    # data_neighbors = np.zeros(neighbors_shape, dtype=original_dtype)
-
-    #print(data.shape, data_neighbors.shape, neighbors.shape, block_size)
-
-    # print(data.shape)
-    # print(np.delete(np.arange(data.shape[-1]), b0_loc))
-    # print(range(len(neighbors)))
-    # Parse all indices, minus where the b0s are located since
-    # they are removed from possible neigbors
-
-    # neighbors_idx =   # list(range(data.shape[-1]))
-
-    # for i in b0_loc:
-    #     del(neighbors_idx[i])
     indexes = []
     for i in range(len(neighbors)):
-        # b = i + (block_size[-1]-1+num_b0s) * i
-        # b1 = b + num_b0s
-
-        # data_neighbors[..., b:b1] = b0
-        # data_neighbors[..., b1:b1+block_size[-1]] = \
-        #     data[..., (i,) + tuple(neighbors[i])]
-
-        # print((i,) + tuple(neighbors[i]))
         indexes += [(i,) + tuple(neighbors[i])]
-    # 1/0
+
     if greedy_subsampler:
         print("Greedy subsampler hack is on", len(indexes))
         indexes = greedy_set_finder(indexes)
@@ -640,27 +324,6 @@ def main():
     if debug:
         nib.save(nib.Nifti1Image(data_neighbors, affine),
                  filename + '_neighbors.nii.gz')
-
-    # nib.save(nib.Nifti1Image(data_neighbors, affine),
-    #              filename + '_neighbors.nii.gz')
-
-    # data_neighbors[:,:,:,:]=0#=np.zeros_like(data_neighbors)
-    # data = np.insert(data, b0_loc, b0, axis=-1)
-    # step = len(indexes[0])
-    # for i, idx in enumerate(indexes):
-    #     data_neighbors[..., i*step:(i+1)*step] = data[..., idx]
-    # nib.save(nib.Nifti1Image(data_neighbors, affine),
-    #              filename + '_neighbors2.nii.gz')
-    # # print(np.sum(np.abs(data_neighbors-data_neighbors)))
-    # #print (neighbors, bvecs[neighbors], data_neighbors.shape)
-    # 1/0
-    #
-    # denoised_shape = data.shape[:-1] + (data_neighbors.shape[-1],)
-    # data_denoised = np.zeros(denoised_shape, dtype=np.int16)
-    ####data_denoised = np.memmap(tempdir + "data_denoised", dtype=np.float64,
-    ####                          mode='w+', shape=denoised_shape)
-
-    # print(data_denoised.shape, data.shape, data_neighbors.shape)
 
     b0_block_size = tuple(block_size[:-1]) + ((block_size[-1] + num_b0s,))
     print(b0_block_size, block_size[:-1], tuple((block_size[-1] + num_b0s,)), block_size[-1], num_b0s)
@@ -674,65 +337,29 @@ def main():
     print("param run", K, nbiter, alpha_ml)
     param_alpha['lambda1'] = alpha_ml
     param_D['lambda1'] = alpha_ml
-    # denoised_shape = np.insert(np.empty_like(data), b0_loc, np.empty_like(b0), axis=-1).shape[:-1] + (data_neighbors.shape[-1],)
     denoised_shape = data.shape[:-1] + (neighbors_shape[-1],)
-    # print(denoised_shape)
-    # print(np.insert(np.empty_like(data), b0_loc, np.empty_like(b0), axis=-1).shape[:-1] + (data_neighbors.shape[-1],))
-    # 1/0
     denoised_shape = data.shape[:-1] + (data.shape[-1] + num_b0s,)
     data_denoised = np.zeros(denoised_shape, np.float64)
     print(data_denoised.shape)
-    # 1/0
-    # ##del data
-    # data = np.insert(data, b0_loc, b0, axis=-1)
-    # for i in range(0, data_neighbors.shape[-1], b0_block_size[-1]):
     step = len(indexes[0]) + num_b0s
     for i, idx in enumerate(indexes):
-        # print(i, data_neighbors.shape[-1], b0_block_size)
         print(i, idx)
-        #print(data_denoised[..., i:i + block_size[-1] + num_b0s].shape,
-        #      data_neighbors[..., i:i + block_size[-1] + num_b0s].shape)
-      #  noise_std = np.std(data_neighbors[..., i:i + b0_block_size[-1]][mask_noise])
-        #noise_std = [1] * b0_block_size[-1]
 
-     #   print("Cheap noise trick test stuff...")
-    #    print(neighbors[i], (0,) + tuple(neighbors[i]), data_std_vol.shape)
-  #      noise_std = np.mean(data_std_vol[[0] + neighbors[i]])
-    #    i % b0_block_size[-1]
-     #   neighbors[i % b0_block_size[-1]]
-      #  data_std_vol[neighbors[i % b0_block_size[-1]]]
-        # noise_std = np.hstack((data_std_vol[b0_loc],
-        #                        data_std_vol[i % b0_block_size[-1] + num_b0s],
-        #                        data_std_vol[neighbors[i % b0_block_size[-1]]]))
-
-      #  print("noise std is", noise_std)
-        #param_D['iter'] = args.iter
-        # noise_std = sigma #sigma[i//b0_block_size[-1]] #
-        # data_denoised[..., i:i + b0_block_size[-1]] = \
         print(i, i*step, (i + 1)*step)
-        # print(data[..., idx].shape, b0.shape)
-        # print(np.insert(data[..., idx], (0,), b0, axis=-1).shape)
-        # print(b0_loc + idx)
         dwi_idx = tuple(np.where(idx <= b0_loc, idx, np.array(idx) + num_b0s))
         print(dwi_idx)
-        # data_denoised[..., i*step:(i + 1)*step] = \
+
         data_denoised[..., b0_loc + dwi_idx] += \
             denoise(np.insert(data[..., idx], (0,), b0, axis=-1),
                     b0_block_size, overlap, param_alpha, param_D,
                     sigma, n_iter, 512, mask, mask,
                     mask, args.no_whitening, filename,
                     dtype=np.float64, debug=debug)
-        # break
-        # 1/0
-        # if 'D' in param_alpha:
-        #     del param_alpha['D']  # Test no warm restart
 
     divider = np.bincount(np.array(indexes, dtype=np.int16).ravel())
-    # print(divider, len(divider))
     divider = np.insert(divider, b0_loc, len(indexes))
-    # print(divider, len(divider))
     print(b0_loc, len(indexes), divider.shape)
-    # divider = np.ones_like(data_denoised) * divider
+
     data_denoised = data_denoised[:orig_shape[0],
                                   :orig_shape[1],
                                   :orig_shape[2],
@@ -740,22 +367,14 @@ def main():
 
     # Put back the original number of b0s
     if rest_of_b0s is not None:
-        # data_denoised = np.empty(data_denoised.shape[:-1] + (len(rest_of_b0s) + 1,), dtype=original_dtype)
-        # data_denoised[..., rest_of_b0s] = data_denoised[..., b0_loc]
-        print(data_denoised.shape)
         # Number of b0s at the end
         number_of_end_b0s = np.sum(np.array(rest_of_b0s) > data_denoised.shape[-1])
-        # print(data_denoised.shape, ((data_denoised[..., b0_loc]) * number_of_end_b0s).shape, data_denoised[..., b0_loc].shape)
+
         data_denoised = np.concatenate((data_denoised, np.repeat(data_denoised[..., b0_loc], number_of_end_b0s, axis=-1)), axis=-1)
-        print(data_denoised.shape, number_of_end_b0s, np.repeat(data_denoised[..., b0_loc], number_of_end_b0s, axis=-1).shape)
         # Stack the rest in-between
-        print(rest_of_b0s, number_of_end_b0s, data_denoised.shape[-1])
-        # print(np.array(rest_of_b0s) > data_denoised.shape[-1])
         rest_of_b0s = rest_of_b0s[:-number_of_end_b0s]
-        # print(data_denoised.shape, data_denoised[..., b0_loc].shape)
         b0_denoised = np.squeeze(data_denoised[..., b0_loc])
-        # data_denoised = np.insert(data_denoised, rest_of_b0s, b0_denoised, axis=-1)
-        # counter = 0
+
         for idx in rest_of_b0s:
             data_denoised = np.insert(data_denoised, idx, b0_denoised, axis=-1)
 
