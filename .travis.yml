@@ -55,7 +55,7 @@ before_install:
     #- conda install --yes python=$TRAVIS_PYTHON_VERSION numpy scipy
 install:
     - conda update --yes conda
-    - conda install -- yes libgfortran
+    - conda install --yes libgfortran
     #- conda config --add channels soft-matter
     - conda create -n testenv --yes $DEPENDS_CONDA pip nose setuptools python=$TRAVIS_PYTHON_VERSION
     - source activate testenv
