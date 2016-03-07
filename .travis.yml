@@ -14,13 +14,13 @@ addons:
     packages:
       - libblas-dev
       - liblapack-dev
-      - libatlas3gf-base
+     # - libatlas3gf-base
       - libgsl0-dev
       - libgsl0ldbl
 env:
     global:
         - DEPENDS_CONDA="cython numpy scipy" "
-        - DEPENDS_PIP="nibabel cythongsl"
+        - DEPENDS_PIP="nibabel cythongsl dipy"
 
 python:
     #- 3.3
@@ -34,8 +34,6 @@ matrix:
         - COVERAGE=1
         - DEPENDS_CONDA="cython==0.18 numpy==1.7.1 scipy==0.12"
     - python: 2.7
-      env:
-        - DEPENDS_CONDA="cython numpy scipy"
 
 notifications:
     email: false
@@ -55,14 +53,13 @@ before_install:
     #- conda install --yes python=$TRAVIS_PYTHON_VERSION numpy scipy
 install:
     - conda update --yes conda
-    - conda install --yes libgfortran
     #- conda config --add channels soft-matter
-    - conda create -n testenv --yes $DEPENDS_CONDA pip nose setuptools python=$TRAVIS_PYTHON_VERSION
+    - conda create -n testenv --yes $DEPENDS_CONDA pip nose setuptools libgfortran python=$TRAVIS_PYTHON_VERSION
     - source activate testenv
     - if [ "${COVERAGE}" == "1" ]; then
-      pip install coverage coveralls $DEPENDS_PIP;
+      pip install coverage coveralls;
       fi
-    - pip install dipy
+    - pip install $DEPENDS_PIP
     - python setup.py install
 
 # command to run tests, e.g. python setup.py test
