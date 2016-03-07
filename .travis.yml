@@ -5,24 +5,24 @@
 # ";"s
 
 language: python
-# travis can't use sudo with educational accounts because of a docker issue
-# http://blog.travis-ci.com/2014-12-17-faster-builds-with-container-based-infrastructure/
 sudo: false
-
+cache:
+  directories:
+    - $HOME/.cache/pip
 addons:
   apt:
     packages:
       - libblas-dev
       - liblapack-dev
-     # - libatlas3gf-base
       - libgsl0-dev
       - libgsl0ldbl
       - gfortran
 env:
     global:
-        - DEPENDS_CONDA="cython numpy scipy" "
-        - DEPENDS_PIP="nibabel cythongsl dipy"
-
+        - DEPENDS="cython numpy scipy nibabel"
+        - DEPENDS_PIP="cythongsl dipy"
+        - WHEELHOST="travis-wheels.scikit-image.org"
+        - WHEELHOUSE="http://${WHEELHOST}/"
 python:
     #- 3.3
     #- 3.4
@@ -33,7 +33,7 @@ matrix:
     - python: 2.7
       env:
         - COVERAGE=1
-        - DEPENDS_CONDA="cython==0.18 numpy==1.7.1 scipy==0.12"
+        - DEPENDS="cython==0.18 numpy==1.7.1 scipy==0.12"
     - python: 2.7
 
 notifications:
@@ -41,25 +41,29 @@ notifications:
 
 before_install:
     #- if [ ${TRAVIS_PYTHON_VERSION:0:1} == "2" ]; then wget http://repo.continuum.io/miniconda/Miniconda-3.5.5-Linux-x86_64.sh -O miniconda.sh; else wget http://repo.continuum.io/miniconda/Miniconda3-3.5.5-Linux-x86_64.sh -O miniconda.sh; fi
-    - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
-    - chmod +x miniconda.sh
-    - ./miniconda.sh -b -p /home/travis/mc
-    - export PATH=/home/travis/mc/bin:$PATH
+ #   - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
+  #  - chmod +x miniconda.sh
+  #  - ./miniconda.sh -b -p /home/travis/mc
+  #  - export PATH=/home/travis/mc/bin:$PATH
  #   - conda update --yes conda
   #  - virtualenv --python=python venv
    # - source venv/bin/activate
     - python --version # just to check
+    - virtualenv $VENV_ARGS venv
+    - source venv/bin/activate
     #- pip install $DEPENDS
 
     #- conda install --yes python=$TRAVIS_PYTHON_VERSION numpy scipy
 install:
-    - conda update --yes conda
+ #   - conda update --yes conda
     #- conda config --add channels soft-matter
-    - conda create -n testenv --yes $DEPENDS_CONDA pip nose setuptools libgfortran python=$TRAVIS_PYTHON_VERSION
-    - source activate testenv
+  #  - conda create -n testenv --yes $DEPENDS_CONDA pip nose setuptools libgfortran python=$TRAVIS_PYTHON_VERSION
+  #  - source activate testenv
     - if [ "${COVERAGE}" == "1" ]; then
       pip install coverage coveralls;
       fi
+      
+    - pip install --timeout=60 --no-index --trusted-host $WHEELHOST --find-links $WHEELHOUSE $DEPENDS
     - pip install $DEPENDS_PIP
     - python setup.py install
 
