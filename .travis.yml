@@ -27,9 +27,6 @@ python:
 
 matrix:
   include:
-    - python: 2.7
-      env:
-        - COVERAGE=1
     # To test minimum dependencies
     - python: 2.7
       env:
@@ -46,7 +43,7 @@ before_install:
     - virtualenv --python=python venv
     - source venv/bin/activate
     - python --version # just to check
-
+    - pip install $DEPENDS
     - if [ "${COVERAGE}" == "1" ]; then
       pip install coverage coveralls;
       fi
