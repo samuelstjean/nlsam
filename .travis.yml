@@ -55,7 +55,7 @@ before_install:
 install:
     - conda update --yes conda
     #- conda config --add channels soft-matter
-    - conda create -n testenv --yes DEPENDS pip nose setuptools python=$TRAVIS_PYTHON_VERSION
+    - conda create -n testenv --yes $DEPENDS pip nose setuptools python=$TRAVIS_PYTHON_VERSION
     - source activate testenv
     - if [ "${COVERAGE}" == "1" ]; then
       pip install coverage coveralls;
