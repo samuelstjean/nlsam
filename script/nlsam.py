@@ -122,7 +122,7 @@ def buildArgsParser():
                    help='Path to a binary mask. Only the data inside the mask \
                    will be reconstructed by the sparse coding algorithm.')
 
-   p.add_argument('--no_subsampling', dest='no_subsampling', action='store_true',
+    p.add_argument('--no_subsampling', dest='no_subsampling', action='store_true',
                    default=False, required=False,
                    help='If supplied, process all volumes multiple time, as opposed to ' +
                    'only at least once.')
