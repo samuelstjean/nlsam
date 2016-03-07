@@ -32,7 +32,7 @@ matrix:
     - python: 2.7
       env:
         - COVERAGE=1
-        - DEPENDS_CONDA="cython==0.18 numpy==1.7.0 scipy==0.12"
+        - DEPENDS_CONDA="cython==0.18 numpy==1.7.1 scipy==0.12"
     - python: 2.7
       env:
         - DEPENDS_CONDA="cython numpy scipy"
