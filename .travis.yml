@@ -62,6 +62,7 @@ install:
     - if [ "${COVERAGE}" == "1" ]; then
       pip install coverage coveralls $DEPENDS_PIP;
       fi
+    - pip install dipy
     - python setup.py install
 
 # command to run tests, e.g. python setup.py test
