@@ -9,6 +9,14 @@ language: python
 # http://blog.travis-ci.com/2014-12-17-faster-builds-with-container-based-infrastructure/
 sudo: false
 
+addons:
+  apt:
+    packages:
+      - libblas-dev
+      - liblapack-dev
+      - libatlas3gf-base
+      - libgsl0-dev
+      - libgsl0ldbl
 env:
     global:
         - DEPENDS="cython numpy scipy nibabel cythongsl"
@@ -35,14 +43,10 @@ notifications:
     email: false
 
 before_install:
-   # - source tools/travis_tools.sh
     - virtualenv --python=python venv
     - source venv/bin/activate
     - python --version # just to check
-   # - retry pip install nose # always
-    - sudo apt-get update -qq
-    - sudo apt-get install -y libblas-dev liblapack-dev libatlas3gf-base libgsl0-dev
-  #  - wheelhouse_pip_install $DEPENDS
+
     - if [ "${COVERAGE}" == "1" ]; then
       pip install coverage coveralls;
       fi
