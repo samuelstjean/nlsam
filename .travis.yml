@@ -17,6 +17,7 @@ addons:
       - libatlas3gf-base
       - libgsl0-dev
       - libgsl0ldbl
+      - gfortran
 env:
     global:
         - DEPENDS_CONDA="cython numpy scipy" "
