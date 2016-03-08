@@ -1,27 +1,27 @@
 from __future__ import division, print_function
 
 import numpy as np
-try:
-    from nlsam.spams import spams
-except ImportError:
-    try:
-        from spams import spams
-    except ImportError:
-        try:
-            import spams
-        except ImportError:
-            try:
-                from spams_python import spams
-            except ImportError:
-                raise ValueError("Couldn't find spams library")
-
+import warnings
 from time import time
-from itertools import repeat
+
+from itertools import repeat, izip
 from multiprocessing import Pool, cpu_count
 
 from nlsam.utils import sparse_dot, im2col_nd, col2im_nd, padding
+from scipy.sparse import lil_matrix
 
-import scipy.sparse as ssp
+warnings.simplefilter("ignore", category=FutureWarning)
+
+try:
+    from spams import spams
+except ImportError:
+    try:
+        import spams
+    except ImportError:
+        try:
+            from spams_python import spams
+        except ImportError:
+            raise ValueError("Couldn't find spams library")
 
 
 def universal_worker(input_pair):
@@ -43,7 +43,6 @@ def greedy_set_finder(sets):
 
     for s in sets:
         universe = universe.union(s)
-        sets
 
     output = []
 
@@ -65,130 +64,161 @@ def greedy_set_finder(sets):
     return output
 
 
-# def processer(data, mask, variance, block_size, overlap, param_alpha, param_D, downscaling, beta=0.5, gamma=1., dtype=np.float64, eps=1e-10, n_iter=10):
+def apply_weights(alpha, W):
+    cx = alpha.tocoo()
+    for i, j in izip(cx.row, cx.col):
+        cx[i, j] /= W[i, j]
+
+    return cx
+
+
+def compute_weights(alpha, alpha_old, W, tau, eps):
+    cx = alpha.tocoo()
+    cy = alpha_old.tocoo()
+
+    # Reset W values to eps
+    idx = cy.nonzero()
+    W[idx] = 1./eps
+    # for i, j in izip(cy.row, cy.col):
+    #     W[i, j] = 1./eps
+
+    # Assign new weights
+    idx = cx.nonzero()
+    W[idx] = 1. / ((cx.data**tau) + eps)
+    # for i, j, v in izip(cx.row, cx.col):
+    #     W[i, j] =
+
+    return W
+
+
+def check_conv(alpha, alpha_old, eps=1e-5):
+    x = alpha.tocoo()
+    y = alpha_old.tocoo()
+    # has_converged = np.zeros(alpha.shape[1], dtype=np.bool)
+
+    return np.abs(x - y).max(axis=0) < eps
+
+    # diff = (x - y).max(axis=0)
+    # diff.data = np.abs(diff.data)
+    # return diff < eps
+    # for i, d in izip(diff.row, diff.data):
+    #     has_converged[i] = d < eps
+
+    # return has_converged
+
+# def processer(data, mask, variance, block_size, overlap, param_alpha, param_D, dtype=np.float64, n_iter=10):
 def processer(arglist):
 
-    data, mask, variance, block_size, overlap, param_alpha, param_D, downscaling, beta, gamma, dtype, eps, n_iter = arglist
+    data, mask, variance, block_size, overlap, param_alpha, param_D, dtype, n_iter = arglist
 
     orig_shape = data.shape
-    var_array = variance[mask]
     mask = np.repeat(mask[..., None], orig_shape[-1], axis=-1)
-    mask_array = im2col_nd(mask, block_size, overlap).T
+    mask_array = im2col_nd(mask, block_size, overlap)
     train_idx = np.sum(mask_array, axis=0) > mask_array.shape[0]/2
-
-    X = im2col_nd(data, block_size, overlap).T
 
     # If mask is empty, return a bunch of zeros as blocks
     if not np.any(train_idx):
         return np.zeros_like(data)
 
+    X = im2col_nd(data, block_size, overlap)
+    var_mat = np.median(im2col_nd(variance[..., 0:orig_shape[-1]], block_size, overlap)[:, train_idx], axis=0).astype(dtype)
+
     X_full_shape = X.shape
-    X = np.asfortranarray(X[:, train_idx], dtype=dtype)
-    W = np.ones((param_alpha['D'].shape[1], X.shape[1]), dtype=dtype, order='F')
-    eps = np.finfo(dtype).eps
+    X = X[:, train_idx]
+
     param_alpha['mode'] = 1
-    param_alpha['lambda1'] = np.asscalar(np.percentile(var_array, 95))
     param_alpha['L'] = int(0.5 * X.shape[0])
 
-    X_old = np.ones_like(X)
-    not_converged = np.ones(X.shape[1], dtype=np.bool)
-    alpha_converged = np.zeros((param_alpha['D'].shape[1], X.shape[1]), dtype=dtype)
+    D = param_alpha['D']
 
-    for i in range(n_iter):
+    alpha = lil_matrix((D.shape[1], X.shape[1]))
+    W = np.ones(alpha.shape, dtype=dtype, order='F')
 
-        if np.all(not_converged == 0):
-            print("broke the loop", i, np.abs(X - X_old).max(), np.abs(X_old - X).min(), np.max(X), np.min(X), np.max(X) * 0.02)
+    DtD = np.dot(D.T, D)
+    DtX = np.dot(D.T, X)
+    DtXW = np.empty_like(DtX, order='F')
+
+    alpha_old = np.ones(alpha.shape, dtype=dtype)
+    has_converged = np.zeros(alpha.shape[1], dtype=np.bool)
+
+    xi = np.random.randn(X.shape[0], X.shape[1]) * var_mat
+    eps = np.max(np.abs(np.dot(D.T, xi)), axis=0)
+    param_alpha['mode'] = 1
+    param_alpha['pos'] = True
+    gamma = 3
+    tau = 1
+
+    for _ in range(n_iter):
+        not_converged = has_converged == False
+        DtXW[:, not_converged] = DtX[:, not_converged] / W[:, not_converged]
+
+        for i in range(alpha.shape[1]):
+            if not has_converged[i]:
+
+                param_alpha['lambda1'] = var_mat[i] * (X.shape[0] + gamma * np.sqrt(2 * X.shape[0]))
+                DtDW = (1 / W[..., None, i]) * DtD * (1 / W[:, i])
+                alpha[:, i:i+1] = spams.lasso(X[:, i:i+1], Q=np.asfortranarray(DtDW), q=DtXW[:, i:i+1], **param_alpha)
+
+        arr = alpha.toarray()
+        nonzero_ind = arr != 0
+        arr[nonzero_ind] /= W[nonzero_ind]
+        has_converged = np.max(np.abs(alpha_old - arr), axis=0) < 1e-5
+
+        if np.all(has_converged):
+            print(_, "break")
             break
 
-        param_alpha['W'] = W
-        alpha = spams.lassoWeighted(np.asfortranarray(X[:, not_converged]), **param_alpha)
-        X[:, not_converged] = sparse_dot(param_alpha['D'], alpha)
+        alpha_old = arr
 
-        # Convergence if max(X-X_old) < 2 % max(X)
-        X_conv = np.max(np.abs(X[:, not_converged] - X_old[:, not_converged]), axis=0) > (np.max(X[:, not_converged], axis=0) * 0.02)
+        W[:] = 1. / (np.abs(alpha_old**tau) + eps)
 
-        x, y, idx = ssp.find(alpha)
-        alpha_converged[:, not_converged][x, y] = idx
-        not_converged[not_converged] = np.logical_or(X_conv, np.any(X[:, not_converged] < 0, axis=0))
-
-        W = np.array(np.maximum(np.repeat(np.sum(np.abs(X[:, not_converged] - X_old[:, not_converged]), axis=0, keepdims=True), param_alpha['D'].shape[1], axis=0), eps), dtype=dtype, order='F', copy=False)
-        X_old[:, not_converged] = X[:, not_converged]
-
-    alpha = alpha_converged
+    alpha = arr
+    X[:] = sparse_dot(D, alpha)
 
     weigths = np.ones(X_full_shape[1], dtype=dtype, order='F')
-    weigths[train_idx] = 1. / np.array((alpha != 0).sum(axis=0) + 1., dtype=dtype).squeeze()
+    weigths[train_idx] = 1. / (np.sum(alpha != 0, axis=0) + 1.)
+
     X2 = np.zeros(X_full_shape, dtype=dtype, order='F')
     X2[:, train_idx] = X
 
     return col2im_nd(X2, block_size, orig_shape, overlap, weigths)
 
 
-def denoise(data, block_size, overlap, param_alpha, param_D, variance, n_iter=10, noise_std=None,
-            batchsize=512, mask_data=None, mask_train=None, mask_noise=None,
-            whitening=True, savename=None, dtype=np.float64, debug=False):
+def denoise(data, block_size, overlap, param_alpha, param_D, variance, n_iter=10,
+            mask=None, savename=None, dtype=np.float64, debug=False):
 
     # no overlapping blocks for training
     no_over = (0, 0, 0, 0)
-    X = im2col_nd(data, block_size, no_over).T
+    X = im2col_nd(data, block_size, no_over)
 
     # Solving for D
+    param_alpha['pos'] = True
+    param_alpha['mode'] = 2
+    param_alpha['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
+
     param_D['verbose'] = False
     param_D['posAlpha'] = True
     param_D['posD'] = True
-    param_alpha['pos'] = True
     param_D['mode'] = 2
     param_D['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
     param_D['K'] = int(2*np.prod(block_size))
+    param_D['iter'] = 150
+    param_D['batchsize'] = 500
 
     if 'D' in param_alpha:
-        print ("D is already supplied, \
-               \nhot-starting dictionnary learning from D")
-        param_D['D'] = param_alpha['D']
-        param_D['iter'] = 150
-
-        start = time()
-        step = block_size[0]
-
-        mask = mask_data
-        mask_data = im2col_nd(np.repeat(mask_data[..., None], data.shape[-1], axis=-1), block_size, no_over).T
-        train_idx = np.sum(mask_data, axis=0) > mask_data.shape[0]/2
-        train_data = X[:, train_idx]
-        train_data = np.asfortranarray(train_data[:, np.any(train_data != 0, axis=0)], dtype=dtype)
-        train_data /= np.sqrt(np.sum(train_data**2, axis=0, keepdims=True))
-        param_alpha['D'] = spams.trainDL(train_data, **param_D)
-        param_alpha['D'] /= np.sqrt(np.sum(param_alpha['D']**2, axis=0, keepdims=True, dtype=dtype))
         param_D['D'] = param_alpha['D']
 
-        print ("Training done : total time = ",
-               time()-start, np.min(param_alpha['D']), np.max(param_alpha['D']))
-
-    else:
-        if 'K' not in param_D:
-            print ('No dictionnary size specified. 256 atoms will be chosen.')
-            param_D['K'] = 256
-
-        param_D['iter'] = 150
-
-        start = time()
-        step = block_size[0]
-        param_D['batchsize'] = 500 #train_data.shape[1]//10
-        mask = mask_data
-        mask_data = im2col_nd(np.repeat(mask_data[..., None], data.shape[-1], axis=-1), block_size, no_over).T
-        train_idx = np.sum(mask_data, axis=0) > mask_data.shape[0]/2
-        train_data = X[:, train_idx]
-        train_data = np.asfortranarray(train_data[:, np.any(train_data != 0, axis=0)], dtype=dtype)
-        train_data /= np.sqrt(np.sum(train_data**2, axis=0, keepdims=True), dtype=dtype)
-        param_alpha['D'] = spams.trainDL(train_data, **param_D)
-        param_alpha['D'] /= np.sqrt(np.sum(param_alpha['D']**2, axis=0, keepdims=True, dtype=dtype))
-
-        print ("Training done : total time = ",
-               time()-start, np.min(param_alpha['D']), np.max(param_alpha['D']))
+    mask_col = im2col_nd(np.repeat(mask[..., None], data.shape[-1], axis=-1), block_size, no_over)
+    train_idx = np.sum(mask_col, axis=0) > mask_col.shape[0]/2
+    train_data = X[:, train_idx]
+    train_data = np.asfortranarray(train_data[:, np.any(train_data != 0, axis=0)], dtype=dtype)
+    train_data /= np.sqrt(np.sum(train_data**2, axis=0, keepdims=True), dtype=dtype)
+    param_alpha['D'] = spams.trainDL(train_data, **param_D)
+    param_alpha['D'] /= np.sqrt(np.sum(param_alpha['D']**2, axis=0, keepdims=True, dtype=dtype))
+    param_D['D'] = param_alpha['D']
 
     del train_data
-    start = time()
-    param_alpha['mode'] = 2
-    param_alpha['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
+
     data = padding(data, block_size, overlap)
 
     n_cores = param_alpha['numThreads']
@@ -199,23 +229,15 @@ def denoise(data, block_size, overlap, param_alpha, param_D, variance, n_iter=10
     time_multi = time()
     pool = Pool(processes=n_cores)
     print("cores", n_cores)
-    downscaling = 1.
-    beta = 0.5
-    gamma = 1
-    eps = 1e-10
 
-    arglist = [(data[:, k:k+block_size[1], ...], mask[:, k:k+block_size[1]], variance[:, k:k+block_size[1]], block_size_subset, overlap_subset, param_alpha_subset, param_D_subset, downscaling_subset, beta_subset, gamma_subset, dtype_subset, eps_subset, n_iter_subset)
-               for k, block_size_subset, overlap_subset, param_alpha_subset, param_D_subset, downscaling_subset, beta_subset, gamma_subset, dtype_subset, eps_subset, n_iter_subset
-               in zip(range(data.shape[1] - block_size[1] + 1),
+    arglist = [(data[:, :, k:k+block_size[2]], mask[:, :, k:k+block_size[2]], variance[:, :, k:k+block_size[2]], block_size_subset, overlap_subset, param_alpha_subset, param_D_subset, dtype_subset, n_iter_subset)
+               for k, block_size_subset, overlap_subset, param_alpha_subset, param_D_subset, dtype_subset, n_iter_subset
+               in zip(range(data.shape[2] - block_size[2] + 1),
                       repeat(block_size),
                       repeat(overlap),
                       repeat(param_alpha),
                       repeat(param_D),
-                      repeat(downscaling),
-                      repeat(beta),
-                      repeat(gamma),
                       repeat(dtype),
-                      repeat(eps),
                       repeat(n_iter))]
 
     data_denoised = pool.map(processer, arglist)
@@ -233,8 +255,8 @@ def denoise(data, block_size, overlap, param_alpha, param_D, variance, n_iter=10
     ones = np.ones_like(data_denoised[0], dtype=np.int16)
 
     for k in range(len(data_denoised)):
-        data_subset[:, k:k+block_size[1], ...] += data_denoised[k]
-        divider[:, k:k+block_size[1], ...] += ones
+        data_subset[:, :, k:k+block_size[2]] += data_denoised[k]
+        divider[:, :, k:k+block_size[2]] += ones
 
     data_subset /= divider
     return data_subset

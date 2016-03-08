@@ -1,11 +1,12 @@
 # cython: wraparound=False, cdivision=True, boundscheck=False
 
 from __future__ import print_function
+
 import numpy as np
 cimport numpy as np
 cimport cython
 
-from scipy.sparse import csc_matrix, issparse, lil_matrix
+from scipy.sparse import issparse
 
 def sparse_dot(a, b, order='F', dense_output=True):
     if issparse(a) or issparse(b):
@@ -17,7 +18,7 @@ def sparse_dot(a, b, order='F', dense_output=True):
         return np.dot(a, b)
 
 
-cdef void _im2col3D(double[:,:,:] A, double[:,:] R, int[:] size) nogil:
+cdef void _im2col3D(double[::1,:,:] A, double[::1,:] R, int[:] size) nogil:
 
     cdef:
         int k = 0, l = 0
@@ -35,12 +36,12 @@ cdef void _im2col3D(double[:,:,:] A, double[:,:] R, int[:] size) nogil:
                     for m in range(s0):
                         for n in range(s1):
                             for o in range(s2):
-                                R[k, l] = A[a+m, b+n, c+o]
+                                R[l, k] = A[a+m, b+n, c+o]
                                 l += 1
                     k += 1
 
 
-cdef void _im2col3D_overlap(double[:,:,:] A, double[:,:] R, int[:] size, int[:] overlap):
+cdef void _im2col3D_overlap(double[::1,:,:] A, double[::1,:] R, int[:] size, int[:] overlap):
 
     cdef:
         int k = 0, l = 0
@@ -59,13 +60,13 @@ cdef void _im2col3D_overlap(double[:,:,:] A, double[:,:] R, int[:] size, int[:] 
                     for m in range(s0):
                         for n in range(s1):
                             for o in range(s2):
-                                R[k, l] = A[a+m, b+n, c+o]
+                                R[l, k] = A[a+m, b+n, c+o]
                                 l += 1
 
                     k += 1
 
 
-cdef void _im2col4D(double[:,:,:,:] A, double[:,:] R, int[:] size) nogil:
+cdef void _im2col4D(double[::1,:,:,:] A, double[::1,:] R, int[:] size) nogil:
 
     cdef:
         int k = 0, l = 0
@@ -85,7 +86,7 @@ cdef void _im2col4D(double[:,:,:,:] A, double[:,:] R, int[:] size) nogil:
                             for o in range(s2):
                                 for p in range(t):
 
-                                    R[k, l] = A[a+m, b+n, c+o, p]
+                                    R[l, k] = A[a+m, b+n, c+o, p]
                                     l += 1
 
                     k += 1
@@ -105,14 +106,18 @@ def im2col_nd(A,  block_shape, overlap, order='F'):
                          'and min(block_size)-1', overlap, block_shape)
     A = padding(A, block_shape, overlap)
     dtype = A.dtype
-    A = A.astype(np.float64)
+    A = np.asarray(A, dtype=np.float64, order='F')
 
     if len(A.shape) != len(block_shape):
         raise ValueError("Number of dimensions mismatch!", A.shape, block_shape)
 
-    dim0 = np.prod(A.shape - block_shape + 1)
-    dim1 = np.prod(block_shape)
+    dim0 = np.prod(block_shape)
+    dim1 = np.prod(A.shape - block_shape + 1)
     R = np.zeros((dim0, dim1), dtype=np.float64, order='F')
+
+    # if A is zeros, R is also gonna be zeros
+    if not np.any(A):
+        return R
 
     if len(A.shape) == 3:
         if np.sum(block_shape - overlap) > len(A.shape):
@@ -124,10 +129,10 @@ def im2col_nd(A,  block_shape, overlap, order='F'):
     else:
         raise ValueError("3D or 4D supported only!", A.shape)
 
-    return R.astype(dtype)
+    return R.astype(dtype, copy=False)
 
 
-cdef void _col2im3D_overlap(double[:,:,:] A, double[:,:,:] div, double[:,:] R, double[:] weights, int[:] block_shape, int[:] overlap):
+cdef void _col2im3D_overlap(double[::1,:,:] A, double[::1,:,:] div, double[:,:] R, double[:] weights, int[:] block_shape, int[:] overlap):
     cdef:
         int k = 0, l = 0
         int a, b, c, m, n, o
@@ -152,7 +157,7 @@ cdef void _col2im3D_overlap(double[:,:,:] A, double[:,:,:] div, double[:,:] R, d
                     k += 1
 
 
-cdef void _col2im3D(double[:,:,:] A, double[:,:,:] div, double[:,:] R, double[:] weights, int[:] block_shape) nogil:
+cdef void _col2im3D(double[::1,:,:] A, double[::1,:,:] div, double[::1,:] R, double[:] weights, int[:] block_shape) nogil:
 
     cdef:
         int k = 0, l = 0
@@ -177,7 +182,7 @@ cdef void _col2im3D(double[:,:,:] A, double[:,:,:] div, double[:,:] R, double[:]
                     k += 1
 
 
-cdef void _col2im4D(double[:,:,:,:] A, double[:,:,:] div, double[:,:] R, double[:] weights, int[:] block_shape) nogil:
+cdef void _col2im4D(double[::1,:,:,:] A, double[::1,:,:] div, double[::1,:] R, double[:] weights, int[:] block_shape) nogil:
     cdef:
         int k = 0, l = 0
         int a, b, c, d, m, n, o, p
@@ -218,12 +223,18 @@ def col2im_nd(R, block_shape, end_shape, overlap, weights=None, order='F'):
                          \nand min(block_size)-1', overlap, block_shape)
 
     if weights is None:
-        weights = np.ones(R.shape[1], dtype=np.float64)
+        weights = np.ones(R.shape[1], dtype=np.float64, order=order)
+    else:
+        weights = np.asarray(weights, dtype=np.float64, order=order)
 
     dtype = R.dtype
-    R = R.astype(np.float64)
+    R = np.asarray(R, dtype=np.float64, order=order)
     A = np.zeros(end_shape, dtype=np.float64, order=order)
     div = np.zeros(end_shape[:3], dtype=np.float64, order=order)
+
+    # if R is zeros, A is also gonna be zeros
+    if not np.any(R):
+        return A
 
     if len(A.shape) == 3:
         block_shape = block_shape[:3]
@@ -239,8 +250,7 @@ def col2im_nd(R, block_shape, end_shape, overlap, weights=None, order='F'):
     else:
         raise ValueError("3D or 4D supported only!", A.shape)
 
-    div[div == 0] = 1
-    return (A / div).astype(dtype)
+    return (A / div).astype(dtype, copy=False)
 
 
 def padding(A, block_shape, overlap, value=0):
