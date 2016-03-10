@@ -28,10 +28,12 @@ DESCRIPTION = """
     test instead of relying on scripts that call the relevant scripts.
     """
 
+EPILOG="""
+    """
 
 def buildArgsParser():
 
-    p = argparse.ArgumentParser(description=DESCRIPTION)
+    p = argparse.ArgumentParser(description=DESCRIPTION, epilog=EPILOG)
 
     p.add_argument('input', action='store', metavar='input',
                    help='Path of the image file to denoise.')
@@ -55,7 +57,7 @@ def buildArgsParser():
                    metavar='int', required=False, default=None, type=int,
                    help='Number of cores to use for multithreading')
 
-    p.add_argument('-m, --mask', action='store', dest='mask',
+    p.add_argument('-m', '--mask', action='store', dest='mask',
                    metavar='', required=False, default=None, type=str,
                    help='Path to a binary mask. Only the data inside the mask will be reconstructed.')
 
@@ -63,12 +65,22 @@ def buildArgsParser():
                    default=False, required=False,
                    help='If supplied, assumes the set of bvals/bvecs to already be symmetrized, ' +
                    'i.e. All points (x,y,z) on the sphere and (-x,-y,-z) were acquired, such as in DSI.')
+
+    p.add_argument('-f', '--force', action='store_true', dest='overwrite',
+                   help='If set, the output denoised volume will be overwritten ' +
+                   'if it already exists.')
     return p
 
 
 def main():
     parser = buildArgsParser()
     args = parser.parse_args()
+
+    if os.path.isfile(args.output):
+        if args.overwrite:
+            print('Overwriting {0}'.format(os.path.realpath(args.output)))
+        else:
+            parser.error('{0} already exists! Use -f or --force to overwrite it.'.format(args.output))
 
     print("Now denoising " + os.path.realpath(args.input))
     # print("List of used parameters : ", vars(parser.parse_args()))
@@ -126,7 +138,7 @@ def main():
 
 
 
-    crop=True
+    crop=False
     if crop:
         print("cropping data and mask")
         ca = 51#20#80#23
@@ -150,13 +162,6 @@ def main():
 
 
 
-
-
-
-
-
-
-    filename = args.output
 
     # Testing neighbors stuff
     bvals, bvecs = read_bvals_bvecs(args.bvals, args.bvecs)
@@ -265,7 +270,6 @@ def main():
                                                         sigma,
                                                         n_iter,
                                                         mask,
-                                                        filename,
                                                         dtype=np.float64)
 
     divider = np.bincount(np.array(indexes, dtype=np.int16).ravel())
@@ -292,7 +296,7 @@ def main():
 
         data_denoised = data_denoised_insert
 
-    nib.save(nib.Nifti1Image(data_denoised.astype(original_dtype), affine), filename)
+    nib.save(nib.Nifti1Image(data_denoised.astype(original_dtype), affine), args.output)
 
 
 if __name__ == "__main__":

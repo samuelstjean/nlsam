@@ -185,7 +185,7 @@ def processer(arglist):
 
 
 def denoise(data, block_size, overlap, param_alpha, param_D, variance, n_iter=10,
-            mask=None, savename=None, dtype=np.float64, debug=False):
+            mask=None, dtype=np.float64, debug=False):
 
     # no overlapping blocks for training
     no_over = (0, 0, 0, 0)
