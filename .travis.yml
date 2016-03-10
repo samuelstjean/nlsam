@@ -33,7 +33,7 @@ matrix:
     - python: 2.7
       env:
         - COVERAGE=1
-        - DEPENDS="cython==0.20 numpy==1.7.1 scipy==0.12"
+        - DEPENDS="cython==0.21 numpy==1.7.1 scipy==0.12"
     - python: 2.7
 
 notifications:
