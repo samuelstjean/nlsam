@@ -4,10 +4,11 @@ import numpy as np
 import warnings
 from time import time
 
-from itertools import repeat, izip
-from multiprocessing import Pool, cpu_count
+from itertools import repeat
+# from functools import partial
+from multiprocessing import Pool
 
-from nlsam.utils import sparse_dot, im2col_nd, col2im_nd, padding
+from nlsam.utils import sparse_dot, im2col_nd, col2im_nd
 from scipy.sparse import lil_matrix
 
 warnings.simplefilter("ignore", category=FutureWarning)
@@ -24,14 +25,14 @@ except ImportError:
             raise ValueError("Couldn't find spams library")
 
 
-def universal_worker(input_pair):
-    """http://stackoverflow.com/a/24446525"""
-    function, args = input_pair
-    return function(*args)
+# def universal_worker(input_pair):
+#     """http://stackoverflow.com/a/24446525"""
+#     function, args = input_pair
+#     return function(*args)
 
 
-def pool_args(function, *args):
-    return zip(repeat(function), zip(*args))
+# def pool_args(function, *args):
+#     return izip(repeat(function), *izip(*args))
 
 
 def greedy_set_finder(sets):
@@ -64,39 +65,47 @@ def greedy_set_finder(sets):
     return output
 
 
-def apply_weights(alpha, W):
-    cx = alpha.tocoo()
-    for i, j in izip(cx.row, cx.col):
-        cx[i, j] /= W[i, j]
+# def apply_weights(alpha, W):
+#     cx = alpha.tocoo()
+#     for i, j in izip(cx.row, cx.col):
+#         cx[i, j] /= W[i, j]
 
-    return cx
+#     return cx
 
 
-def compute_weights(alpha, alpha_old, W, tau, eps):
-    cx = alpha.tocoo()
-    cy = alpha_old.tocoo()
+def compute_weights(alpha_old, alpha, W, tau, eps):
+    cx = alpha_old.tocoo()
+    cy = alpha.tocoo()
 
     # Reset W values to eps
-    idx = cy.nonzero()
-    W[idx] = 1./eps
+    idx = cx.nonzero()
+    # print(W[idx].shape)
+    # print(W.shape)
+    # print(eps.shape)
+    # print(eps[idx].shape)
+    W[idx] = 1. / eps[idx[1]]
     # for i, j in izip(cy.row, cy.col):
     #     W[i, j] = 1./eps
 
     # Assign new weights
-    idx = cx.nonzero()
-    W[idx] = 1. / ((cx.data**tau) + eps)
+    idx = cy.nonzero()
+    W[idx] = 1. / ((cy.data**tau) + eps[idx[1]])
     # for i, j, v in izip(cx.row, cx.col):
     #     W[i, j] =
 
-    return W
+    # cx[idx] /= W[idx]
+
+    # return cx
+    return 1
 
 
-def check_conv(alpha, alpha_old, eps=1e-5):
+def check_conv(alpha_old, alpha, eps=1e-5):
     x = alpha.tocoo()
     y = alpha_old.tocoo()
     # has_converged = np.zeros(alpha.shape[1], dtype=np.bool)
-
-    return np.abs(x - y).max(axis=0) < eps
+    # print(np.abs(x - y).max(axis=0).shape, (eps >= np.abs(x - y).max(axis=0)).toarray().squeeze().shape)
+    # eps >= is for efficiency reason, and matrices are always 2D so we remove the useless dimension
+    return (eps >= np.abs(x - y).max(axis=0)).toarray().squeeze()
 
     # diff = (x - y).max(axis=0)
     # diff.data = np.abs(diff.data)
@@ -105,6 +114,9 @@ def check_conv(alpha, alpha_old, eps=1e-5):
     #     has_converged[i] = d < eps
 
     # return has_converged
+
+# def _processer(arglist):
+#     return processer(*(arglist[0]), arglist[1:])
 
 # def processer(data, mask, variance, block_size, overlap, param_alpha, param_D, dtype=np.float64, n_iter=10):
 def processer(arglist):
@@ -139,6 +151,7 @@ def processer(arglist):
     DtXW = np.empty_like(DtX, order='F')
 
     alpha_old = np.ones(alpha.shape, dtype=dtype)
+    # alpha_old = lil_matrix((D.shape[1], X.shape[1]))
     has_converged = np.zeros(alpha.shape[1], dtype=np.bool)
 
     xi = np.random.randn(X.shape[0], X.shape[1]) * var_mat
@@ -149,34 +162,39 @@ def processer(arglist):
     tau = 1
 
     for _ in range(n_iter):
+        # print('check conv1')
         not_converged = np.equal(has_converged, False)
+        # print('check conv2')
         DtXW[:, not_converged] = DtX[:, not_converged] / W[:, not_converged]
 
         for i in range(alpha.shape[1]):
             if not has_converged[i]:
 
                 param_alpha['lambda1'] = var_mat[i] * (X.shape[0] + gamma * np.sqrt(2 * X.shape[0]))
-                DtDW = (1 / W[..., None, i]) * DtD * (1 / W[:, i])
+                DtDW = (1. / W[..., None, i]) * DtD * (1. / W[:, i])
                 alpha[:, i:i+1] = spams.lasso(X[:, i:i+1], Q=np.asfortranarray(DtDW), q=DtXW[:, i:i+1], **param_alpha)
 
         arr = alpha.toarray()
         nonzero_ind = arr != 0
         arr[nonzero_ind] /= W[nonzero_ind]
         has_converged = np.max(np.abs(alpha_old - arr), axis=0) < 1e-5
-
+        # has_converged = check_conv(alpha_old, alpha)
+        # print(has_converged.shape)
         if np.all(has_converged):
-            print(_, "break")
+            # print(_, "break")
             break
 
         alpha_old = arr
-
         W[:] = 1. / (np.abs(alpha_old**tau) + eps)
+
+        # compute_weights(alpha_old, alpha, W, tau, eps)
 
     alpha = arr
     X[:] = sparse_dot(D, alpha)
 
     weigths = np.ones(X_full_shape[1], dtype=dtype, order='F')
     weigths[train_idx] = 1. / (np.sum(alpha != 0, axis=0) + 1.)
+    # weigths[train_idx] = 1. / (alpha.getnnz(axis=0) + 1.)
 
     X2 = np.zeros(X_full_shape, dtype=dtype, order='F')
     X2[:, train_idx] = X
@@ -185,7 +203,7 @@ def processer(arglist):
 
 
 def denoise(data, block_size, overlap, param_alpha, param_D, variance, n_iter=10,
-            mask=None, dtype=np.float64, debug=False):
+            mask=None, dtype=np.float64):
 
     # no overlapping blocks for training
     no_over = (0, 0, 0, 0)
@@ -240,6 +258,8 @@ def denoise(data, block_size, overlap, param_alpha, param_D, variance, n_iter=10
                       repeat(param_D),
                       repeat(dtype),
                       repeat(n_iter))]
+    # arglist = [(data[:, :, k:k+block_size[2]], mask[:, :, k:k+block_size[2]], variance[:, :, k:k+block_size[2]])
+    #            for k in range(data.shape[2] - block_size[2] + 1)]
 
     data_denoised = pool.map(processer, arglist)
     pool.close()
