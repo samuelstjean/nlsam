@@ -112,8 +112,8 @@ def processer(arglist):
     data, mask, variance, block_size, overlap, param_alpha, param_D, dtype, n_iter = arglist
 
     orig_shape = data.shape
-    mask = np.repeat(mask[..., None], orig_shape[-1], axis=-1)
-    mask_array = im2col_nd(mask, block_size, overlap)
+    # mask = np.repeat(mask[..., None], orig_shape[-1], axis=-1)
+    mask_array = im2col_nd(np.broadcast_to(mask[..., None], orig_shape), block_size, overlap)
     train_idx = np.sum(mask_array, axis=0) > mask_array.shape[0]/2
 
     # If mask is empty, return a bunch of zeros as blocks
@@ -126,7 +126,7 @@ def processer(arglist):
     X_full_shape = X.shape
     X = X[:, train_idx]
 
-    param_alpha['mode'] = 1
+    # param_alpha['mode'] = 1
     param_alpha['L'] = int(0.5 * X.shape[0])
 
     D = param_alpha['D']
@@ -149,7 +149,7 @@ def processer(arglist):
     tau = 1
 
     for _ in range(n_iter):
-        not_converged = has_converged == False
+        not_converged = np.equal(has_converged, False)
         DtXW[:, not_converged] = DtX[:, not_converged] / W[:, not_converged]
 
         for i in range(alpha.shape[1]):
@@ -208,7 +208,8 @@ def denoise(data, block_size, overlap, param_alpha, param_D, variance, n_iter=10
     if 'D' in param_alpha:
         param_D['D'] = param_alpha['D']
 
-    mask_col = im2col_nd(np.repeat(mask[..., None], data.shape[-1], axis=-1), block_size, no_over)
+    # mask_col = im2col_nd(np.repeat(mask[..., None], data.shape[-1], axis=-1), block_size, no_over)
+    mask_col = im2col_nd(np.broadcast_to(mask[..., None], data.shape), block_size, no_over)
     train_idx = np.sum(mask_col, axis=0) > mask_col.shape[0]/2
     train_data = X[:, train_idx]
     train_data = np.asfortranarray(train_data[:, np.any(train_data != 0, axis=0)], dtype=dtype)
@@ -219,16 +220,16 @@ def denoise(data, block_size, overlap, param_alpha, param_D, variance, n_iter=10
 
     del train_data
 
-    data = padding(data, block_size, overlap)
+    # data = padding(data, block_size, overlap)
 
     n_cores = param_alpha['numThreads']
     param_alpha['numThreads'] = 1
     param_D['numThreads'] = 1
 
-    print('Multiprocessing Stuff')
+    # print('Multiprocessing Stuff')
     time_multi = time()
     pool = Pool(processes=n_cores)
-    print("cores", n_cores)
+    # print("cores", n_cores)
 
     arglist = [(data[:, :, k:k+block_size[2]], mask[:, :, k:k+block_size[2]], variance[:, :, k:k+block_size[2]], block_size_subset, overlap_subset, param_alpha_subset, param_D_subset, dtype_subset, n_iter_subset)
                for k, block_size_subset, overlap_subset, param_alpha_subset, param_D_subset, dtype_subset, n_iter_subset
@@ -247,7 +248,7 @@ def denoise(data, block_size, overlap, param_alpha, param_D, variance, n_iter=10
     param_alpha['numThreads'] = n_cores
     param_D['numThreads'] = n_cores
 
-    print('Multiprocessing done', time()-time_multi)
+    print('Multiprocessing done in {} mins.'.format((time() - time_multi) / 60.))
 
     # Put together the multiprocessed results
     data_subset = np.zeros_like(data)

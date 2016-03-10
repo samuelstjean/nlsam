@@ -253,7 +253,7 @@ def col2im_nd(R, block_shape, end_shape, overlap, weights=None, order='F'):
     return (A / div).astype(dtype, copy=False)
 
 
-def padding(A, block_shape, overlap, value=0):
+def padding(A, block_shape, overlap):
     """
     Pad A at the end so that block_shape will cut an integer number of blocks
     across all dimensions. A is padded with value (default : 0).
@@ -270,8 +270,8 @@ def padding(A, block_shape, overlap, value=0):
     if np.sum(fit) == 0:
         return A
 
-    print("Block size doesn't fit in the volume. \
-          \nIt will be padded at the end with value", value)
+    # print("Block size doesn't fit in the volume. \
+    #       \nIt will be padded at the end with value", value)
 
     padding = np.array(A.shape) + fit
     padded = np.zeros(padding, dtype=A.dtype, order='F')
