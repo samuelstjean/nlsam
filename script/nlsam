@@ -39,7 +39,7 @@ def buildArgsParser():
                    help='Path of the image file to denoise.')
 
     p.add_argument('output', action='store', metavar='output',
-                   help='Path and prefix for the saved denoised file.')
+                   help='Path for the saved denoised file.')
 
     p.add_argument('block_size', action='store', metavar='block_size',
                    type=int, help='Number of angular neighbors used for denoising.')
@@ -51,11 +51,15 @@ def buildArgsParser():
                    help='Path of the bvecs file, in FSL format.')
 
     p.add_argument('sigma', action='store', metavar='sigma',
-                   help='Path to standard deviation volume.')
+                   help='Path to the standard deviation volume.')
 
     p.add_argument('--cores', action='store', dest='cores',
                    metavar='int', required=False, default=None, type=int,
                    help='Number of cores to use for multithreading')
+
+    p.add_argument('--iterations', action='store', dest='iterations',
+                   metavar='int', required=False, default=10, type=int,
+                   help='Number of iterations for the l1 reweighting. Default 10.')
 
     p.add_argument('-m', '--mask', action='store', dest='mask',
                    metavar='', required=False, default=None, type=str,
@@ -96,7 +100,7 @@ def main():
 
     greedy_subsampler = True
     implausible_signal_boost = True
-    n_iter = 10
+    n_iter = args.iterations
     # debug = False
 
     original_dtype = data.dtype
