@@ -248,7 +248,7 @@ def denoise(data, block_size, overlap, param_alpha, param_D, variance, n_iter=10
     param_alpha['numThreads'] = n_cores
     param_D['numThreads'] = n_cores
 
-    print('Multiprocessing done in {} mins.'.format((time() - time_multi) / 60.))
+    print('Multiprocessing done in {0:.2f} mins.'.format((time() - time_multi) / 60.))
 
     # Put together the multiprocessed results
     data_subset = np.zeros_like(data)
