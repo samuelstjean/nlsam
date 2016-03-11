@@ -11,7 +11,7 @@ Go grab a [release](https://github.com/samuelstjean/nlsam/releases) (recommended
 ## Dependencies
 
 You will need to have at least numpy, scipy, nibabel, dipy, cython, cython-gsl and spams.
-Fortunately, the setup.py will take care of installing everything you are missing for you.
+Fortunately, the setup.py will take care of installing everything you need for you.
 
 If you have a working python setup already, doing
 
@@ -34,6 +34,8 @@ git clone https://github.com/samuelstjean/nlsam.git --branch dev
 cd path/to/git/repo
 python setup.py build_ext -i
 ```
+
+Don't forget to add the path where you cloned everything to your PYTHONPATH.
 <!---
 
 #### 1.a. Windows and Mac : Get a python 2.7 distribution, which can be easily installed with http://continuum.io/downloads#all
