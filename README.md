@@ -16,7 +16,7 @@ Fortunately, the setup.py will take care of installing everything you need for y
 If you have a working python setup already, doing
 
 ```shell
-pip install https://github.com/samuelstjean/nlsam.git@dev --user
+pip install git+https://github.com/samuelstjean/nlsam.git@dev --user
 ```
 should give you everything you need.
 
