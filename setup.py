@@ -56,5 +56,5 @@ setup(
     dependency_links=params['links'],
     setup_requires=params['requires'],
     install_requires=params['deps'] + params['requires'],
-    scripts=glob(join('script', '*')),
+    scripts=glob(join('scripts', '*')),
 )
