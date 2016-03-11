@@ -1,5 +1,0 @@
-numpy>=1.7
-scipy>=0.12
-cython>=0.18
-nibabel>=1.2
-CythonGSL>=0.2.1
