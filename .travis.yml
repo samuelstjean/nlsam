@@ -58,7 +58,7 @@ install:
       fi
       
     - pip install --timeout=60 --no-index --trusted-host $WHEELHOST --find-links $WHEELHOUSE $DEPENDS
-    - pip install $DEPENDS_PIP
+    - pip install $DEPENDS_PIP nose
     - python setup.py install
 
 # command to run tests, e.g. python setup.py test
