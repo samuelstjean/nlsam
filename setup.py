@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 
 # Download setuptools if not present
-import ez_setup
-ez_setup.use_setuptools()
+try:
+    import setuptools
+except ImportError:
+    import ez_setup
+    ez_setup.use_setuptools()
 
 from setuptools import setup, find_packages
 from Cython.Distutils import Extension
