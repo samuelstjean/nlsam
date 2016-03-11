@@ -30,7 +30,8 @@ params['requires'] = ['cythongsl', 'spams', 'numpy>=1.7.1', 'cython>=0.21']
 params['deps'] = ['dipy>=0.11',
                   'scipy>=0.12',
                   'nibabel>=1.3']
-params['links'] = ['https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-python-v2.5-svn2014-07-04.tar.gz']
+params['links'] = ['https://github.com/samuelstjean/spams-python/releases/download#egg=spams-2.5']
+#/0.1/spams-python-v2.5-svn2014-07-04.tar.gz']
 
 ext_modules = []
 for pyxfile in glob(join('nlsam', '*.pyx')):
