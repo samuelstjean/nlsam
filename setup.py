@@ -18,7 +18,7 @@ if not have_cython_gsl:
 
 params = {}
 params['name'] = 'nlsam'
-params['version'] = 0.1
+params['version'] = '0.1'
 
 
 ext_modules = []
