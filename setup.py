@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 
-from distutils.core import setup
+# Download setuptools if not present
+import ez_setup
+ez_setup.use_setuptools()
+
+from setuptools import setup, find_packages
 from Cython.Distutils import Extension
 from Cython.Distutils import build_ext
 
@@ -19,7 +23,12 @@ if not have_cython_gsl:
 params = {}
 params['name'] = 'nlsam'
 params['version'] = '0.1'
-
+params['requires'] = ['cythongsl', 'spams', 'numpy>=1.7.1', 'cython>=0.21']
+params['deps'] = ['dipy>=0.11',
+                  'scipy>=0.12',
+                  'nibabel>=1.3']
+# params['links'] = ['https://github.com/samuelstjean/spams-python/tarball/master#egg=django-ckeditor-0.9.3']
+params['links'] = ['https://github.com/samuelstjean/spams-python/releases/tag/0.1']
 
 ext_modules = []
 for pyxfile in glob(join('nlsam', '*.pyx')):
@@ -38,6 +47,10 @@ setup(
     name=params['name'],
     version=params['version'],
     include_dirs=[cython_gsl.get_include()],
+    packages=find_packages(),
     cmdclass={'build_ext': build_ext},
-    ext_modules=ext_modules
+    ext_modules=ext_modules,
+    dependency_links=params['links'],
+    setup_requires=params['requires'],
+    install_requires=params['deps'] + params['requires']
 )

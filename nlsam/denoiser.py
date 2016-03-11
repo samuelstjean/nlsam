@@ -14,15 +14,20 @@ from scipy.sparse import lil_matrix
 warnings.simplefilter("ignore", category=FutureWarning)
 
 try:
-    from spams import spams
+    import spams
 except ImportError:
-    try:
-        import spams
-    except ImportError:
-        try:
-            from spams_python import spams
-        except ImportError:
-            raise ValueError("Couldn't find spams library")
+    raise ValueError("Couldn't find spams library, did you properly install the package?")
+
+# try:
+#     from spams import spams
+# except ImportError:
+#     try:
+#         import spams
+#     except ImportError:
+#         try:
+#             from spams_python import spams
+#         except ImportError:
+#             raise ValueError("Couldn't find spams library")
 
 
 # def universal_worker(input_pair):
