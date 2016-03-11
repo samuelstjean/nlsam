@@ -16,6 +16,10 @@ if not have_cython_gsl:
     raise ValueError('cannot find gsl package (required for hyp1f1), \
         try pip install cythongsl and sudo apt-get install libgsl0-dev libgsl0ldbl')
 
+params = {}
+params['name'] = 'nlsam'
+params['version'] = 0.1
+
 
 ext_modules = []
 for pyxfile in glob(join('nlsam', '*.pyx')):
@@ -31,7 +35,8 @@ for pyxfile in glob(join('nlsam', '*.pyx')):
     ext_modules.append(ext)
 
 setup(
-    name='scilpy',
+    name=params['name'],
+    version=params['version'],
     include_dirs=[cython_gsl.get_include()],
     cmdclass={'build_ext': build_ext},
     ext_modules=ext_modules
