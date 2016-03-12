@@ -3,5 +3,6 @@ scipy>=0.12
 cython>=0.21
 nibabel>=1.3
 CythonGSL>=0.2.1
---find-links https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-python-v2.5-svn2014-07-04.tar.gz#egg=spams-2.5
+#--find-links https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-python-v2.5-svn2014-07-04.tar.gz#egg=spams-2.5
+--find-links git+https://github.com/samuelstjean/spams-python.git@0.1#egg=spams-2.5
 spams>=2.5
