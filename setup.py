@@ -30,7 +30,8 @@ params['requires'] = ['cythongsl>=0.2', 'spams>=2.5', 'numpy>=1.7.1', 'cython>=0
 params['deps'] = ['dipy>=0.11',
                   'scipy>=0.12',
                   'nibabel>=1.3']
-params['links'] = ['https://github.com/samuelstjean/spams-python/releases/tag/0.1#egg=spams-2.5']
+params['links'] = ['https://github.com/samuelstjean/spams-python/tarball/master#egg=spams-2.5']
+# https://github.com/balanced/balog/tarball/master
 # params['links'] = ['https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-python-v2.5-svn2014-07-04.tar.gz#egg=spams-2.5']
 # params['links'] = ['git+https://github.com/samuelstjean/spams-python.git']
 #@0.1#egg=spams-2.5']
