@@ -26,7 +26,7 @@ if not have_cython_gsl:
 params = {}
 params['name'] = 'nlsam'
 params['version'] = '0.1'
-params['requires'] = ['cythongsl>=0.2', 'spams>=2.5', 'numpy>=1.7.1', 'cython>=0.21']
+params['requires'] = ['cythongsl>=0.2', 'numpy>=1.7.1', 'cython>=0.21']
 params['deps'] = ['dipy>=0.11',
                   'scipy>=0.12',
                   'nibabel>=1.3']
