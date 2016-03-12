@@ -34,7 +34,7 @@ params['deps'] = ['dipy>=0.11',
 # params['links'] = ['https://github.com/samuelstjean/spams-python/tarball/master#egg=spams-2.5']
 # https://github.com/balanced/balog/tarball/master
 # params['links'] = ['https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-python-v2.5-svn2014-07-04.tar.gz#egg=spams-2.5']
-# params['links'] = ['git+https://github.com/samuelstjean/spams-python.git']
+params['links'] = ['git+https://github.com/samuelstjean/spams-python.git']
 #@0.1#egg=spams-2.5']
 # https://github.com/samuelstjean/spams-python.git
 # https://github.com/samuelstjean/spams-python/releases/tag/0.1
@@ -62,6 +62,6 @@ setup(
     ext_modules=ext_modules,
     setup_requires=params['requires'],
     install_requires=params['deps'] + params['requires'],
-    dependency_links=['https://github.com/samuelstjean/spams-python/tarball/master#egg=spams-2.5'],
+    dependency_links=params['links'],
     scripts=glob(join('scripts', '*')),
 )
