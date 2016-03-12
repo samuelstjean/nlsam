@@ -32,6 +32,7 @@ You can also just clone it locally and then build the files with
 ```shell
 git clone https://github.com/samuelstjean/nlsam.git --branch dev
 cd path/to/git/repo
+pip install -r requirements.txt --user
 python setup.py build_ext -i
 ```
 
