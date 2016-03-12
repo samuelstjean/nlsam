@@ -16,7 +16,7 @@ Fortunately, the setup.py will take care of installing everything you need for y
 If you have a working python setup already, doing
 
 ```shell
-pip install git+https://github.com/samuelstjean/nlsam.git@dev --user
+pip install git+https://github.com/samuelstjean/nlsam.git@dev --user --process-dependency-links
 ```
 should give you everything you need.
 
@@ -32,7 +32,6 @@ You can also just clone it locally and then build the files with
 ```shell
 git clone https://github.com/samuelstjean/nlsam.git --branch dev
 cd path/to/git/repo
-pip install -r requirements.txt --user
 python setup.py build_ext -i
 ```
 
