@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# Caller for the 3D and 4D denoising
 
 from __future__ import division, print_function
 
@@ -13,7 +12,6 @@ from multiprocessing import cpu_count
 
 import nibabel as nib
 import numpy as np
-# import nlsam
 
 from nlsam.denoiser import denoise, greedy_set_finder
 from nlsam.angular_tools import angular_neighbors
@@ -28,8 +26,9 @@ DESCRIPTION = """
     test instead of relying on scripts that call the relevant scripts.
     """
 
-EPILOG="""
-    """
+EPILOG="""Reference: Samuel St-Jean, Pierrick Coupe and Maxime Descoteaux.
+Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising,
+Medical Image Analysis (2016)."""
 
 def buildArgsParser():
 
