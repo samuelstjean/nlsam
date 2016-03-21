@@ -1,5 +1,12 @@
 #!/usr/bin/env python
 
+import os
+from os.path import splitext, join, exists
+
+# BEFORE importing distutils, remove MANIFEST. distutils doesn't properly
+# update it when the contents of directories change.
+if exists('MANIFEST'): os.remove('MANIFEST')
+
 # Download setuptools if not present
 try:
     import setuptools
@@ -12,7 +19,7 @@ from Cython.Distutils import Extension
 from Cython.Distutils import build_ext
 
 from glob import glob
-from os.path import splitext, join
+
 
 import numpy
 from nibabel.optpkg import optional_package
