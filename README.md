@@ -10,7 +10,7 @@ The reference implementation for the Non Local Spatial and Angular Matching (NLS
 
 ## How to install
 
-Go grab a [release][] (recommended) or build it from source with the [instructions](## Dependencies).
+Go grab a [release][] (recommended) or build it from source with the [instructions](Dependencies).
 
 ## Using the NLSAM algorithm
 
@@ -19,8 +19,12 @@ The first one allows you to transform the data to Gaussian distributed signals i
 
 A typical example call requires only a diffusion weighted dataset (dwi.nii.gz) and the number of coils form the acquisition (N=1),
 but it is recommended to also have a brain mask (brain_mask.nii.gz) to greatly reduce computation time.
+
+
 I computed the brain mask using FSL bet for this example, but anything giving you a binary segmentation mask will do fine as the computation
 will only take place inside this mask.
+
+
 I also supply the bvals/bvecs pair since the default option is to use a spherical harmonics fit for initialization.
 
 ```shell
@@ -37,10 +41,12 @@ Here the number of angular neighbors is set to 5, which is the number of DWI whi
 nlsam dwi_stab.nii.gz dwi_nlsam.nii.gz 5 bvals bvecs sigma.nii.gz --mask brain_mask.nii.gz
 ```
 
-The final, nlsam denoised output is then dwi_nlsam.nii.gz.
+The final nlsam denoised output is then dwi_nlsam.nii.gz.
+
+
 Once again, nlsam --help will give you more options to be used beyond the defaults.
 
-## Dependencies
+## [Dependencies]
 
 You will need to have at least numpy, scipy, nibabel, dipy, cython, cython-gsl and spams.
 Fortunately, the setup.py will take care of installing everything you need.
@@ -75,8 +81,10 @@ St-Jean, S., P. Coupé, and M. Descoteaux.
 Medical Image Analysis, 2016. [DOI] [URL]
 
 ## License
-As the main solver I use (spams) and the stabilization script uses the GNU GSL library,
+As the main solver I use (spams) is GPL licensed and the stabilization script uses the GNU GSL library,
 the nlsam main codebase is also licensed under the GPL v3, see the file LICENSE for more information.
+
+
 If you would like to reuse parts of this work under another project/license,
 feel free to drop me an email and I will gladly re-license the files you need
 as MIT/BSD/whatever else.
