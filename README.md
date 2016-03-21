@@ -10,7 +10,7 @@ The reference implementation for the Non Local Spatial and Angular Matching (NLS
 
 ## How to install
 
-Go grab a [release][] (recommended) or build it from source with the [instructions](Dependencies).
+Go grab a [release][] (recommended) or build it from source with the [instructions](#Dependencies).
 
 ## Using the NLSAM algorithm
 
@@ -46,7 +46,8 @@ The final nlsam denoised output is then dwi_nlsam.nii.gz.
 
 Once again, nlsam --help will give you more options to be used beyond the defaults.
 
-## [Dependencies]
+<a name="Dependencies"></a>
+## Dependencies
 
 You will need to have at least numpy, scipy, nibabel, dipy, cython, cython-gsl and spams.
 Fortunately, the setup.py will take care of installing everything you need.
