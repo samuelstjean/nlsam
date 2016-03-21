@@ -1,12 +1,42 @@
-# Non Local Spatial and Angular Matching denoising
+# Non Local Spatial and Angular Matching (NLSAM) denoising
 =====
+
+[release]: https://github.com/samuelstjean/nlsam/releases
+[DOI]: http://dx.doi.org/doi:10.1016/j.media.2016.02.010
+[URL]: http://www.sciencedirect.com/science/article/pii/S1361841516000335
+[paper]: http://scil.dinf.usherbrooke.ca/wp-content/papers/stjean-etal-media16.pdf
 
 The reference implementation for the Non Local Spatial and Angular Matching (NLSAM) denoising algorithm for diffusion MRI.
 
 ## How to install
 
-Go grab a [release](https://github.com/samuelstjean/nlsam/releases) (recommended) or build it from source.
+Go grab a [release][] (recommended) or build it from source.
 
+## Using the NLSAM algorithm
+
+Once installed, there are two main scripts, the stabilization algorithm and the NLSAM algorithm itself.
+The first one allows you to transform the data to Gaussian distributed signals if your dataset if Rician or Noncentral chi distributed.
+
+A typical example call requires only a diffusion weighted dataset (dwi.nii.gz) and the number of coils form the acquisition (N=1),
+but it is recommended to also have a brain mask (brain_mask.nii.gz) to greatly reduce computation time.
+I also supply the bvals/bvecs pair since the default option is to use a spherical harmonics fit for initialization.
+
+```shell
+stabilizer dwi.nii.gz dwi_stab.nii.gz 1 sigma.nii.gz -m brain_mask.nii.gz --bvals bvals --bvecs bvecs
+```
+
+The output is dwi_stab.nii.gz and the estimated noise standard deviation is sigma.nii.gz.
+
+More option are available by using stabilizer --help.
+Once your data is Gaussian distributed, the nlsam denoising itself can now be used with the outputs from the previous algorithm.
+Here the number of angular neighbors is set to 5, which is the number of DWI which are equidistant in q-space to each volume in this example dataset.
+
+```shell
+nlsam dwi_stab.nii.gz dwi_nlsam.nii.gz 5 bvals bvecs sigma.nii.gz --mask brain_mask.nii.gz
+```
+
+The final, nlsam denoised output is then dwi_nlsam.nii.gz.
+Once again, nlsam --help will give you more options to be used.
 
 ## Dependencies
 
@@ -26,7 +56,6 @@ If you get build error about missing headers on linux, you will also need some d
 sudo apt-get install build-essential libgsl0-dev python-dev libblas-dev liblapack-dev
 ```
 
-
 You can also just clone it locally and then build the files with
 
 ```shell
@@ -36,6 +65,12 @@ python setup.py build_ext -i
 ```
 
 Don't forget to add the path where you cloned everything to your PYTHONPATH.
+
+## Reference
+St-Jean, S., P. Coupé, and M. Descoteaux.
+"[Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising.][paper]"
+Medical Image Analysis, 2016. [DOI] [URL]
+
 <!---
 
 #### 1.a. Windows and Mac : Get a python 2.7 distribution, which can be easily installed with http://continuum.io/downloads#all
@@ -72,14 +107,14 @@ python setup.py build_ext -i
 cd nlsam/spams_third_party
 python setup.py build_ext -i
 ```
--->
+
 
 
 ## Using the NLSAM algorithm
 
 To be updated when scilpy stabilisation is back in
 
-<!---
+
 For now, get the stabilisation script from scilpy, https://bitbucket.org/sciludes/scilpy/pull-request/104/stabilisation-script or you can skip it if you don't have terribly noisy data. The nlsam subfolder has my old personal version, which might do weird imports.
 
 Run the denoising itself, like this

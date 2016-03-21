@@ -21,18 +21,18 @@ from dipy.io.gradients import read_bvals_bvecs
 
 
 DESCRIPTION = """
-    Convenient script to call the denoising dictionary learning/sparse coding
-    functions. It enables the user to select a whole range of parameters to
-    test instead of relying on scripts that call the relevant scripts.
-    """
+Main script for the NLSAM denoising [1].
+"""
 
-EPILOG="""Reference: Samuel St-Jean, Pierrick Coupe and Maxime Descoteaux.
+EPILOG="""Reference : [1] St-Jean S., Coupe P. and Descoteaux M.
 Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising,
 Medical Image Analysis (2016)."""
 
 def buildArgsParser():
 
-    p = argparse.ArgumentParser(description=DESCRIPTION, epilog=EPILOG)
+    p = argparse.ArgumentParser(description=DESCRIPTION,
+                                epilog=EPILOG,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
 
     p.add_argument('input', action='store', metavar='input',
                    help='Path of the image file to denoise.')
@@ -67,7 +67,7 @@ def buildArgsParser():
     p.add_argument('--no_symmetry', dest='no_symmetry', action='store_true',
                    default=False, required=False,
                    help='If supplied, assumes the set of bvals/bvecs to already be symmetrized, ' +
-                   'i.e. All points (x,y,z) on the sphere and (-x,-y,-z) were acquired, such as in DSI.')
+                   'i.e. All points (x,y,z) on the sphere and (-x,-y,-z) were acquired, such as in full grid DSI.')
 
     p.add_argument('-f', '--force', action='store_true', dest='overwrite',
                    help='If set, the output denoised volume will be overwritten ' +

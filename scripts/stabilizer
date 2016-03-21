@@ -5,7 +5,7 @@ from __future__ import division, print_function
 import nibabel as nib
 import numpy as np
 
-# import os
+import os
 import argparse
 
 from itertools import repeat
@@ -24,35 +24,41 @@ from nlsam.stabilizer import chi_to_gauss, fixed_point_finder, corrected_sigma
 
 
 DESCRIPTION = """
-    Script to transform noisy rician/non central chi signals into
-    gaussian distributed signals.
+Script to transform noisy rician/non central chi signals into
+gaussian distributed signals.
+"""
 
-    Reference:
-    [1]. Koay CG, Ozarslan E and Basser PJ.
-    A signal transformational framework for breaking the noise floor
-    and its applications in MRI.
-    Journal of Magnetic Resonance 2009; 197: 108-119.
-    """
+EPILOG = """
+References:
+
+[1] Koay CG, Ozarslan E and Basser PJ.
+A signal transformational framework for breaking the noise floor and its applications in MRI.
+Journal of Magnetic Resonance 2009; 197: 108-119.
+
+[2] St-Jean S., Coupe P. and Descoteaux M.
+Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising,
+Medical Image Analysis (2016).
+"""
 
 
 def buildArgsParser():
 
     p = argparse.ArgumentParser(description=DESCRIPTION,
-                                formatter_class=argparse.RawTextHelpFormatter)
+                                epilog=EPILOG,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    p.add_argument('input', action='store', metavar='input',
+    p.add_argument('input', action='store', metavar='input', type=str,
                    help='Path of the image file to stabilize.')
 
     p.add_argument('output', action='store', metavar='output', type=str,
                    help='Output filename for the saved stabilized file.')
 
-    p.add_argument('N', action='store', dest='N',
-                   metavar='int', required=True, type=int,
+    p.add_argument('N', action='store', metavar='N coils', type=int,
                    help='Number of receiver coils of the scanner. \n' +
-                   'Use N=1 in the case of a SENSE (GE, Phillips) reconstruction and \n' +
+                   'Use N=1 in the case of a SENSE (GE, Phillips) reconstruction and ' +
                    'N >= 1 for GRAPPA reconstruction (Siemens).')
 
-    p.add_argument('sigma', action='store', metavar='sigma_output', type=str,
+    p.add_argument('sigma', action='store', metavar='sigma', type=str,
                    help='Output filename for the noise standard deviation volume.')
 
     # p.add_argument('-o', action='store', dest='savename',
@@ -62,13 +68,12 @@ def buildArgsParser():
 
     p.add_argument('--cores', action='store', dest='n_cores',
                    metavar='int', required=False, default=None, type=int,
-                   help='Number of cores to use for multiprocessing. ' +
+                   help='Number of cores to use for multiprocessing.\n ' +
                    'default : all of them')
 
-    p.add_argument('--mask', action='store', dest='mask',
-                   metavar='string', default=None, type=str,
-                   help='Path to a binary mask. Only the data inside the \n' +
-                        'mask will be used for computations.')
+    p.add_argument('-m', '--mask', action='store', dest='mask',
+                   metavar='', required=False, default=None, type=str,
+                   help='Path to a binary mask. Only the data inside the mask will be processed.')
 
     p.add_argument('--noise_est', action='store', dest='noise_method',
                    metavar='string', required=False, default='piesno', type=str,
@@ -76,8 +81,8 @@ def buildArgsParser():
                    help='Noise estimation method used for estimating sigma. \n' +
                    'local_std : Compute local noise standard deviation ' +
                    'with correction factor. ' +
-                   'No a priori needed.\n' +
-                   'piesno : Use PIESNO estimation, assumes the presence of ' +
+                   'No a priori needed.' +
+                   '\npiesno : Use PIESNO estimation, assumes the presence of ' +
                    'background in the data. (default)\n' +
                    'noise_map : Use PIESNO locally on a stack of 4D noise maps.')
 
@@ -100,7 +105,7 @@ def buildArgsParser():
                    # 'nlmeans : Compute 3D nlmeans from dipy, slower ' +
                    # 'but does not blur edges.\n' +
                    'sh_smooth (default): Fit SH for smoothing the raw signal. ' +
-                   'Really fast, and does not overblur.\n' +
+                   # 'Really fast, and does not overblur.\n' +
                    'Also requires the bvals/bvecs to be given\n' +
                    'no_smoothing : Just use the data as-is for initialisation.')
 
@@ -113,6 +118,10 @@ def buildArgsParser():
                    metavar='bvecs', type=str, default='',
                    help='Path of the bvecs file, in FSL format. \n' +
                    'Required for --smooth_method sh_smooth')
+
+    p.add_argument('-f', '--force', action='store_true', dest='overwrite',
+                   help='If set, the output denoised volume will be overwritten ' +
+                   'if it already exists.')
 
     return p
 
@@ -137,6 +146,14 @@ def main():
     parser = buildArgsParser()
     args = parser.parse_args()
 
+    if os.path.isfile(args.output):
+        if args.overwrite:
+            print('Overwriting {0}'.format(os.path.realpath(args.output)))
+        else:
+            parser.error('{0} already exists! Use -f or --force to overwrite it.'.format(args.output))
+
+    print("Now processing " + os.path.realpath(args.input))
+
     vol = nib.load(args.input)
     data = np.array(vol.get_data())  # To force ndarray instead of memmaps
     vol.uncache()  # Unload cached array from memory
@@ -159,7 +176,6 @@ def main():
 
     noise_method = args.noise_method
     smooth_method = args.smooth_method
-    filename = args.output
 
     if noise_method == 'noise_map':
         if args.noise_maps is None:
@@ -167,11 +183,11 @@ def main():
 
         noise_maps = nib.load(args.noise_maps).get_data()
 
-    # Since negatives are allowed, convert uint to int
-    if data.dtype.kind == 'u':
-        dtype = data.dtype.name[1:]
-    else:
-        dtype = data.dtype
+    # # Since negatives are allowed, convert uint to int
+    # if data.dtype.kind == 'u':
+    #     dtype = data.dtype.name[1:]
+    # else:
+    #     dtype = data.dtype
 
     print("Estimating m_hat with method " + smooth_method)
 
@@ -234,10 +250,13 @@ def main():
 
     print("Now performing stabilisation")
 
+    # multiproc_shape = (data.shape[0], data.shape[1], data.shape[3])
+    mask = np.broadcast_to(mask[..., None], data.shape)
+
     pool = Pool(processes=n_cores)
     arglist = [(data[..., idx, :],
                 m_hat[..., idx, :],
-                np.broadcast_to(mask[..., idx, None], data.shape),
+                mask[..., idx, :],
                 sigma[..., idx, :],
                 N_vox)
                for idx, N_vox in zip(range(data.shape[-2]), repeat(N))]
@@ -246,12 +265,12 @@ def main():
     pool.close()
     pool.join()
 
-    data_stabilized = np.empty(data.shape, dtype=dtype)
+    data_stabilized = np.empty(data.shape, dtype=np.float32)
 
     for idx in range(len(data_out)):
         data_stabilized[..., idx, :] = data_out[idx]
 
-    nib.save(nib.Nifti1Image(data_stabilized, affine), filename)
+    nib.save(nib.Nifti1Image(data_stabilized, affine), args.output)
 
 
 if __name__ == "__main__":
