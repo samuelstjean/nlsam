@@ -14,7 +14,7 @@ cimport numpy as np
 from dipy.core.ndindex import ndindex
 from scipy.special import erfinv
 
-from dipy.utils.optpkg import optional_package
+from nibabel.optpkg import optional_package
 cython_gsl, have_cython_gsl, _ = optional_package("cython_gsl")
 
 if not have_cython_gsl:

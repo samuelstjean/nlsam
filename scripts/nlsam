@@ -86,9 +86,6 @@ def main():
             parser.error('{0} already exists! Use -f or --force to overwrite it.'.format(args.output))
 
     print("Now denoising " + os.path.realpath(args.input))
-    # print("List of used parameters : ", vars(parser.parse_args()))
-
-    # debug = args.debug
 
     vol = nib.load(args.input)
     data = vol.get_data()
@@ -100,7 +97,6 @@ def main():
     greedy_subsampler = True
     implausible_signal_boost = True
     n_iter = args.iterations
-    # debug = False
 
     original_dtype = data.dtype
     original_shape = data.shape
@@ -122,16 +118,6 @@ def main():
 
     param_alpha['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
     param_D['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
-
-
-    # param_alpha['mode'] = args.mode_alpha
-    # param_alpha['pos'] = args.pos_alpha
-
-    # param_D['mode'] = args.mode_D
-    # param_D['iter'] = args.iter
-    # param_D['K'] = args.nb_atoms_D
-    # param_D['posD'] = args.pos_D
-    # param_D['posAlpha'] = args.pos_alpha
 
     if args.mask is not None:
         mask = nib.load(args.mask).get_data().astype(np.bool)
@@ -161,14 +147,6 @@ def main():
 
 
 
-
-
-
-
-
-
-
-    # Testing neighbors stuff
     bvals, bvecs = read_bvals_bvecs(args.bvals, args.bvecs)
 
     b0_thresh = 10
@@ -188,13 +166,11 @@ def main():
         rest_of_b0s = b0_loc[1:]
         b0_loc = b0_loc[0]
 
-        # data[..., b0_loc] = mean_b0
         data = np.insert(data, b0_loc, mean_b0, axis=-1)
         bvals = np.insert(bvals, b0_loc, [0.], axis=0)
         bvecs = np.insert(bvecs, b0_loc, [0., 0., 0.], axis=0)
         b0_loc = tuple([b0_loc])
         num_b0s = 1
-        # print("Averaged b0s, new b0_loc is", b0_loc)
 
     else:
         rest_of_b0s = None
@@ -208,35 +184,16 @@ def main():
 
     neighbors = (angular_neighbors(sym_bvecs, block_size[-1] - num_b0s) % (data.shape[-1] - num_b0s))[:data.shape[-1] - num_b0s]
 
-    # Always abs b0s, as it makes absolutely no sense physically not to
-    # print(np.sum(data[..., b0_loc] < 0), "b0s voxel < 0")
-    # nib.save(nib.Nifti1Image((data[..., b0_loc] < 0).astype(np.int16), np.eye(4)), 'implausible_voxels.nii.gz')
-    # Implausible signal hack
-    # print("Number of implausible signal", np.sum(data[..., b0_loc] < data))
     if implausible_signal_boost:
         data[..., b0_loc] = np.max(data, axis=-1, keepdims=True)
-    # print("Number of implausible signal after hack", np.sum(data[..., b0_loc] < data))
-
-    # nib.save(nib.Nifti1Image(data[..., b0_loc], np.eye(4)), 'max_b0s_voxels.nii.gz')
 
     orig_shape = data.shape
-    # new_block_size = 3
-
-    # block_size = [new_block_size, new_block_size, new_block_size, block_size[-1]]
-
-    # print("Choosing new  block size, now", new_block_size, "was", block_size)
-    # block_size = [3, 3, 3, block_size[-1]]
 
     # Full overlap
     overlap = np.array(block_size, dtype=np.int16) - 1
-
-    # param_alpha['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
-    # param_D['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
-    # print("new alpha", param_alpha['lambda1'], param_D['lambda1'])
-
     b0 = np.squeeze(data[..., b0_loc])
     data = np.delete(data, b0_loc, axis=-1)
-    # neighbors_shape = data.shape[:-1] + (data.shape[-1] * (block_size[-1] + num_b0s),)
+
     indexes = []
     for i in range(len(neighbors)):
         indexes += [(i,) + tuple(neighbors[i])]
@@ -251,22 +208,14 @@ def main():
 
     # put all idx + b0 in this array in each iteration
     to_denoise = np.empty(data.shape[:-1] + (block_size[-1] + 1,), dtype=np.float64)
-    # print(data_denoised.shape)
-    # 1/0
-    # step = len(indexes[0]) + num_b0s
-    for i, idx in enumerate(indexes):
-        # print(i, idx)
 
-        # print(i, i*step, (i + 1)*step)
+    for i, idx in enumerate(indexes):
         dwi_idx = tuple(np.where(idx <= b0_loc, idx, np.array(idx) + num_b0s))
         print('Now denoising volumes {} / block {} out of {}.'.format(idx, i+1, len(indexes)))
 
         to_denoise[..., 0] = np.copy(b0)
         to_denoise[..., 1:] = data[..., idx]
-        # print(len(idx), to_denoise.shape)
-        # 1/0
-        # denoise(np.insert(data[..., idx], (0,), b0, axis=-1),
-        # data_denoised[..., b0_loc + dwi_idx] += to_denoise
+
         data_denoised[..., b0_loc + dwi_idx] += denoise(to_denoise,
                                                         b0_block_size,
                                                         overlap,
@@ -279,7 +228,6 @@ def main():
 
     divider = np.bincount(np.array(indexes, dtype=np.int16).ravel())
     divider = np.insert(divider, b0_loc, len(indexes))
-    # print(b0_loc, len(indexes), divider.shape)
 
     data_denoised = data_denoised[:orig_shape[0],
                                   :orig_shape[1],

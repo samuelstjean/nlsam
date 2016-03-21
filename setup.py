@@ -15,7 +15,7 @@ from glob import glob
 from os.path import splitext, join
 
 import numpy
-from dipy.utils.optpkg import optional_package
+from nibabel.optpkg import optional_package
 
 cython_gsl, have_cython_gsl, _ = optional_package("cython_gsl")
 

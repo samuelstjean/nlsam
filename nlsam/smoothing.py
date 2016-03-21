@@ -8,7 +8,7 @@ from multiprocessing import Pool, cpu_count
 from warnings import warn
 
 from dipy.core.geometry import cart2sphere
-from dipy.reconst.shm import sph_harm_ind_list, real_sph_harm, lazy_index
+from dipy.reconst.shm import sph_harm_ind_list, real_sph_harm #, lazy_index
 from dipy.denoise.noise_estimate import piesno
 
 from scipy.ndimage.filters import convolve, gaussian_filter
