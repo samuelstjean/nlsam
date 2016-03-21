@@ -138,6 +138,8 @@ def main():
     else:
         mask = np.ones(data.shape[:-1], dtype=np.bool)
 
+    if data.shape[:-1] != mask.shape:
+        raise ValueError('data shape is {}, but mask shape {} is different!'.format(data.shape, mask.shape))
 
 
 

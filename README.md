@@ -10,24 +10,26 @@ The reference implementation for the Non Local Spatial and Angular Matching (NLS
 
 ## How to install
 
-Go grab a [release][] (recommended) or build it from source.
+Go grab a [release][] (recommended) or build it from source with the [instructions](## Dependencies).
 
 ## Using the NLSAM algorithm
 
 Once installed, there are two main scripts, the stabilization algorithm and the NLSAM algorithm itself.
-The first one allows you to transform the data to Gaussian distributed signals if your dataset if Rician or Noncentral chi distributed.
+The first one allows you to transform the data to Gaussian distributed signals if your dataset is Rician or Noncentral chi distributed.
 
 A typical example call requires only a diffusion weighted dataset (dwi.nii.gz) and the number of coils form the acquisition (N=1),
 but it is recommended to also have a brain mask (brain_mask.nii.gz) to greatly reduce computation time.
+I computed the brain mask using FSL bet for this example, but anything giving you a binary segmentation mask will do fine as the computation
+will only take place inside this mask.
 I also supply the bvals/bvecs pair since the default option is to use a spherical harmonics fit for initialization.
 
 ```shell
 stabilizer dwi.nii.gz dwi_stab.nii.gz 1 sigma.nii.gz -m brain_mask.nii.gz --bvals bvals --bvecs bvecs
 ```
 
-The output is dwi_stab.nii.gz and the estimated noise standard deviation is sigma.nii.gz.
+The stabilized output is dwi_stab.nii.gz and the estimated noise standard deviation is sigma.nii.gz.
 
-More option are available by using stabilizer --help.
+More options are available by using stabilizer --help.
 Once your data is Gaussian distributed, the nlsam denoising itself can now be used with the outputs from the previous algorithm.
 Here the number of angular neighbors is set to 5, which is the number of DWI which are equidistant in q-space to each volume in this example dataset.
 
@@ -36,18 +38,19 @@ nlsam dwi_stab.nii.gz dwi_nlsam.nii.gz 5 bvals bvecs sigma.nii.gz --mask brain_m
 ```
 
 The final, nlsam denoised output is then dwi_nlsam.nii.gz.
-Once again, nlsam --help will give you more options to be used.
+Once again, nlsam --help will give you more options to be used beyond the defaults.
 
 ## Dependencies
 
 You will need to have at least numpy, scipy, nibabel, dipy, cython, cython-gsl and spams.
-Fortunately, the setup.py will take care of installing everything you need for you.
+Fortunately, the setup.py will take care of installing everything you need.
 
 If you have a working python setup already, doing
 
 ```shell
 pip install git+https://github.com/samuelstjean/nlsam.git@dev --user --process-dependency-links
 ```
+
 should give you everything you need.
 
 If you get build error about missing headers on linux, you will also need some development headers for python, the gsl, blas/lapack/etc. like this
@@ -56,7 +59,7 @@ If you get build error about missing headers on linux, you will also need some d
 sudo apt-get install build-essential libgsl0-dev python-dev libblas-dev liblapack-dev
 ```
 
-You can also just clone it locally and then build the files with
+You can also clone it locally and then build the files with
 
 ```shell
 git clone https://github.com/samuelstjean/nlsam.git --branch dev

@@ -44,37 +44,45 @@ def sh_smooth(data, gtab, sh_order=4, similarity_threshold=50):
             please use a lower value".format(similarity_threshold))
 
     m, n = sph_harm_ind_list(sh_order)
-    where_b0s = lazy_index(gtab.b0s_mask)
-    where_dwi = lazy_index(~gtab.b0s_mask)
+    # where_b0s = lazy_index(gtab.b0s_mask)
+    where_b0s = gtab.b0s_mask
+    # where_dwi = lazy_index(~gtab.b0s_mask)
     pred_sig = np.zeros_like(data)
 
     # Round similar bvals together for identifying similar shells
-    bvals = gtab.bvals[where_dwi]
+    bvals = gtab.bvals  #[where_dwi]
     rounded_bvals = np.zeros_like(bvals)
 
     for unique_bval in np.unique(bvals):
         idx = np.abs(unique_bval - bvals) < similarity_threshold
         rounded_bvals[idx] = unique_bval
 
+    # print(rounded_bvals, rounded_bvals.shape)
+    # print(np.unique(bvals))
+    # 1/0
+
+
     # process each b-value separately
     for unique_bval in np.unique(rounded_bvals):
         idx = rounded_bvals == unique_bval
-
-        # Check if enough data for requested sh order
-        if np.sum(idx) < (sh_order + 1) * (sh_order + 2) / 2:
-            warn("bval {} has not enough values for sh order {}.\nPutting back the original values.").format(unique_bval, sh_order)
-            pred_sig[..., idx] = data[..., idx]
-
-            continue
-
+        # print(idx.shape)
+        # # print(unique_bval)
+        # print(np.all(idx == where_b0s))
+        # print(idx, idx.shape)
+        # print(where_b0s, where_b0s.shape)
+        # 1/0
         # Just give back the signal for the b0s since we can't really do anything about it
         if np.all(idx == where_b0s):
-
             if np.sum(gtab.b0s_mask) > 1:
                 pred_sig[..., idx] = np.mean(data[..., idx], axis=-1, keepdims=True)
             else:
                 pred_sig[..., idx] = data[..., idx]
+            continue
 
+        # If it's not a b0, check if enough data for requested sh order
+        if np.sum(idx) < (sh_order + 1) * (sh_order + 2) / 2:
+            warn("bval {} has not enough values for sh order {}.\nPutting back the original values.".format(unique_bval, sh_order))
+            pred_sig[..., idx] = data[..., idx]
             continue
 
         x, y, z = gtab.gradients[idx].T

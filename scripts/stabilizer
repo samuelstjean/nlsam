@@ -53,7 +53,7 @@ def buildArgsParser():
     p.add_argument('output', action='store', metavar='output', type=str,
                    help='Output filename for the saved stabilized file.')
 
-    p.add_argument('N', action='store', metavar='N coils', type=int,
+    p.add_argument('N', action='store', metavar='N', type=int,
                    help='Number of receiver coils of the scanner. \n' +
                    'Use N=1 in the case of a SENSE (GE, Phillips) reconstruction and ' +
                    'N >= 1 for GRAPPA reconstruction (Siemens).')
@@ -164,6 +164,9 @@ def main():
     else:
         mask = nib.load(args.mask).get_data().astype(np.bool)
 
+    if data.shape[:-1] != mask.shape:
+        raise ValueError('data shape is {}, but mask shape {} is different!'.format(data.shape, mask.shape))
+
     N = args.N
 
     if args.n_cores is None:
@@ -248,7 +251,7 @@ def main():
 
     nib.save(nib.Nifti1Image(sigma, affine), args.sigma)
 
-    print("Now performing stabilisation")
+    print("Now performing stabilization")
 
     # multiproc_shape = (data.shape[0], data.shape[1], data.shape[3])
     mask = np.broadcast_to(mask[..., None], data.shape)
