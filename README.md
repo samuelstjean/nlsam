@@ -74,6 +74,13 @@ St-Jean, S., P. Coupé, and M. Descoteaux.
 "[Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising.][paper]"
 Medical Image Analysis, 2016. [DOI] [URL]
 
+## License
+As the main solver I use (spams) and the stabilization script uses the GNU GSL library,
+the nlsam main codebase is also licensed under the GPL v3, see the file LICENSE for more information.
+If you would like to reuse parts of this work under another project/license,
+feel free to drop me an email and I will gladly re-license the files you need
+as MIT/BSD/whatever else.
+
 <!---
 
 #### 1.a. Windows and Mac : Get a python 2.7 distribution, which can be easily installed with http://continuum.io/downloads#all
