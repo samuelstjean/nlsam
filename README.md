@@ -17,7 +17,7 @@ Go grab a [release][] (recommended) or build it from source with the [instructio
 Once installed, there are two main scripts, the stabilization algorithm and the NLSAM algorithm itself.
 The first one allows you to transform the data to Gaussian distributed signals if your dataset is Rician or Noncentral chi distributed.
 
-A typical example call requires only a diffusion weighted dataset (dwi.nii.gz) and the number of coils form the acquisition (N=1),
+A typical example call requires only a diffusion weighted dataset (dwi.nii.gz) and the number of coils from the acquisition (N=1),
 but it is recommended to also have a brain mask (brain_mask.nii.gz) to greatly reduce computation time.
 
 
