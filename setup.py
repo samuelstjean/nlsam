@@ -51,6 +51,7 @@ ext_modules = []
 for pyxfile in glob(join('nlsam', '*.pyx')):
 
     ext_name = splitext(pyxfile)[0].replace('/', '.')
+    print(ext_name)
     ext = Extension(ext_name,
                     [pyxfile],
                     libraries=cython_gsl.get_libraries(),
