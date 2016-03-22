@@ -5,6 +5,8 @@
 [DOI]: http://dx.doi.org/doi:10.1016/j.media.2016.02.010
 [URL]: http://www.sciencedirect.com/science/article/pii/S1361841516000335
 [paper]: http://scil.dinf.usherbrooke.ca/wp-content/papers/stjean-etal-media16.pdf
+[Anaconda]: https://www.continuum.io/downloads
+[spams-windows]:https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-python-v2.4-svn2013-06-24.win-amd64-py2.7.exe
 
 The reference implementation for the Non Local Spatial and Angular Matching (NLSAM) denoising algorithm for diffusion MRI.
 
@@ -25,7 +27,7 @@ I computed the brain mask using FSL bet for this example, but anything giving yo
 will only take place inside this mask.
 
 
-I also supply the bvals/bvecs pair since the default option is to use a spherical harmonics fit for initialization.
+I also supplied the bvals/bvecs pair since the default option is to use a spherical harmonics fit for initialization.
 
 ```shell
 stabilizer dwi.nii.gz dwi_stab.nii.gz 1 sigma.nii.gz -m brain_mask.nii.gz --bvals bvals --bvecs bvecs
@@ -49,13 +51,15 @@ Once again, nlsam --help will give you more options to be used beyond the defaul
 <a name="Dependencies"></a>
 ## Dependencies
 
-You will need to have at least numpy, scipy, nibabel, dipy, cython, cython-gsl and spams.
+You will need to have at least numpy, scipy, nibabel, dipy, cython, cython-gsl and spams installed with python 2.7.
 Fortunately, the setup.py will take care of installing everything you need.
 
-On Debian/Ubuntu, you will need some development headers which can be installed with
++ On Debian/Ubuntu, you will need some development headers which can be installed with
 ```shell
 sudo apt-get install build-essential libgsl0-dev python-dev libblas-dev liblapack-dev
 ```
++ On Windows and Mac OSX, it will be easier to grab a python distribution which includes everything such as [Anaconda][].
+Additionally, grab a build of spams for windows [here][spams-windows] if you don't want to build it.
 
 If you have a working python setup already, doing
 
@@ -88,56 +92,3 @@ the nlsam main codebase is also licensed under the GPL v3, see the file LICENSE 
 If you would like to reuse parts of this work under another project/license,
 feel free to drop me an email and I will gladly re-license the files you need
 as MIT/BSD/whatever else.
-
-<!---
-
-#### 1.a. Windows and Mac : Get a python 2.7 distribution, which can be easily installed with http://continuum.io/downloads#all
-
-#### 1.b. Linux (assuming a Debian/Ubuntu based distribution): Get python 2.7 and required dependencies :
-
-```shell
-sudo apt-get install python-numpy python-scipy python-pip libgsl0-dev
-```
-
-Get the GSL, either through your distribution package manager or by using this cmake version : git clone https://github.com/samuelstjean/gsl
-Prebuilt windows gsl :
-+ 1.15 http://code.google.com/p/oscats/downloads/list
-+ 1.16 for VS 2013 https://azylstra.net/blog/content/gsl-1.16_winbin.zip
-
-You will also need a compiler and required build tools, which would be
-+ On Windows, Visual Studio http://www.visualstudio.com/en-us/products/visual-studio-community-vs
-+ On Mac, XCode
-+ On Ubuntu/Linux, GCC and company : sudo apt-get install build-essential
-
-#### 2. Get some more dependencies with pip
-
-```shell
-pip install cython nibabel cythongsl
-```
-
-#### 3. Build the cython files.
-*prendre ma branche de scilpy add_stabilizer_script à la place*
-https://bitbucket.org/sciludes/scilpy/pull-request/104/stabilisation-script/diff
-
-From the NLSAM root folder, run
-```shell
-python setup.py build_ext -i
-cd nlsam/spams_third_party
-python setup.py build_ext -i
-```
-
-
-
-## Using the NLSAM algorithm
-
-To be updated when scilpy stabilisation is back in
-
-
-For now, get the stabilisation script from scilpy, https://bitbucket.org/sciludes/scilpy/pull-request/104/stabilisation-script or you can skip it if you don't have terribly noisy data. The nlsam subfolder has my old personal version, which might do weird imports.
-
-Run the denoising itself, like this
-```shell
-nlsam noisy_data.nii.gz N_neighbors bval bvec -o denoised_data.nii.gz -mask_data mask.nii.gz
-```
-where N_neighbors is the number of angular neighbors in a block, I personnaly suggest 5. Afterward, go take a long coffee break/come back tomorrow. You should also have at least 12/16 go of ram for a large dataset (1.2mm at 41 DWIs takes approx 16go of ram).
--->
