@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import os
-from os.path import splitext, join, exists, split
+from os.path import join, exists, splitext
 
 # BEFORE importing distutils, remove MANIFEST. distutils doesn't properly
 # update it when the contents of directories change.
@@ -25,7 +25,7 @@ import numpy
 try:
     from nibabel.optpkg import optional_package
 except:
-    raise ValueError('Could not find nibabel, which is required for building. Try running\n pip install nibabel')
+    raise ValueError('Could not find nibabel, which is required for building. \nTry running pip install nibabel')
 
 cython_gsl, have_cython_gsl, _ = optional_package("cython_gsl")
 
@@ -53,8 +53,7 @@ for pyxfile in modlist:
 
     ext_name = splitext(pyxfile)[0].replace('/', '.')
     source = join(*pyxfile.split('.')) + '.pyx'
-    # pyxfile = split(pyxfile)[1]
-    print(ext_name, source)
+
     ext = Extension(pyxfile,
                     [source],
                     libraries=cython_gsl.get_libraries(),
@@ -63,12 +62,6 @@ for pyxfile in modlist:
                     include_dirs=[numpy.get_include()])
 
     ext_modules.append(ext)
-
-
-    # pyx_src = pjoin(*modulename.split('.')) + '.pyx'
-    # EXTS.append(Extension(modulename, [pyx_src] + other_sources,
-    #                       language=language,
-    #                       **deepcopy(ext_kwargs)))  # deepcopy lists
 
 setup(
     name=params['name'],
@@ -80,5 +73,5 @@ setup(
     setup_requires=params['requires'],
     install_requires=params['deps'] + params['requires'],
     dependency_links=params['links'],
-    scripts=glob(join('scripts', '*')),
+    scripts=glob(join('scripts', '*'))
 )
