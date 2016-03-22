@@ -51,7 +51,7 @@ Once again, nlsam --help will give you more options to be used beyond the defaul
 <a name="Dependencies"></a>
 ## Dependencies
 
-You will need to have at least numpy, scipy, nibabel, dipy, cython, cython-gsl and spams.
+You will need to have at least numpy, scipy, nibabel, dipy, cython, cython-gsl and spams installed with python 2.7.
 Fortunately, the setup.py will take care of installing everything you need.
 
 + On Debian/Ubuntu, you will need some development headers which can be installed with
