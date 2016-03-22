@@ -52,24 +52,23 @@ Once again, nlsam --help will give you more options to be used beyond the defaul
 You will need to have at least numpy, scipy, nibabel, dipy, cython, cython-gsl and spams.
 Fortunately, the setup.py will take care of installing everything you need.
 
-If you have a working python setup already, doing
-
-```shell
-pip install git+https://github.com/samuelstjean/nlsam.git@dev --user --process-dependency-links
-```
-
-should give you everything you need.
-
-If you get build error about missing headers on linux, you will also need some development headers for python, the gsl, blas/lapack/etc. like this
-
+On Debian/Ubuntu, you will need some development headers which can be installed with
 ```shell
 sudo apt-get install build-essential libgsl0-dev python-dev libblas-dev liblapack-dev
 ```
 
+If you have a working python setup already, doing
+
+```shell
+pip install git+https://github.com/samuelstjean/nlsam.git --user --process-dependency-links
+```
+
+should give you everything you need.
+
 You can also clone it locally and then build the files with
 
 ```shell
-git clone https://github.com/samuelstjean/nlsam.git --branch dev
+git clone https://github.com/samuelstjean/nlsam.git
 cd path/to/git/repo
 python setup.py build_ext -i
 ```
