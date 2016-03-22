@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import os
-from os.path import splitext, join, exists
+from os.path import splitext, join, exists, split
 
 # BEFORE importing distutils, remove MANIFEST. distutils doesn't properly
 # update it when the contents of directories change.
@@ -51,7 +51,9 @@ ext_modules = []
 for pyxfile in glob(join('nlsam', '*.pyx')):
 
     ext_name = splitext(pyxfile)[0].replace('/', '.')
-    print(ext_name)
+    pyxfile = join(*ext_name.split('.')) + '.pyx'
+    # pyxfile = split(pyxfile)[1]
+    print(ext_name, pyxfile)
     ext = Extension(ext_name,
                     [pyxfile],
                     libraries=cython_gsl.get_libraries(),
