@@ -1,0 +1,6 @@
+[run]
+branch = True
+source = nlsam
+include = */nlsam/*
+omit =
+    */setup.py

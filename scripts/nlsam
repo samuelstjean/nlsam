@@ -1,0 +1,256 @@
+#!/usr/bin/env python
+
+from __future__ import division, print_function
+
+import os
+# Fix openblas threading bug with openmp before loading numpy
+# Spams has openmp support already, and openblas conflicts with python multiprocessing.
+os.environ['OPENBLAS_NUM_THREADS'] = '1'
+
+import argparse
+from multiprocessing import cpu_count
+
+import nibabel as nib
+import numpy as np
+
+from nlsam.denoiser import denoise, greedy_set_finder
+from nlsam.angular_tools import angular_neighbors
+# from nlsam.smoothing import local_standard_deviation
+
+from dipy.io.gradients import read_bvals_bvecs
+
+
+DESCRIPTION = """
+Main script for the NLSAM denoising [1].
+"""
+
+EPILOG="""Reference : [1] St-Jean S., Coupe P. and Descoteaux M.
+Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising,
+Medical Image Analysis (2016)."""
+
+def buildArgsParser():
+
+    p = argparse.ArgumentParser(description=DESCRIPTION,
+                                epilog=EPILOG,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    p.add_argument('input', action='store', metavar='input',
+                   help='Path of the image file to denoise.')
+
+    p.add_argument('output', action='store', metavar='output',
+                   help='Path for the saved denoised file.')
+
+    p.add_argument('block_size', action='store', metavar='block_size',
+                   type=int, help='Number of angular neighbors used for denoising.')
+
+    p.add_argument('bvals', action='store', metavar='bvals',
+                   help='Path of the bvals file, in FSL format.')
+
+    p.add_argument('bvecs', action='store', metavar='bvecs',
+                   help='Path of the bvecs file, in FSL format.')
+
+    p.add_argument('sigma', action='store', metavar='sigma',
+                   help='Path to the standard deviation volume.')
+
+    p.add_argument('--cores', action='store', dest='cores',
+                   metavar='int', required=False, default=None, type=int,
+                   help='Number of cores to use for multithreading')
+
+    p.add_argument('--iterations', action='store', dest='iterations',
+                   metavar='int', required=False, default=10, type=int,
+                   help='Number of iterations for the l1 reweighting. Default 10.')
+
+    p.add_argument('-m', '--mask', action='store', dest='mask',
+                   metavar='', required=False, default=None, type=str,
+                   help='Path to a binary mask. Only the data inside the mask will be reconstructed.')
+
+    p.add_argument('--no_symmetry', dest='no_symmetry', action='store_true',
+                   default=False, required=False,
+                   help='If supplied, assumes the set of bvals/bvecs to already be symmetrized, ' +
+                   'i.e. All points (x,y,z) on the sphere and (-x,-y,-z) were acquired, such as in full grid DSI.')
+
+    p.add_argument('-f', '--force', action='store_true', dest='overwrite',
+                   help='If set, the output denoised volume will be overwritten ' +
+                   'if it already exists.')
+    return p
+
+
+def main():
+    parser = buildArgsParser()
+    args = parser.parse_args()
+
+    if os.path.isfile(args.output):
+        if args.overwrite:
+            print('Overwriting {0}'.format(os.path.realpath(args.output)))
+        else:
+            parser.error('{0} already exists! Use -f or --force to overwrite it.'.format(args.output))
+
+    print("Now denoising " + os.path.realpath(args.input))
+
+    vol = nib.load(args.input)
+    data = vol.get_data()
+    vol.uncache()
+    affine = vol.get_affine()
+
+    sigma = nib.load(args.sigma).get_data()**2
+
+    greedy_subsampler = True
+    implausible_signal_boost = True
+    n_iter = args.iterations
+
+    original_dtype = data.dtype
+    original_shape = data.shape
+    data = data.astype(np.float64)
+    block_size = np.array((3, 3, 3, int(args.block_size)))
+    param_D = {}
+    param_alpha = {}
+
+    if len(block_size) != len(data.shape):
+        raise ValueError('Block shape and data shape are not of the same \
+                         dimensions', data.shape, block_size.shape)
+
+    if args.cores is None:
+        param_D['numThreads'] = cpu_count()
+        param_alpha['numThreads'] = cpu_count()
+    else:
+        param_D['numThreads'] = args.cores
+        param_alpha['numThreads'] = args.cores
+
+    param_alpha['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
+    param_D['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
+
+    if args.mask is not None:
+        mask = nib.load(args.mask).get_data().astype(np.bool)
+    else:
+        mask = np.ones(data.shape[:-1], dtype=np.bool)
+
+    if data.shape[:-1] != mask.shape:
+        raise ValueError('data shape is {}, but mask shape {} is different!'.format(data.shape, mask.shape))
+
+
+
+    crop=False
+    if crop:
+        print("cropping data and mask")
+        ca = 51#20#80#23
+        cb = 56#170#170#150#86#27#data.shape[1]
+        # [90:, 88:96, 40:] [90:140, 90:160, 38:46]
+        # isbi : [:,22:28, :]
+        #mask_data=np.ones_like(data[...,0],dtype=np.bool)
+        data = data[:, ca:cb]#[40:129,40:129,...]#[90:150, :165, ...] #88:96, 40:]
+        original_shape = data.shape[:-1] + (original_shape[-1],)
+        # data_orig = data_orig[:, ca:cb]#[40:129,40:129,...]#[90:150, :165, ...]#88:96, 40:]
+        # mask_noise = mask_noise[:, ca:cb]#[40:129,40:129,...]#[90:150, :165, ...]#88:96, 40:]
+        mask = mask[:, ca:cb]#[40:129,40:129,...]#[90:150, :165, ...]#88:96, 40:]
+        # gold_standard = gold_standard[:, ca:cb]#[40:129,40:129,...]#[90:150, :165, ...]#88:96, 40:]
+        sigma = sigma[:, ca:cb]
+
+
+
+    bvals, bvecs = read_bvals_bvecs(args.bvals, args.bvecs)
+
+    b0_thresh = 10
+    b0_loc = tuple(np.where(bvals <= b0_thresh)[0])
+    num_b0s = len(b0_loc)
+
+    print("found " + str(num_b0s) + " b0s at position " + str(b0_loc))
+    # Average multiple b0s, and just use the average for the rest of the script
+    # patching them in at the end
+    if num_b0s > 1:
+        mean_b0 = np.mean(data[..., b0_loc], axis=-1)
+        dwis = tuple(np.where(bvals > b0_thresh)[0])
+        data = data[..., dwis]
+        bvals = np.take(bvals, dwis, axis=0)
+        bvecs = np.take(bvecs, dwis, axis=0)
+
+        rest_of_b0s = b0_loc[1:]
+        b0_loc = b0_loc[0]
+
+        data = np.insert(data, b0_loc, mean_b0, axis=-1)
+        bvals = np.insert(bvals, b0_loc, [0.], axis=0)
+        bvecs = np.insert(bvecs, b0_loc, [0., 0., 0.], axis=0)
+        b0_loc = tuple([b0_loc])
+        num_b0s = 1
+
+    else:
+        rest_of_b0s = None
+
+    # Double bvecs to find neighbors with assumed symmetry if needed
+    if args.no_symmetry:
+        print('Data is assumed to be already symmetrized.')
+        sym_bvecs = np.delete(bvecs, b0_loc, axis=0)
+    else:
+        sym_bvecs = np.vstack((np.delete(bvecs, b0_loc, axis=0), np.delete(-bvecs, b0_loc, axis=0)))
+
+    neighbors = (angular_neighbors(sym_bvecs, block_size[-1] - num_b0s) % (data.shape[-1] - num_b0s))[:data.shape[-1] - num_b0s]
+
+    if implausible_signal_boost:
+        data[..., b0_loc] = np.max(data, axis=-1, keepdims=True)
+
+    orig_shape = data.shape
+
+    # Full overlap
+    overlap = np.array(block_size, dtype=np.int16) - 1
+    b0 = np.squeeze(data[..., b0_loc])
+    data = np.delete(data, b0_loc, axis=-1)
+
+    indexes = []
+    for i in range(len(neighbors)):
+        indexes += [(i,) + tuple(neighbors[i])]
+
+    if greedy_subsampler:
+        indexes = greedy_set_finder(indexes)
+
+    b0_block_size = tuple(block_size[:-1]) + ((block_size[-1] + num_b0s,))
+
+    denoised_shape = data.shape[:-1] + (data.shape[-1] + num_b0s,)
+    data_denoised = np.zeros(denoised_shape, np.float64)
+
+    # put all idx + b0 in this array in each iteration
+    to_denoise = np.empty(data.shape[:-1] + (block_size[-1] + 1,), dtype=np.float64)
+
+    for i, idx in enumerate(indexes):
+        dwi_idx = tuple(np.where(idx <= b0_loc, idx, np.array(idx) + num_b0s))
+        print('Now denoising volumes {} / block {} out of {}.'.format(idx, i+1, len(indexes)))
+
+        to_denoise[..., 0] = np.copy(b0)
+        to_denoise[..., 1:] = data[..., idx]
+
+        data_denoised[..., b0_loc + dwi_idx] += denoise(to_denoise,
+                                                        b0_block_size,
+                                                        overlap,
+                                                        param_alpha,
+                                                        param_D,
+                                                        sigma,
+                                                        n_iter,
+                                                        mask,
+                                                        dtype=np.float64)
+
+    divider = np.bincount(np.array(indexes, dtype=np.int16).ravel())
+    divider = np.insert(divider, b0_loc, len(indexes))
+
+    data_denoised = data_denoised[:orig_shape[0],
+                                  :orig_shape[1],
+                                  :orig_shape[2],
+                                  :orig_shape[3]] / divider
+
+    # Put back the original number of b0s
+    if rest_of_b0s is not None:
+
+        b0_denoised = np.squeeze(data_denoised[..., b0_loc])
+        data_denoised_insert = np.empty(original_shape, original_dtype)
+        n = 0
+        for i in range(original_shape[-1]):
+            if i in rest_of_b0s:
+                data_denoised_insert[..., i] = b0_denoised
+                n += 1
+            else:
+                data_denoised_insert[..., i] = data_denoised[..., i - n]
+
+        data_denoised = data_denoised_insert
+
+    nib.save(nib.Nifti1Image(data_denoised.astype(original_dtype), affine), args.output)
+
+
+if __name__ == "__main__":
+    main()
