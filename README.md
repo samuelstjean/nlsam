@@ -56,8 +56,10 @@ Fortunately, the setup.py will take care of installing everything you need.
 
 + On Debian/Ubuntu, you will need some development headers which can be installed with
 ```shell
-sudo apt-get install build-essential libgsl0-dev python-dev libblas-dev liblapack-dev
+sudo apt-get install build-essential libgsl0-dev python-dev libopenblas-dev libopenblas-base
 ```
+Of course feel free to use your favorite blas/lapack implementation (such as intel MKL), but I got 5x faster runtimes out of openblas vs atlas for nlsam just by switching for example.
+
 + On Windows and Mac OSX, it will be easier to grab a python distribution which includes everything such as [Anaconda][].
 Additionally, grab a build of spams for windows [here][spams-windows] if you don't want to build it.
 
