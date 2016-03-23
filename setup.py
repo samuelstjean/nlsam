@@ -37,7 +37,7 @@ params = {}
 params['name'] = 'nlsam'
 params['version'] = '0.1'
 params['requires'] = ['cythongsl>=0.2',
-                      'numpy>=1.10.1',
+                      'numpy>=1.10.4',
                       'cython>=0.21']
 params['deps'] = ['dipy>=0.11',
                   'scipy>=0.12',
