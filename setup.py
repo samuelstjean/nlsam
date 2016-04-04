@@ -17,33 +17,47 @@ except ImportError:
 from setuptools import setup, find_packages
 from Cython.Distutils import Extension
 from Cython.Distutils import build_ext
-
+from distutils.version import LooseVersion
 from glob import glob
 
+try:
+    import numpy
+except:
+    raise ImportError('Could not find numpy, which is required for building. \nTry running pip install numpy')
 
-import numpy
 try:
     from nibabel.optpkg import optional_package
 except:
-    raise ValueError('Could not find nibabel, which is required for building. \nTry running pip install nibabel')
+    raise ImportError('Could not find nibabel, which is required for building. \nTry running pip install nibabel')
 
 cython_gsl, have_cython_gsl, _ = optional_package("cython_gsl")
 
 if not have_cython_gsl:
-    raise ValueError('cannot find gsl package (required for hyp1f1), \
+    raise ImportError('cannot find gsl package (required for hyp1f1), \
         try pip install cythongsl and sudo apt-get install libgsl0-dev libgsl0ldbl')
 
 params = {}
 params['name'] = 'nlsam'
 params['version'] = '0.1'
-params['requires'] = ['cythongsl>=0.2',
+params['requires'] = ['cythongsl>=0.2.1',
                       'numpy>=1.10.4',
                       'cython>=0.21']
-params['deps'] = ['dipy>=0.11',
-                  'scipy>=0.12',
+params['deps'] = ['scipy>=0.12',
                   'nibabel>=1.3',
                   'spams>=2.4']
 params['links'] = ['https://github.com/samuelstjean/spams-python/archive/master.zip#egg=spams-2.5']
+
+# Check for local version of dipy if it exists, since it would replace a locally built
+# but not installed version.
+try:
+    import dipy
+    print('Found local version of dipy in ' + dipy.__file__)
+except:
+    print('Cannot find dipy, it will be installed using pip.')
+    params['deps'] += 'dipy>=0.11'
+
+if LooseVersion(dipy.__version__) <= '0.11':
+    raise ValueError('Local dipy version is {}, but you need at least 0.11!'.format(dipy.__version__))
 
 ext_modules = []
 modlist = ['nlsam.utils',
