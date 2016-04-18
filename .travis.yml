@@ -35,16 +35,19 @@ before_install:
     - python --version # just to check
     - virtualenv venv
     - source venv/bin/activate
+    - pip install nose coverage coveralls
+    - deactivate
+    - source venv/bin/activate
 
 install:
     - pip install --timeout=60 --no-index --trusted-host $WHEELHOST --find-links $WHEELHOUSE $DEPENDS
-    - pip install $DEPENDS_PIP nose coverage coveralls
-    - python setup.py install
-    - echo 'import sys; print(sys.executable)' > test.py
-    - python test.py
+    - pip install $DEPENDS_PIP
+    - python setup.py build_ext -i
 
 script:
-    - nosetests --verbose --exe --with-coverage --cover-package=nlsam nlsam/tests
+    - mkdir tester
+    - cd tester
+    - nosetests --verbose --exe --with-coverage --cover-package=nlsam ../nlsam/tests/
 
-after_success:
-    - coveralls
+#after_success:
+#    - coveralls
