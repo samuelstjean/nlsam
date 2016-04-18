@@ -5,7 +5,11 @@ from __future__ import division, print_function
 import numpy as np
 from numpy.testing import assert_almost_equal
 
-from scipy.special import factorialk
+try:
+    from scipy.special import factorialk
+except ImportError:
+    from scipy.misc import factorialk
+
 from scipy.stats import norm
 
 from nlsam.stabilizer import (_test_marcumq_cython,
