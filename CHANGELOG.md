@@ -1,6 +1,9 @@
 # ChangeLog
 
-## [Unreleased]
+## [0.2] - 2016-04-18
+
+- stabilization script is now clipping values to zero (Bai et al. 2014) as used in the paper.
+The previous release was using the Koay et al. 2009 approach, which could produce negative values in really noisy cases.
 
 - More doc to the readme.
 - Added link to the synthetic and in vivo data used in the experiments.

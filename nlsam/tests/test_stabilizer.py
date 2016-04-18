@@ -3,14 +3,18 @@
 from __future__ import division, print_function
 
 import numpy as np
-from numpy.testing import assert_almost_equal, assert_equal
+from numpy.testing import assert_almost_equal
 
 from scipy.special import factorialk
 from scipy.stats import norm
 
-from nlsam.stabilizer import (_test_marcumq_cython, _test_beta,
-    _test_fixed_point_k, _test_xi, fixed_point_finder, chi_to_gauss,
-    _test_inv_cdf_gauss, _test_multifactorial)
+from nlsam.stabilizer import (_test_marcumq_cython,
+                              _test_beta,
+                              _test_xi,
+                              fixed_point_finder,
+                              chi_to_gauss,
+                              _test_inv_cdf_gauss,
+                              _test_multifactorial)
 
 # hispeed is the closed source java reference implementation,
 # from which most values are taken from.
@@ -39,8 +43,11 @@ def test_xi():
 
 def test_fixed_point_finder():
     # Values taken from hispeed.SignalFixedPointFinder.fixedPointFinder
-    assert_almost_equal(fixed_point_finder(50, 30, 12), -192.78288201533618)
-    assert_almost_equal(fixed_point_finder(650, 45, 1), 648.4366584016703)
+    assert_almost_equal(fixed_point_finder(50, 30, 12), 0)
+    assert_almost_equal(fixed_point_finder(650, 400, 1), 452.287728081486)
+    assert_almost_equal(fixed_point_finder(650, 40, 12), 620.9909935398028)
+    assert_almost_equal(fixed_point_finder(65, 40, 12), 0)
+    assert_almost_equal(fixed_point_finder(15, 4, 4), 10.420401964259176)
 
 
 def test_chi_to_gauss():
