@@ -1,8 +1,12 @@
 # ChangeLog
 
 ## [Unreleased]
-### Added
-- Linux binary nows needs glibc >= 2.13 (Debian wheezy and newer) instead of glibc >= 2.21 (Ubuntu 15.04 and newer)
+
+- More doc to the readme.
+- Added link to the synthetic and in vivo data used in the experiments.
+- Windows binaries are now smaller.
+- Linux binaries now needs glibc >= 2.13 (Debian 7 and newer) instead of glibc >= 2.21 (Ubuntu 15.04 and newer).
+- Removed the source archive and wheel files, as one can grab the source archive from github instead.
 
 ## [0.1] - 2016-03-22
 
