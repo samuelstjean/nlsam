@@ -1,19 +1,18 @@
 from __future__ import division
 
 import numpy as np
-from numpy.lib.stride_tricks import as_strided as ast
-# import warnings
 
 from multiprocessing import Pool, cpu_count
 from warnings import warn
 
 from dipy.core.geometry import cart2sphere
-from dipy.reconst.shm import sph_harm_ind_list, real_sph_harm #, lazy_index
+from dipy.reconst.shm import sph_harm_ind_list, real_sph_harm
 from dipy.denoise.noise_estimate import piesno
 
 from scipy.ndimage.filters import convolve, gaussian_filter
 from scipy.ndimage.interpolation import zoom
-# from scipy.special import digamma
+
+from nlsam.utils import sliding_window
 
 
 def sh_smooth(data, gtab, sh_order=4, similarity_threshold=50):
@@ -44,33 +43,21 @@ def sh_smooth(data, gtab, sh_order=4, similarity_threshold=50):
             please use a lower value".format(similarity_threshold))
 
     m, n = sph_harm_ind_list(sh_order)
-    # where_b0s = lazy_index(gtab.b0s_mask)
     where_b0s = gtab.b0s_mask
-    # where_dwi = lazy_index(~gtab.b0s_mask)
     pred_sig = np.zeros_like(data)
 
     # Round similar bvals together for identifying similar shells
-    bvals = gtab.bvals  #[where_dwi]
+    bvals = gtab.bvals
     rounded_bvals = np.zeros_like(bvals)
 
     for unique_bval in np.unique(bvals):
         idx = np.abs(unique_bval - bvals) < similarity_threshold
         rounded_bvals[idx] = unique_bval
 
-    # print(rounded_bvals, rounded_bvals.shape)
-    # print(np.unique(bvals))
-    # 1/0
-
-
     # process each b-value separately
     for unique_bval in np.unique(rounded_bvals):
         idx = rounded_bvals == unique_bval
-        # print(idx.shape)
-        # # print(unique_bval)
-        # print(np.all(idx == where_b0s))
-        # print(idx, idx.shape)
-        # print(where_b0s, where_b0s.shape)
-        # 1/0
+
         # Just give back the signal for the b0s since we can't really do anything about it
         if np.all(idx == where_b0s):
             if np.sum(gtab.b0s_mask) > 1:
@@ -81,7 +68,8 @@ def sh_smooth(data, gtab, sh_order=4, similarity_threshold=50):
 
         # If it's not a b0, check if enough data for requested sh order
         if np.sum(idx) < (sh_order + 1) * (sh_order + 2) / 2:
-            warn("bval {} has not enough values for sh order {}.\nPutting back the original values.".format(unique_bval, sh_order))
+            warn("bval {} has not enough values for sh order {}." \
+                 "\nPutting back the original values.".format(unique_bval, sh_order))
             pred_sig[..., idx] = data[..., idx]
             continue
 
@@ -243,94 +231,3 @@ def local_piesno(data, N, size=5, return_mask=True):
         return interpolated, m_out
 
     return interpolated
-
-
-# Stolen from http://www.johnvinyard.com/blog/?p=268
-def sliding_window(a, ws, ss=None, flatten=True):
-    '''
-    Return a sliding window over a in any number of dimensions
-
-    Parameters:
-        a  - an n-dimensional numpy array
-        ws - an int (a is 1D) or tuple (a is 2D or greater) representing the size
-             of each dimension of the window
-        ss - an int (a is 1D) or tuple (a is 2D or greater) representing the
-             amount to slide the window in each dimension. If not specified, it
-             defaults to ws.
-        flatten - if True, all slices are flattened, otherwise, there is an
-                  extra dimension for each dimension of the input.
-
-    Returns
-        an array containing each n-dimensional window from a
-    '''
-
-    if None is ss:
-        # ss was not provided. the windows will not overlap in any direction.
-        ss = ws
-    ws = norm_shape(ws)
-    ss = norm_shape(ss)
-
-    # convert ws, ss, and a.shape to numpy arrays so that we can do math in every
-    # dimension at once.
-    ws = np.array(ws)
-    ss = np.array(ss)
-    shape = np.array(a.shape)
-
-    # ensure that ws, ss, and a.shape all have the same number of dimensions
-    ls = [len(shape), len(ws), len(ss)]
-    if 1 != len(set(ls)):
-        raise ValueError('a.shape, ws and ss must all have the same length. They were %s' % str(ls))
-
-    # ensure that ws is smaller than a in every dimension
-    if np.any(ws > shape):
-        raise ValueError('ws cannot be larger than a in any dimension.\
- a.shape was %s and ws was %s' % (str(a.shape), str(ws)))
-
-    # how many slices will there be in each dimension?
-    newshape = norm_shape(((shape - ws) // ss) + 1)
-    # the shape of the strided array will be the number of slices in each dimension
-    # plus the shape of the window (tuple addition)
-    newshape += norm_shape(ws)
-    # the strides tuple will be the array's strides multiplied by step size, plus
-    # the array's strides (tuple addition)
-    newstrides = norm_shape(np.array(a.strides) * ss) + a.strides
-    strided = ast(a, shape=newshape, strides=newstrides)
-    if not flatten:
-        return strided
-
-    # Collapse strided so that it has one more dimension than the window.  I.e.,
-    # the new array is a flat list of slices.
-    meat = len(ws) if ws.shape else 0
-    firstdim = (np.product(newshape[:-meat]),) if ws.shape else ()
-    dim = firstdim + (newshape[-meat:])
-    # remove any dimensions with size 1
-    dim = filter(lambda i: i != 1, dim)
-    return strided.reshape(dim)
-
-
-def norm_shape(shape):
-    '''
-    Normalize numpy array shapes so they're always expressed as a tuple,
-    even for one-dimensional shapes.
-
-    Parameters
-        shape - an int, or a tuple of ints
-
-    Returns
-        a shape tuple
-    '''
-    try:
-        i = int(shape)
-        return (i,)
-    except TypeError:
-        # shape was not a number
-        pass
-
-    try:
-        t = tuple(shape)
-        return t
-    except TypeError:
-        # shape was not iterable
-        pass
-
-    raise TypeError('shape must be an int, or a tuple of ints')
