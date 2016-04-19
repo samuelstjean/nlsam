@@ -64,12 +64,12 @@ if not have_cython_gsl:
 try:
     import dipy
     print('Found local version of dipy in ' + dipy.__file__)
+
+    if LooseVersion(dipy.__version__) <= '0.11':
+        raise ValueError('Local dipy version is {}, but you need at least 0.11!'.format(dipy.__version__))
 except ImportError:
     print('Cannot find dipy, it will be installed using pip.')
     params['deps'].append('dipy>=0.11')
-
-if LooseVersion(dipy.__version__) <= '0.11':
-    raise ValueError('Local dipy version is {}, but you need at least 0.11!'.format(dipy.__version__))
 
 ext_modules = []
 
