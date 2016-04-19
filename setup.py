@@ -32,6 +32,11 @@ except ImportError:
     import ez_setup
     ez_setup.use_setuptools()
 
+try:
+    import cython
+except ImportError:
+    raise ImportError('Could not find cython, which is required for building. \nTry running pip install cython')
+
 from setuptools import setup, find_packages
 from Cython.Distutils import Extension
 from Cython.Distutils import build_ext
@@ -40,27 +45,26 @@ from glob import glob
 
 try:
     import numpy
-except:
+except ImportError:
     raise ImportError('Could not find numpy, which is required for building. \nTry running pip install numpy')
 
 try:
     from nibabel.optpkg import optional_package
-except:
+except ImportError:
     raise ImportError('Could not find nibabel, which is required for building. \nTry running pip install nibabel')
 
 cython_gsl, have_cython_gsl, _ = optional_package("cython_gsl")
 
 if not have_cython_gsl:
-    raise ImportError('cannot find gsl package (required for hyp1f1), \
+    raise ImportError('cannot find gsl package (required for hyp1f1), \n\
         try pip install cythongsl and sudo apt-get install libgsl0-dev libgsl0ldbl')
-
 
 # Check for local version of dipy if it exists, since it would replace a locally built
 # but not installed version.
 try:
     import dipy
     print('Found local version of dipy in ' + dipy.__file__)
-except:
+except ImportError:
     print('Cannot find dipy, it will be installed using pip.')
     params['deps'].append('dipy>=0.11')
 
