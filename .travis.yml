@@ -24,7 +24,6 @@ matrix:
     # To test minimum dependencies
     - python: 2.7
       env:
-        - COVERAGE=1
         - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.12 nibabel==1.3"
         - DEPENDS_PIP="cythongsl==0.2.1 dipy==0.11"
     - python: 2.7
@@ -34,28 +33,21 @@ notifications:
 
 before_install:
     - python --version # just to check
-    - virtualenv $VENV_ARGS venv
+    - virtualenv venv
+    - source venv/bin/activate
+    - pip install nose coverage coveralls
+    - deactivate
     - source venv/bin/activate
 
 install:
-    - if [ "${COVERAGE}" == "1" ]; then
-      pip install coverage coveralls;
-      fi
-
     - pip install --timeout=60 --no-index --trusted-host $WHEELHOST --find-links $WHEELHOUSE $DEPENDS
-    - pip install $DEPENDS_PIP nose
-    - python setup.py install
+    - pip install $DEPENDS_PIP
+    - python setup.py build_ext -i
 
-# command to run tests, e.g. python setup.py test
 script:
-    # Change into an innocuous directory and find tests from installation
-    - mkdir for_testing
-    - cd for_testing
-    - if [ "${COVERAGE}" == "1" ]; then
-      cp ../.coveragerc .;
-      COVER_ARGS="--with-coverage --cover-package nlsam";
-      fi
-    - nosetests --verbose $COVER_ARGS nlsam
+    - mkdir tester
+    - cd tester
+    - nosetests --verbose --exe --with-coverage --cover-package=nlsam ../nlsam/tests/
 
-after_success:
-    - if [ "${COVERAGE}" == "1" ]; then coveralls; fi
+#after_success:
+#    - coveralls

@@ -7,12 +7,14 @@
 [paper]: http://scil.dinf.usherbrooke.ca/wp-content/papers/stjean-etal-media16.pdf
 [Anaconda]: https://www.continuum.io/downloads
 [spams-windows]:https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-python-v2.4-svn2013-06-24.win-amd64-py2.7.exe
+[nlsam_data]:https://github.com/samuelstjean/nlsam_data
 
 The reference implementation for the Non Local Spatial and Angular Matching (NLSAM) denoising algorithm for diffusion MRI.
 
 ## How to install
 
 Go grab a [release][] (recommended) or build it from source with the [instructions](#Dependencies).
+You can also download the datasets used in the paper over [here][nlsam_data].
 
 ## Using the NLSAM algorithm
 
