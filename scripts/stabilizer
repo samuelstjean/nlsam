@@ -14,10 +14,7 @@ from multiprocessing import Pool, cpu_count
 from dipy.core.ndindex import ndindex
 from dipy.core.gradients import gradient_table
 from dipy.io.gradients import read_bvals_bvecs
-# from dipy.denoise.nlmeans import nlmeans
 from dipy.denoise.noise_estimate import piesno
-
-# from scipy.ndimage.filters import convolve
 
 from nlsam.smoothing import local_standard_deviation, sh_smooth, local_piesno
 from nlsam.stabilizer import chi_to_gauss, fixed_point_finder, corrected_sigma
@@ -61,11 +58,6 @@ def buildArgsParser():
     p.add_argument('sigma', action='store', metavar='sigma', type=str,
                    help='Output filename for the noise standard deviation volume.')
 
-    # p.add_argument('-o', action='store', dest='savename',
-    #                metavar='string', required=False, default=None, type=str,
-    #                help='Path and prefix for the saved transformed file. \n' +
-    #                'The name is always appended with _stabilized.nii.gz')
-
     p.add_argument('--cores', action='store', dest='n_cores',
                    metavar='int', required=False, default=None, type=int,
                    help='Number of cores to use for multiprocessing.\n ' +
@@ -101,11 +93,7 @@ def buildArgsParser():
                    metavar='string', required=False, default='sh_smooth', type=str,
                    choices=['sh_smooth', 'no_smoothing'],
                    help='Smoothing method used for initializing m_hat.\n' +
-                   # 'local_mean : Compute 3D local mean, might blur edges.\n' +
-                   # 'nlmeans : Compute 3D nlmeans from dipy, slower ' +
-                   # 'but does not blur edges.\n' +
                    'sh_smooth (default): Fit SH for smoothing the raw signal. ' +
-                   # 'Really fast, and does not overblur.\n' +
                    'Also requires the bvals/bvecs to be given\n' +
                    'no_smoothing : Just use the data as-is for initialisation.')
 
@@ -186,27 +174,7 @@ def main():
 
         noise_maps = nib.load(args.noise_maps).get_data()
 
-    # # Since negatives are allowed, convert uint to int
-    # if data.dtype.kind == 'u':
-    #     dtype = data.dtype.name[1:]
-    # else:
-    #     dtype = data.dtype
-
     print("Estimating m_hat with method " + smooth_method)
-
-    # if smooth_method == 'local_mean':
-    #     m_hat = np.zeros_like(data, dtype=np.float32)
-    #     size = (3, 3, 3)
-    #     k = np.ones(size) / np.sum(size)
-    #     conv_out = np.zeros_like(data[..., 0], dtype=np.float64)
-
-    #     for idx in range(data.shape[-1]):
-    #         convolve(data[..., idx], k, mode='reflect', output=conv_out)
-    #         m_hat[..., idx] = conv_out
-
-    # elif smooth_method == 'nlmeans':
-    #     nlmeans_sigma = estimate_sigma(data)
-    #     m_hat = nlmeans(data, nlmeans_sigma, rician=False, mask=mask)
 
     if smooth_method == 'no_smoothing':
         m_hat = np.array(data, copy=True, dtype=np.float32)
@@ -215,8 +183,6 @@ def main():
         bvals, bvecs = read_bvals_bvecs(args.bvals, args.bvecs)
         gtab = gradient_table(bvals, bvecs)
         m_hat = sh_smooth(data, gtab, sh_order=4)
-    # else:
-    #     raise ValueError("method " + smooth_method + " is not recognized!")
 
     print("Estimating noise with method " + noise_method)
 
@@ -253,7 +219,6 @@ def main():
 
     print("Now performing stabilization")
 
-    # multiproc_shape = (data.shape[0], data.shape[1], data.shape[3])
     mask = np.broadcast_to(mask[..., None], data.shape)
 
     pool = Pool(processes=n_cores)
