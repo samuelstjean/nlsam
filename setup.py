@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
-modlist = ['nlsam.utils',
-           'nlsam.stabilizer']
-
 params = {}
+params['modlist'] = ['nlsam.utils',
+                     'nlsam.stabilizer']
+params['scripts'] = ['nlsam/stabilizer',
+                     'nlsam/nlsam']
 params['name'] = 'nlsam'
 params['version'] = '0.2'
 params['requires'] = ['cythongsl>=0.2.1',
@@ -41,7 +42,6 @@ from setuptools import setup, find_packages
 from Cython.Distutils import Extension
 from Cython.Distutils import build_ext
 from distutils.version import LooseVersion
-from glob import glob
 
 try:
     import numpy
@@ -73,7 +73,7 @@ else:
 
 ext_modules = []
 
-for pyxfile in modlist:
+for pyxfile in params['modlist']:
 
     ext_name = splitext(pyxfile)[0].replace('/', '.')
     source = join(*pyxfile.split('.')) + '.pyx'
@@ -83,8 +83,7 @@ for pyxfile in modlist:
                     libraries=cython_gsl.get_libraries(),
                     library_dirs=[cython_gsl.get_library_dir()],
                     cython_include_dirs=[cython_gsl.get_cython_include_dir()],
-                    include_dirs=[numpy.get_include()],
-                    extra_compile_args=["-O3"]) # max gcc optimisation for speed
+                    include_dirs=[numpy.get_include()])
 
     ext_modules.append(ext)
 
@@ -98,5 +97,5 @@ setup(
     setup_requires=params['requires'],
     install_requires=params['deps'] + params['requires'],
     dependency_links=params['links'],
-    scripts=glob(join('scripts', '*'))
+    scripts=params['scripts']
 )

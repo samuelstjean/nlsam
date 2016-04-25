@@ -2,8 +2,7 @@
 
 block_cipher = None
 
-
-a = Analysis(['scripts/stabilizer'],
+a = Analysis(['../../scripts/stabilizer'],
              pathex=['/home/samuel/nlsam'],
              binaries=None,
              datas=None,
