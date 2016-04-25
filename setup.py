@@ -83,7 +83,8 @@ for pyxfile in modlist:
                     libraries=cython_gsl.get_libraries(),
                     library_dirs=[cython_gsl.get_library_dir()],
                     cython_include_dirs=[cython_gsl.get_cython_include_dir()],
-                    include_dirs=[numpy.get_include()])
+                    include_dirs=[numpy.get_include()],
+                    extra_compile_args=["-O3"]) # max gcc optimisation for speed
 
     ext_modules.append(ext)
 
