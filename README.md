@@ -67,7 +67,7 @@ Additionally, grab a build of spams for windows [here][spams-windows] if you don
 If you have a working python setup already, doing
 
 ```shell
-pip install git+https://github.com/samuelstjean/nlsam.git --user --process-dependency-links
+pip install https://github.com/samuelstjean/nlsam/archive/master.zip --user --process-dependency-links
 ```
 
 should give you everything you need.
