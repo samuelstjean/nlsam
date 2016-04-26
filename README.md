@@ -1,5 +1,4 @@
 # Non Local Spatial and Angular Matching (NLSAM) denoising
-=====
 
 [release]: https://github.com/samuelstjean/nlsam/releases
 [DOI]: http://dx.doi.org/doi:10.1016/j.media.2016.02.010
