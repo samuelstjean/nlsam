@@ -1,5 +1,7 @@
 # Changelog
 
+- Updated nibabel min version to 2.0, as older version do not have the cache unload function. Thanks to Rutger Fick for reporting.
+
 ## [0.2.1] - 2016-04-26
 
 - Fixed a bug in the nlsam script where .nii would be memmaped and crash with an invalid dimension broadcast. Thanks to Jelle Veraart for reporting.

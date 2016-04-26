@@ -10,7 +10,7 @@ params['requires'] = ['cythongsl>=0.2.1',
                       'numpy>=1.10.4',
                       'cython>=0.21']
 params['deps'] = ['scipy>=0.12',
-                  'nibabel>=1.3',
+                  'nibabel>=2.0',
                   'spams>=2.4']
 params['links'] = ['https://github.com/samuelstjean/spams-python/archive/master.zip#egg=spams-2.5']
 
