@@ -88,7 +88,7 @@ def main():
     print("Now denoising " + os.path.realpath(args.input))
 
     vol = nib.load(args.input)
-    data = vol.get_data()
+    data = np.array(vol.get_data())
     vol.uncache()
     affine = vol.get_affine()
 
@@ -96,6 +96,7 @@ def main():
 
     greedy_subsampler = True
     implausible_signal_boost = True
+    b0_thresh = 10
     n_iter = args.iterations
 
     original_dtype = data.dtype
@@ -127,29 +128,8 @@ def main():
     if data.shape[:-1] != mask.shape:
         raise ValueError('data shape is {}, but mask shape {} is different!'.format(data.shape, mask.shape))
 
-
-
-    crop=False
-    if crop:
-        print("cropping data and mask")
-        ca = 51#20#80#23
-        cb = 56#170#170#150#86#27#data.shape[1]
-        # [90:, 88:96, 40:] [90:140, 90:160, 38:46]
-        # isbi : [:,22:28, :]
-        #mask_data=np.ones_like(data[...,0],dtype=np.bool)
-        data = data[:, ca:cb]#[40:129,40:129,...]#[90:150, :165, ...] #88:96, 40:]
-        original_shape = data.shape[:-1] + (original_shape[-1],)
-        # data_orig = data_orig[:, ca:cb]#[40:129,40:129,...]#[90:150, :165, ...]#88:96, 40:]
-        # mask_noise = mask_noise[:, ca:cb]#[40:129,40:129,...]#[90:150, :165, ...]#88:96, 40:]
-        mask = mask[:, ca:cb]#[40:129,40:129,...]#[90:150, :165, ...]#88:96, 40:]
-        # gold_standard = gold_standard[:, ca:cb]#[40:129,40:129,...]#[90:150, :165, ...]#88:96, 40:]
-        sigma = sigma[:, ca:cb]
-
-
-
     bvals, bvecs = read_bvals_bvecs(args.bvals, args.bvecs)
 
-    b0_thresh = 10
     b0_loc = tuple(np.where(bvals <= b0_thresh)[0])
     num_b0s = len(b0_loc)
 
