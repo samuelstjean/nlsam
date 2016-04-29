@@ -15,7 +15,6 @@ import numpy as np
 
 from nlsam.denoiser import denoise, greedy_set_finder
 from nlsam.angular_tools import angular_neighbors
-# from nlsam.smoothing import local_standard_deviation
 
 from dipy.io.gradients import read_bvals_bvecs
 
@@ -185,7 +184,7 @@ def main():
     denoised_shape = data.shape[:-1] + (data.shape[-1] + num_b0s,)
     data_denoised = np.zeros(denoised_shape, np.float64)
 
-    # put all idx + b0 in this array in each iteration
+    # Put all idx + b0 in this array in each iteration
     to_denoise = np.empty(data.shape[:-1] + (block_size[-1] + 1,), dtype=np.float64)
 
     for i, idx in enumerate(indexes):

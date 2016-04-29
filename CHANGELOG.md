@@ -8,6 +8,7 @@
 ## [0.2.1] - 2016-04-26
 
 - Fixed a bug in the nlsam script where .nii would be memmaped and crash with an invalid dimension broadcast. Thanks to Jelle Veraart for reporting.
+- Fix multiprocessing freeze_support in windows binaries.
 
 ## [0.2] - 2016-04-19
 

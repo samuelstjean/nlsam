@@ -6,10 +6,7 @@ import numpy as np
 cimport numpy as np
 cimport cython
 
-# from sklearn.feature_extraction.image import extract_patches
 from numpy.lib.stride_tricks import as_strided as ast
-# from dipy.core.ndindex import ndindex
-
 from scipy.sparse import issparse
 
 def sparse_dot(a, b, order='F', dense_output=True):

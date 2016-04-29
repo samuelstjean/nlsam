@@ -8,7 +8,7 @@ from itertools import repeat
 # from functools import partial
 from multiprocessing import Pool
 
-from nlsam.utils import sparse_dot, im2col_nd, col2im_nd
+from nlsam.utils import im2col_nd, col2im_nd
 from scipy.sparse import lil_matrix
 
 warnings.simplefilter("ignore", category=FutureWarning)
@@ -17,18 +17,6 @@ try:
     import spams
 except ImportError:
     raise ValueError("Couldn't find spams library, did you properly install the package?")
-
-# try:
-#     from spams import spams
-# except ImportError:
-#     try:
-#         import spams
-#     except ImportError:
-#         try:
-#             from spams_python import spams
-#         except ImportError:
-#             raise ValueError("Couldn't find spams library")
-
 
 # def universal_worker(input_pair):
 #     """http://stackoverflow.com/a/24446525"""
@@ -84,53 +72,37 @@ def compute_weights(alpha_old, alpha, W, tau, eps):
 
     # Reset W values to eps
     idx = cx.nonzero()
-    # print(W[idx].shape)
-    # print(W.shape)
-    # print(eps.shape)
-    # print(eps[idx].shape)
     W[idx] = 1. / eps[idx[1]]
-    # for i, j in izip(cy.row, cy.col):
-    #     W[i, j] = 1./eps
 
     # Assign new weights
     idx = cy.nonzero()
     W[idx] = 1. / ((cy.data**tau) + eps[idx[1]])
-    # for i, j, v in izip(cx.row, cx.col):
-    #     W[i, j] =
 
-    # cx[idx] /= W[idx]
-
-    # return cx
-    return 1
+    return
 
 
 def check_conv(alpha_old, alpha, eps=1e-5):
     x = alpha.tocoo()
     y = alpha_old.tocoo()
-    # has_converged = np.zeros(alpha.shape[1], dtype=np.bool)
-    # print(np.abs(x - y).max(axis=0).shape, (eps >= np.abs(x - y).max(axis=0)).toarray().squeeze().shape)
+
     # eps >= is for efficiency reason, and matrices are always 2D so we remove the useless dimension
     return (eps >= np.abs(x - y).max(axis=0)).toarray().squeeze()
 
-    # diff = (x - y).max(axis=0)
-    # diff.data = np.abs(diff.data)
-    # return diff < eps
-    # for i, d in izip(diff.row, diff.data):
-    #     has_converged[i] = d < eps
-
-    # return has_converged
-
 # def _processer(arglist):
-#     return processer(*(arglist[0]), arglist[1:])
+#     return processer(*arglist)
+#
+# def processer(arglist):
+#     data, mask, variance, block_size, overlap, param_alpha, param_D, dtype, n_iter = arglist
+#     return _processer(data, mask, variance, block_size, overlap, param_alpha, param_D, dtype=dtype, n_iter=n_iter)
 
-# def processer(data, mask, variance, block_size, overlap, param_alpha, param_D, dtype=np.float64, n_iter=10):
 def processer(arglist):
-
+# def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D, dtype=np.float64, n_iter=10, gamma=3., tau=1.):
     data, mask, variance, block_size, overlap, param_alpha, param_D, dtype, n_iter = arglist
+    gamma = 3.
+    tau = 1.
 
     orig_shape = data.shape
-    # mask = np.repeat(mask[..., None], orig_shape[-1], axis=-1)
-    mask_array = im2col_nd(np.broadcast_to(mask[..., None], orig_shape), block_size, overlap)
+    mask_array = im2col_nd(mask, block_size[:3], overlap[:3])
     train_idx = np.sum(mask_array, axis=0) > mask_array.shape[0]/2
 
     # If mask is empty, return a bunch of zeros as blocks
@@ -139,11 +111,9 @@ def processer(arglist):
 
     X = im2col_nd(data, block_size, overlap)
     var_mat = np.median(im2col_nd(variance[..., 0:orig_shape[-1]], block_size, overlap)[:, train_idx], axis=0).astype(dtype)
-
     X_full_shape = X.shape
     X = X[:, train_idx]
 
-    # param_alpha['mode'] = 1
     param_alpha['L'] = int(0.5 * X.shape[0])
 
     D = param_alpha['D']
@@ -156,20 +126,15 @@ def processer(arglist):
     DtXW = np.empty_like(DtX, order='F')
 
     alpha_old = np.ones(alpha.shape, dtype=dtype)
-    # alpha_old = lil_matrix((D.shape[1], X.shape[1]))
     has_converged = np.zeros(alpha.shape[1], dtype=np.bool)
 
     xi = np.random.randn(X.shape[0], X.shape[1]) * var_mat
     eps = np.max(np.abs(np.dot(D.T, xi)), axis=0)
     param_alpha['mode'] = 1
     param_alpha['pos'] = True
-    gamma = 3
-    tau = 1
 
     for _ in range(n_iter):
-        # print('check conv1')
         not_converged = np.equal(has_converged, False)
-        # print('check conv2')
         DtXW[:, not_converged] = DtX[:, not_converged] / W[:, not_converged]
 
         for i in range(alpha.shape[1]):
@@ -183,10 +148,8 @@ def processer(arglist):
         nonzero_ind = arr != 0
         arr[nonzero_ind] /= W[nonzero_ind]
         has_converged = np.max(np.abs(alpha_old - arr), axis=0) < 1e-5
-        # has_converged = check_conv(alpha_old, alpha)
-        # print(has_converged.shape)
+
         if np.all(has_converged):
-            # print(_, "break")
             break
 
         alpha_old = arr
@@ -194,12 +157,11 @@ def processer(arglist):
 
         # compute_weights(alpha_old, alpha, W, tau, eps)
 
-    alpha = arr
-    X[:] = sparse_dot(D, alpha)
+    # alpha = arr
+    X = D.dot(alpha)
 
     weigths = np.ones(X_full_shape[1], dtype=dtype, order='F')
-    weigths[train_idx] = 1. / (np.sum(alpha != 0, axis=0) + 1.)
-    # weigths[train_idx] = 1. / (alpha.getnnz(axis=0) + 1.)
+    weigths[train_idx] = 1. / (alpha.getnnz(axis=0) + 1.)
 
     X2 = np.zeros(X_full_shape, dtype=dtype, order='F')
     X2[:, train_idx] = X
@@ -231,9 +193,10 @@ def denoise(data, block_size, overlap, param_alpha, param_D, variance, n_iter=10
     if 'D' in param_alpha:
         param_D['D'] = param_alpha['D']
 
-    # mask_col = im2col_nd(np.repeat(mask[..., None], data.shape[-1], axis=-1), block_size, no_over)
+    # mask_col = im2col_nd(mask, block_size[:3], no_over[:3])
     mask_col = im2col_nd(np.broadcast_to(mask[..., None], data.shape), block_size, no_over)
     train_idx = np.sum(mask_col, axis=0) > mask_col.shape[0]/2
+
     train_data = X[:, train_idx]
     train_data = np.asfortranarray(train_data[:, np.any(train_data != 0, axis=0)], dtype=dtype)
     train_data /= np.sqrt(np.sum(train_data**2, axis=0, keepdims=True), dtype=dtype)
@@ -243,16 +206,12 @@ def denoise(data, block_size, overlap, param_alpha, param_D, variance, n_iter=10
 
     del train_data
 
-    # data = padding(data, block_size, overlap)
-
     n_cores = param_alpha['numThreads']
     param_alpha['numThreads'] = 1
     param_D['numThreads'] = 1
 
-    # print('Multiprocessing Stuff')
     time_multi = time()
     pool = Pool(processes=n_cores)
-    # print("cores", n_cores)
 
     arglist = [(data[:, :, k:k+block_size[2]], mask[:, :, k:k+block_size[2]], variance[:, :, k:k+block_size[2]], block_size_subset, overlap_subset, param_alpha_subset, param_D_subset, dtype_subset, n_iter_subset)
                for k, block_size_subset, overlap_subset, param_alpha_subset, param_D_subset, dtype_subset, n_iter_subset
@@ -263,8 +222,6 @@ def denoise(data, block_size, overlap, param_alpha, param_D, variance, n_iter=10
                       repeat(param_D),
                       repeat(dtype),
                       repeat(n_iter))]
-    # arglist = [(data[:, :, k:k+block_size[2]], mask[:, :, k:k+block_size[2]], variance[:, :, k:k+block_size[2]])
-    #            for k in range(data.shape[2] - block_size[2] + 1)]
 
     data_denoised = pool.map(processer, arglist)
     pool.close()
