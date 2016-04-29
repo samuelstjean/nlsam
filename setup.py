@@ -6,7 +6,7 @@ params['modlist'] = ['nlsam.utils',
 params['scripts'] = ['nlsam/stabilizer',
                      'nlsam/nlsam']
 params['name'] = 'nlsam'
-params['version'] = '0.2'
+params['version'] = '0.2.1'
 params['requires'] = ['cythongsl>=0.2.1',
                       'numpy>=1.10.4',
                       'cython>=0.21']

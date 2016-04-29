@@ -1,6 +1,7 @@
 # Changelog
 
 - Updated nibabel min version to 2.0, as older version do not have the cache unload function. Thanks to Rutger Fick for reporting.
+- Fix multiprocessing freeze_support in windows binaries.
 
 ## [0.2.1] - 2016-04-26
 

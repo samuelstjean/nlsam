@@ -9,7 +9,7 @@ import os
 import argparse
 
 from itertools import repeat
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Pool, cpu_count, freeze_support
 
 from dipy.core.ndindex import ndindex
 from dipy.core.gradients import gradient_table
@@ -242,4 +242,5 @@ def main():
 
 
 if __name__ == "__main__":
+    freeze_support()
     main()
