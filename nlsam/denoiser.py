@@ -8,7 +8,7 @@ from itertools import repeat
 # from functools import partial
 from multiprocessing import Pool
 
-from nlsam.utils import im2col_nd, col2im_nd
+from nlsam.utils import im2col_nd, col2im_nd, sparse_dot
 from scipy.sparse import lil_matrix
 
 warnings.simplefilter("ignore", category=FutureWarning)
@@ -91,15 +91,15 @@ def check_conv(alpha_old, alpha, eps=1e-5):
 # def _processer(arglist):
 #     return processer(*arglist)
 #
-# def processer(arglist):
-#     data, mask, variance, block_size, overlap, param_alpha, param_D, dtype, n_iter = arglist
-#     return _processer(data, mask, variance, block_size, overlap, param_alpha, param_D, dtype=dtype, n_iter=n_iter)
-
 def processer(arglist):
-# def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D, dtype=np.float64, n_iter=10, gamma=3., tau=1.):
     data, mask, variance, block_size, overlap, param_alpha, param_D, dtype, n_iter = arglist
-    gamma = 3.
-    tau = 1.
+    return _processer(data, mask, variance, block_size, overlap, param_alpha, param_D, dtype=dtype, n_iter=n_iter)
+
+# def processer(arglist):
+def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D, dtype=np.float64, n_iter=10, gamma=3., tau=1.):
+    # data, mask, variance, block_size, overlap, param_alpha, param_D, dtype, n_iter = arglist
+    # gamma = 3.
+    # tau = 1.
 
     orig_shape = data.shape
     mask_array = im2col_nd(mask, block_size[:3], overlap[:3])
@@ -158,8 +158,9 @@ def processer(arglist):
         # compute_weights(alpha_old, alpha, W, tau, eps)
 
     # alpha = arr
-    X = D.dot(alpha)
-
+    # X = D.dot(alpha)
+    # X = sparse_dot(D,alpha)
+    X = np.dot(D, arr)
     weigths = np.ones(X_full_shape[1], dtype=dtype, order='F')
     weigths[train_idx] = 1. / (alpha.getnnz(axis=0) + 1.)
 
