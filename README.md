@@ -20,7 +20,7 @@ You can also download the datasets used in the paper over [here][nlsam_data].
 Once installed, there are two main scripts, the stabilization algorithm and the NLSAM algorithm itself.
 The first one allows you to transform the data to Gaussian distributed signals if your dataset is Rician or Noncentral chi distributed.
 
-You can find a detailed example and dataset in the [example](example) folder .
+You can find a detailed example and dataset in the [example](example) folder.
 
 <a name="Dependencies"></a>
 ## Dependencies

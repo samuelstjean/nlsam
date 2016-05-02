@@ -2,13 +2,13 @@
 
 - Updated nibabel min version to 2.0, as older version do not have the cache unload function. Thanks to Rutger Fick for reporting.
 - Scripts are now more memory friendly with nibabel uncaching.
+- The example was moved to a subfolder with an available test dataset.
 - Fix multiprocessing freeze_support in windows binaries.
-- Linux binaries now needs glibc >= 2.13 (Debian 7 and newer) instead of glibc >= 2.21 (Ubuntu 15.04 and newer).
+- Linux binaries now needs glibc >= 2.19 (Debian 8 and newer) instead of glibc >= 2.21 (Ubuntu 15.04 and newer).
 
 ## [0.2.1] - 2016-04-26
 
 - Fixed a bug in the nlsam script where .nii would be memmaped and crash with an invalid dimension broadcast. Thanks to Jelle Veraart for reporting.
-- Fix multiprocessing freeze_support in windows binaries.
 
 ## [0.2] - 2016-04-19
 
