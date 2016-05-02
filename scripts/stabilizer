@@ -143,8 +143,7 @@ def main():
     print("Now processing " + os.path.realpath(args.input))
 
     vol = nib.load(args.input)
-    data = np.array(vol.get_data())  # To force ndarray instead of memmaps
-    vol.uncache()  # Unload cached array from memory
+    data = np.asarray(vol.get_data(caching='unchanged'))  # To force ndarray instead of memmaps
     affine = vol.get_affine()
 
     if args.mask is None:
