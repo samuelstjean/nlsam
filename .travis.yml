@@ -11,6 +11,7 @@ addons:
       - libgsl0-dev
       - libgsl0ldbl
       - gfortran
+      - gunzip
 env:
     global:
         - DEPENDS="cython numpy scipy nibabel"
@@ -43,11 +44,13 @@ install:
     - pip install --timeout=60 --no-index --trusted-host $WHEELHOST --find-links $WHEELHOUSE $DEPENDS
     - pip install $DEPENDS_PIP
     - python setup.py build_ext -i
+    - python setup.py install
 
 script:
     - mkdir tester
     - cd tester
     - nosetests --verbose --exe --with-coverage --cover-package=nlsam ../nlsam/tests/
+    - bash ../nlsam/tests/test_scripts.sh
 
 #after_success:
 #    - coveralls
