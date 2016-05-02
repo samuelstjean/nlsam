@@ -3,8 +3,8 @@
 params = {}
 params['modlist'] = ['nlsam.utils',
                      'nlsam.stabilizer']
-params['scripts'] = ['nlsam/stabilizer',
-                     'nlsam/nlsam']
+params['scripts'] = ['scripts/stabilizer',
+                     'scripts/nlsam']
 params['name'] = 'nlsam'
 params['version'] = '0.2.1'
 params['requires'] = ['cythongsl>=0.2.1',

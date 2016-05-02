@@ -21,7 +21,7 @@ from nlsam.stabilizer import chi_to_gauss, fixed_point_finder, corrected_sigma
 
 
 DESCRIPTION = """
-Script to transform noisy rician/non central chi signals into
+Script to transform noisy rician/non central chi signals into \
 gaussian distributed signals.
 """
 
@@ -42,7 +42,7 @@ def buildArgsParser():
 
     p = argparse.ArgumentParser(description=DESCRIPTION,
                                 epilog=EPILOG,
-                                formatter_class=argparse.RawDescriptionHelpFormatter)
+                                formatter_class=argparse.RawTextHelpFormatter)
 
     p.add_argument('input', action='store', metavar='input', type=str,
                    help='Path of the image file to stabilize.')
@@ -60,8 +60,8 @@ def buildArgsParser():
 
     p.add_argument('--cores', action='store', dest='n_cores',
                    metavar='int', required=False, default=None, type=int,
-                   help='Number of cores to use for multiprocessing.\n ' +
-                   'default : all of them')
+                   help='Number of cores to use for multiprocessing. ' +
+                   'Default : all of them')
 
     p.add_argument('-m', '--mask', action='store', dest='mask',
                    metavar='', required=False, default=None, type=str,
@@ -72,29 +72,28 @@ def buildArgsParser():
                    choices=['local_std', 'piesno', 'noise_map'],
                    help='Noise estimation method used for estimating sigma. \n' +
                    'local_std : Compute local noise standard deviation ' +
-                   'with correction factor. ' +
-                   'No a priori needed.' +
+                   'with correction factor. No a priori needed.' +
                    '\npiesno : Use PIESNO estimation, assumes the presence of ' +
                    'background in the data. (default)\n' +
                    'noise_map : Use PIESNO locally on a stack of 4D noise maps.')
 
     p.add_argument('--noise_map', action='store', dest='noise_maps',
                    metavar='string', required=False, default=None, type=str,
-                   help='Path of the noise map(s) volume for local piesno. '
+                   help='Path of the noise map(s) volume for local piesno.\n'
                    'Either supply a 3D noise map or a stack of 3D maps as a 4D volume.\n'+
                    'Required for --noise_est noise_map')
 
     p.add_argument('--noise_mask', action='store', dest='save_piesno_mask',
                    metavar='string', required=False, default=None, type=str,
                    help='If supplied, output filename for saving the mask of noisy voxels '
-                   + 'found by PIESNO')
+                   + 'found by PIESNO.')
 
     p.add_argument('--smooth', action='store', dest='smooth_method',
                    metavar='string', required=False, default='sh_smooth', type=str,
                    choices=['sh_smooth', 'no_smoothing'],
                    help='Smoothing method used for initializing m_hat.\n' +
                    'sh_smooth (default): Fit SH for smoothing the raw signal. ' +
-                   'Also requires the bvals/bvecs to be given\n' +
+                   'Also requires the bvals/bvecs to be given.\n' +
                    'no_smoothing : Just use the data as-is for initialisation.')
 
     p.add_argument('--bvals', action='store', dest='bvals',
