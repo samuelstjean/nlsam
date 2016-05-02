@@ -2,12 +2,7 @@
 
 block_cipher = None
 
-<<<<<<< 20d4e6a9b256572fdf4aae7e0b95083285a5563c
 a = Analysis(['../../scripts/nlsam'],
-=======
-
-a = Analysis(['scripts/nlsam'],
->>>>>>> added linux build stuff
              pathex=['/home/samuel/nlsam'],
              binaries=None,
              datas=None,
