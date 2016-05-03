@@ -25,7 +25,7 @@ matrix:
     # To test minimum dependencies
     - python: 2.7
       env:
-        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.17 nibabel==2.0.1"
+        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.15 nibabel==2.0.1"
         - DEPENDS_PIP="cythongsl==0.2.1 dipy==0.11"
     - python: 2.7
 
