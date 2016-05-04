@@ -6,6 +6,9 @@ params['modlist'] = ['nlsam.utils',
 params['scripts'] = ['scripts/stabilizer',
                      'scripts/nlsam']
 params['name'] = 'nlsam'
+params['author'] = 'Samuel St-Jean'
+params['author_email'] = 'samuel@isi.uu.nl'
+params['url'] = 'https://github.com/samuelstjean/nlsam'
 params['version'] = '0.2.1'
 params['requires'] = ['cythongsl>=0.2.1',
                       'numpy>=1.10.4',
@@ -90,6 +93,9 @@ for pyxfile in params['modlist']:
 setup(
     name=params['name'],
     version=params['version'],
+    author=params['author'],
+    author_email=params['author_email'],
+    url=params['url'],
     include_dirs=[cython_gsl.get_include()],
     packages=find_packages(),
     cmdclass={'build_ext': build_ext},
