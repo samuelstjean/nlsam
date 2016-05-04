@@ -46,7 +46,7 @@ bias left in the image, but which would be lower than not correcting it in the f
 
 There will be two output from running the script, the bias corrected dataset (dwi_stab.nii.gz) and the noise standard deviation (sigma.nii.gz).
 
-##### 1.1a Advanced techniques for estimating N (optional topic)
+#### 1.1a Advanced techniques for estimating N (optional topic)
 
 This section is mostly personal recommendations based on some literature, stuff I have played with
 and stuff I have seen in MR physics classes. It is probably not exhaustive nor perfectly accurate,
