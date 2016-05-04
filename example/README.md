@@ -71,8 +71,9 @@ Also based on my MR physics class understanding, due to the way the (closed sour
 algorithm in each vendor's scanner software work, they are likely to discard
 the signal coming from far away receiver elements from the imaged body region.
 As an example, near the top of the head, the coil elements placed near the neck are very likely to measure
-little relevant signal and mostly contribute noise and as such will be discarded
-from the k-space reconstruction, thus making the noise distribution vary in
+little relevant signal and mostly contribute noise. 
+As such, they will likely be discarded from the k-space reconstruction 
+for this region, thus making the noise distribution vary in
 nature across the image space and have a lower value N than the real number of coils in
 your antenna.
 
