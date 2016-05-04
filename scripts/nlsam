@@ -8,14 +8,13 @@ import os
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
 
 import argparse
-from multiprocessing import cpu_count
+from multiprocessing import cpu_count, freeze_support
 
 import nibabel as nib
 import numpy as np
 
 from nlsam.denoiser import denoise, greedy_set_finder
 from nlsam.angular_tools import angular_neighbors
-# from nlsam.smoothing import local_standard_deviation
 
 from dipy.io.gradients import read_bvals_bvecs
 
@@ -32,7 +31,7 @@ def buildArgsParser():
 
     p = argparse.ArgumentParser(description=DESCRIPTION,
                                 epilog=EPILOG,
-                                formatter_class=argparse.RawDescriptionHelpFormatter)
+                                formatter_class=argparse.RawTextHelpFormatter)
 
     p.add_argument('input', action='store', metavar='input',
                    help='Path of the image file to denoise.')
@@ -66,7 +65,7 @@ def buildArgsParser():
 
     p.add_argument('--no_symmetry', dest='no_symmetry', action='store_true',
                    default=False, required=False,
-                   help='If supplied, assumes the set of bvals/bvecs to already be symmetrized, ' +
+                   help='If supplied, assumes the set of bvals/bvecs to already be symmetrized,\n' +
                    'i.e. All points (x,y,z) on the sphere and (-x,-y,-z) were acquired, such as in full grid DSI.')
 
     p.add_argument('-f', '--force', action='store_true', dest='overwrite',
@@ -88,8 +87,7 @@ def main():
     print("Now denoising " + os.path.realpath(args.input))
 
     vol = nib.load(args.input)
-    data = np.array(vol.get_data())
-    vol.uncache()
+    data = np.asarray(vol.get_data(caching='unchanged'))  # To force ndarray instead of memmaps
     affine = vol.get_affine()
 
     sigma = nib.load(args.sigma).get_data()**2
@@ -186,7 +184,7 @@ def main():
     denoised_shape = data.shape[:-1] + (data.shape[-1] + num_b0s,)
     data_denoised = np.zeros(denoised_shape, np.float64)
 
-    # put all idx + b0 in this array in each iteration
+    # Put all idx + b0 in this array in each iteration
     to_denoise = np.empty(data.shape[:-1] + (block_size[-1] + 1,), dtype=np.float64)
 
     for i, idx in enumerate(indexes):
@@ -233,4 +231,5 @@ def main():
 
 
 if __name__ == "__main__":
+    freeze_support()
     main()

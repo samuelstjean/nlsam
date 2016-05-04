@@ -1,6 +1,11 @@
 # Changelog
 
 - Updated nibabel min version to 2.0, as older version do not have the cache unload function. Thanks to Rutger Fick for reporting.
+- Scripts are now more memory friendly with nibabel uncaching.
+- The example was moved to a subfolder with an available test dataset.
+- Fix multiprocessing freeze_support in windows binaries.
+- Linux binaries now needs glibc >= 2.19 (Debian 8 and newer) instead of glibc >= 2.21 (Ubuntu 15.04 and newer).
+- Scipy >= 0.14 is now required to efficiently deal with sparse matrices.
 
 ## [0.2.1] - 2016-04-26
 
@@ -13,7 +18,6 @@ The previous release was using the Koay et al. 2009 approach, which could produc
 
 - More doc to the readme.
 - Added link to the synthetic and in vivo data used in the experiments.
-<!--- - Linux binaries now needs glibc >= 2.13 (Debian 7 and newer) instead of glibc >= 2.21 (Ubuntu 15.04 and newer). (debina is giving me trouble, might be jessie from now on or centos)-->
 - Removed the source archive and wheel files, as one can grab the source archive from github instead.
 
 ## [0.1] - 2016-03-22

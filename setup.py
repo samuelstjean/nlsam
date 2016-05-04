@@ -1,15 +1,19 @@
 #!/usr/bin/env python
 
-modlist = ['nlsam.utils',
-           'nlsam.stabilizer']
-
 params = {}
+params['modlist'] = ['nlsam.utils',
+                     'nlsam.stabilizer']
+params['scripts'] = ['scripts/stabilizer',
+                     'scripts/nlsam']
 params['name'] = 'nlsam'
-params['version'] = '0.2'
+params['author'] = 'Samuel St-Jean'
+params['author_email'] = 'samuel@isi.uu.nl'
+params['url'] = 'https://github.com/samuelstjean/nlsam'
+params['version'] = '0.2.1'
 params['requires'] = ['cythongsl>=0.2.1',
                       'numpy>=1.10.4',
                       'cython>=0.21']
-params['deps'] = ['scipy>=0.12',
+params['deps'] = ['scipy>=0.14',
                   'nibabel>=2.0',
                   'spams>=2.4']
 params['links'] = ['https://github.com/samuelstjean/spams-python/archive/master.zip#egg=spams-2.5']
@@ -41,7 +45,6 @@ from setuptools import setup, find_packages
 from Cython.Distutils import Extension
 from Cython.Distutils import build_ext
 from distutils.version import LooseVersion
-from glob import glob
 
 try:
     import numpy
@@ -73,7 +76,7 @@ else:
 
 ext_modules = []
 
-for pyxfile in modlist:
+for pyxfile in params['modlist']:
 
     ext_name = splitext(pyxfile)[0].replace('/', '.')
     source = join(*pyxfile.split('.')) + '.pyx'
@@ -90,6 +93,9 @@ for pyxfile in modlist:
 setup(
     name=params['name'],
     version=params['version'],
+    author=params['author'],
+    author_email=params['author_email'],
+    url=params['url'],
     include_dirs=[cython_gsl.get_include()],
     packages=find_packages(),
     cmdclass={'build_ext': build_ext},
@@ -97,5 +103,5 @@ setup(
     setup_requires=params['requires'],
     install_requires=params['deps'] + params['requires'],
     dependency_links=params['links'],
-    scripts=glob(join('scripts', '*'))
+    scripts=params['scripts']
 )

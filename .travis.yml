@@ -11,6 +11,7 @@ addons:
       - libgsl0-dev
       - libgsl0ldbl
       - gfortran
+      - gunzip
 env:
     global:
         - DEPENDS="cython numpy scipy nibabel"
@@ -24,7 +25,7 @@ matrix:
     # To test minimum dependencies
     - python: 2.7
       env:
-        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.12 nibabel==2.0.1"
+        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14 nibabel==2.0.1"
         - DEPENDS_PIP="cythongsl==0.2.1 dipy==0.11"
     - python: 2.7
 
@@ -43,11 +44,13 @@ install:
     - pip install --timeout=60 --no-index --trusted-host $WHEELHOST --find-links $WHEELHOUSE $DEPENDS
     - pip install $DEPENDS_PIP
     - python setup.py build_ext -i
+    - python setup.py install
 
 script:
     - mkdir tester
     - cd tester
     - nosetests --verbose --exe --with-coverage --cover-package=nlsam ../nlsam/tests/
+    - bash ../nlsam/tests/test_scripts.sh
 
 #after_success:
 #    - coveralls
