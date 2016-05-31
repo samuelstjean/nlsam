@@ -12,7 +12,12 @@ The reference implementation for the Non Local Spatial and Angular Matching (NLS
 
 ## How to install
 
-Go grab a [release][] (recommended) or build it from source with the [instructions](#Dependencies).
+The easiest way is to go grab a [release][], in which case the downloaded zip file contains everything you need (no python installation required). 
+After extracting the zip file, start a terminal/command line prompt (start button, then type cmd + enter on windows) and navigate to where you extracted the binaries.
+
+Since the tools are command line only, double-clicking it will open and immediately close a dos-like window, hence the need for opening a command line prompt.
+
+If you would like to look at the code and modify it, you can build it from source by following the [instructions](#Dependencies).
 You can also download the datasets used in the paper over [here][nlsam_data].
 
 ## Using the NLSAM algorithm
@@ -20,7 +25,19 @@ You can also download the datasets used in the paper over [here][nlsam_data].
 Once installed, there are two main scripts, the stabilization algorithm and the NLSAM algorithm itself.
 The first one allows you to transform the data to Gaussian distributed signals if your dataset is Rician or Noncentral chi distributed.
 
-You can find a detailed example and dataset in the [example](example) folder.
+A simple example call for the stabilization would be 
+
+```bash
+stabilizer dwi.nii.gz dwi_stab.nii.gz 1 sigma.nii.gz -m mask.nii.gz --bvals bvals --bvecs bvecs 
+```
+
+and for the NLSAM denoising
+
+```bash
+nlsam dwi_stab.nii.gz dwi_nlsam.nii.gz 5 bvals bvecs sigma.nii.gz -m mask.nii.gz
+```
+
+You can find a detailed usage example and assorted dataset to try out in the [example](example) folder.
 
 <a name="Dependencies"></a>
 ## Dependencies
@@ -29,6 +46,7 @@ You will need to have at least numpy, scipy, nibabel, dipy, cython, cython-gsl a
 Fortunately, the setup.py will take care of installing everything you need.
 
 + On Debian/Ubuntu, you will need some development headers which can be installed with
+
 ```shell
 sudo apt-get install build-essential libgsl0-dev python-dev libopenblas-dev libopenblas-base liblapack-dev
 ```
