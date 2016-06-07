@@ -28,7 +28,7 @@ def sh_smooth(data, gtab, sh_order=8, similarity_threshold=50, regul=0.006):
         Order of the spherical harmonics to fit.
 
     similarity_threshold : int, default 50
-        All bvalues such that |b_1 - b_2| < similarity_threshold
+        All b-values such that |b_1 - b_2| < similarity_threshold
         will be considered as identical for smoothing purpose.
         Must be lower than 200.
 
@@ -71,11 +71,11 @@ def sh_smooth(data, gtab, sh_order=8, similarity_threshold=50, regul=0.006):
             continue
 
         # If it's not a b0, check if enough data for requested sh order
-        if np.sum(idx) < (sh_order + 1) * (sh_order + 2) / 2:
-            warn("bval {} has not enough values for sh order {}."
-                 "\nPutting back the original values.".format(unique_bval, sh_order))
-            pred_sig[..., idx] = data[..., idx]
-            continue
+        # if np.sum(idx) < (sh_order + 1) * (sh_order + 2) / 2:
+        #     warn("bval {} has not enough values for sh order {}."
+        #          "\nPutting back the original values.".format(unique_bval, sh_order))
+        #     pred_sig[..., idx] = data[..., idx]
+        #     continue
 
         x, y, z = gtab.gradients[idx].T
         r, theta, phi = cart2sphere(x, y, z)
