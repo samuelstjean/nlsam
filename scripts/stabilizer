@@ -96,6 +96,10 @@ def buildArgsParser():
                    'Also requires the bvals/bvecs to be given.\n' +
                    'no_smoothing : Just use the data as-is for initialisation.')
 
+    p.add_argument('--sh_order', action='store', dest='sh_order',
+                   metavar='int', default=8, type=int,
+                   help='SH order used for sh_smooth. (Default: 8)')
+
     p.add_argument('--bvals', action='store', dest='bvals',
                    metavar='bvals', type=str, default='',
                    help='Path of the bvals file, in FSL format. \n' +
@@ -165,6 +169,7 @@ def main():
 
     noise_method = args.noise_method
     smooth_method = args.smooth_method
+    sh_order = args.sh_order
 
     if noise_method == 'noise_map':
         if args.noise_maps is None:
@@ -178,9 +183,19 @@ def main():
         m_hat = np.array(data, copy=True, dtype=np.float32)
 
     elif smooth_method == 'sh_smooth':
+
+        # Raise warning for sh order if there is not enough DWIs
+        if data.shape[-1] < (sh_order + 1) * (sh_order + 2) / 2:
+            print("We recommend having at least " +
+                  str((sh_order + 1) * (sh_order + 2) / 2) +
+                  " unique DWIs volumes, but you currently have " +
+                  str(data.shape[-1]) + " volumes. Try lowering the " +
+                  "parameter --sh_order in case of non convergence.")
+
         bvals, bvecs = read_bvals_bvecs(args.bvals, args.bvecs)
         gtab = gradient_table(bvals, bvecs)
-        m_hat = sh_smooth(data, gtab, sh_order=4)
+        m_hat = sh_smooth(data, gtab, sh_order=sh_order)
+        m_hat[m_hat < 0] = 0
 
     print("Estimating noise with method " + noise_method)
 

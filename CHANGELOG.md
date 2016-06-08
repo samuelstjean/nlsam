@@ -1,5 +1,7 @@
 # Changelog
 
+- sh_smooth now uses order 8 by default and a regularized pseudo-inverse for the fit.
+The data is also internally converted to float32 to prevent overflowing on uint dtypes. Thanks to Felix Morency for reporting.
 - Updated nibabel min version to 2.0, as older version do not have the cache unload function. Thanks to Rutger Fick for reporting.
 - Scripts are now more memory friendly with nibabel uncaching.
 - The example was moved to a subfolder with an available test dataset.

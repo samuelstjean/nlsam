@@ -25,10 +25,10 @@ check_return_code $?
 
 # Test on niftis
 gunzip dwi.nii.gz mask.nii.gz
-stabilizer dwi.nii dwi_stab_localstd.nii 1 sigma_localstd.nii -m mask.nii --bvals bvals --bvecs bvecs --noise_est local_std --smooth no_smoothing
+stabilizer dwi.nii dwi_stab_localstd.nii 1 sigma_localstd.nii -m mask.nii --bvals bvals --bvecs bvecs --noise_est local_std --smooth no_smoothing --sh_order 6
 check_return_code $?
 
-stabilizer dwi.nii dwi_stab_piesno.nii 1 sigma_piesno.nii -m mask.nii --bvals bvals --bvecs bvecs
+stabilizer dwi.nii dwi_stab_piesno.nii 1 sigma_piesno.nii -m mask.nii --bvals bvals --bvecs bvecs --sh_order 6
 check_return_code $?
 
 nlsam dwi_stab_localstd.nii dwi_nlsam_localstd.nii 5 bvals bvecs sigma_localstd.nii -m mask.nii

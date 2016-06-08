@@ -46,6 +46,10 @@ install:
     - python setup.py build_ext -i
     - python setup.py install
 
+before_script:
+    - mkdir $HOME/.python-eggs
+    - chmod og-w $HOME/.python-eggs
+
 script:
     - mkdir tester
     - cd tester
