@@ -75,6 +75,10 @@ python setup.py build_ext -i
 
 Don't forget to add the path where you cloned everything to your PYTHONPATH.
 
+## Questions / Need help / Think this is great software?
+
+If you need help or would like more information, don't hesitate to drop me a line at firstname@isi.uu.nl, where of course firstname needs to be replace with samuel.
+
 ## Reference
 
 St-Jean, S., P. Coupé, and M. Descoteaux.
