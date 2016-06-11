@@ -6,7 +6,7 @@ from multiprocessing import Pool, cpu_count
 from warnings import warn
 
 from dipy.core.geometry import cart2sphere
-from dipy.reconst.shm import sph_harm_ind_list, real_sph_harm
+from dipy.reconst.shm import sph_harm_ind_list, real_sph_harm, smooth_pinv
 from dipy.denoise.noise_estimate import piesno
 
 from scipy.ndimage.filters import convolve, gaussian_filter
@@ -15,7 +15,7 @@ from scipy.ndimage.interpolation import zoom
 from nlsam.utils import sliding_window
 
 
-def sh_smooth(data, gtab, sh_order=4, similarity_threshold=50):
+def sh_smooth(data, gtab, sh_order=8, similarity_threshold=50, regul=0.006):
     """Smooth the raw diffusion signal with spherical harmonics.
 
     data : ndarray
@@ -24,13 +24,16 @@ def sh_smooth(data, gtab, sh_order=4, similarity_threshold=50):
     gtab : gradient table object
         Corresponding gradients table object to data.
 
-    sh_order : int, default 4
+    sh_order : int, default 8
         Order of the spherical harmonics to fit.
 
     similarity_threshold : int, default 50
-        All bvalues such that |b_1 - b_2| < similarity_threshold
+        All b-values such that |b_1 - b_2| < similarity_threshold
         will be considered as identical for smoothing purpose.
         Must be lower than 200.
+
+    regul : float, default 0.006
+        Amount of regularization to apply to sh coefficients computation.
 
     Return
     ---------
@@ -39,12 +42,13 @@ def sh_smooth(data, gtab, sh_order=4, similarity_threshold=50):
     """
 
     if similarity_threshold > 200:
-        raise ValueError("similarity_threshold = {}, which is higher than 200, \
-            please use a lower value".format(similarity_threshold))
+        raise ValueError("similarity_threshold = {}, which is higher than 200,"
+            " please use a lower value".format(similarity_threshold))
 
     m, n = sph_harm_ind_list(sh_order)
+    L = -n * (n + 1)
     where_b0s = gtab.b0s_mask
-    pred_sig = np.zeros_like(data)
+    pred_sig = np.zeros_like(data, dtype=np.float32)
 
     # Round similar bvals together for identifying similar shells
     bvals = gtab.bvals
@@ -67,21 +71,22 @@ def sh_smooth(data, gtab, sh_order=4, similarity_threshold=50):
             continue
 
         # If it's not a b0, check if enough data for requested sh order
-        if np.sum(idx) < (sh_order + 1) * (sh_order + 2) / 2:
-            warn("bval {} has not enough values for sh order {}." \
-                 "\nPutting back the original values.".format(unique_bval, sh_order))
-            pred_sig[..., idx] = data[..., idx]
-            continue
+        # if np.sum(idx) < (sh_order + 1) * (sh_order + 2) / 2:
+        #     warn("bval {} has not enough values for sh order {}."
+        #          "\nPutting back the original values.".format(unique_bval, sh_order))
+        #     pred_sig[..., idx] = data[..., idx]
+        #     continue
 
         x, y, z = gtab.gradients[idx].T
         r, theta, phi = cart2sphere(x, y, z)
 
         # Find the sh coefficients to smooth the signal
         B_dwi = real_sph_harm(m, n, theta[:, None], phi[:, None])
-        sh_coeff = np.linalg.lstsq(B_dwi, data[..., idx].reshape(np.prod(data.shape[:-1]), -1).T)[0]
+        invB = smooth_pinv(B_dwi, np.sqrt(regul) * L)
+        sh_coeff = np.dot(data[..., idx], invB.T)
 
         # Find the smoothed signal from the sh fit for the given gtab
-        pred_sig[..., idx] = np.dot(B_dwi, sh_coeff).T.reshape(data.shape[:-1] + (-1,))
+        pred_sig[..., idx] = np.dot(sh_coeff, B_dwi.T)
 
     return pred_sig
 

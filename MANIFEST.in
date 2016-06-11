@@ -1,1 +1,11 @@
-include LICENSE README.md
+include LICENSE
+include README.md
+include CHANGELOG.md
+include example/bvals
+include example/bvecs
+include example/dwi.nii.gz
+include example/mask.nii.gz
+include example/README.md
+include example/images/*png
+include nlsam/tests/test*.sh
+global-exclude *pyc
