@@ -7,12 +7,13 @@
 [Anaconda]: https://www.continuum.io/downloads
 [spams-windows]:https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-python-v2.4-svn2013-06-24.win-amd64-py2.7.exe
 [nlsam_data]:https://github.com/samuelstjean/nlsam_data
+[vspy27]:https://www.microsoft.com/en-us/download/details.aspx?id=44266
 
 The reference implementation for the Non Local Spatial and Angular Matching (NLSAM) denoising algorithm for diffusion MRI.
 
 ## How to install
 
-The easiest way is to go grab a [release][], in which case the downloaded zip file contains everything you need (no python installation required). 
+The easiest way is to go grab a [release][], in which case the downloaded zip file contains everything you need (no python installation required, you can use it straight away without installing anything else). 
 After extracting the zip file, start a terminal/command line prompt (start button, then type cmd + enter on windows) and navigate to where you extracted the binaries.
 
 Since the tools are command line only, double-clicking it will open and immediately close a dos-like window, hence the need for opening a command line prompt.
@@ -56,6 +57,7 @@ but I got 5x faster runtimes out of openblas vs atlas for NLSAM just by switchin
 
 + On Windows and Mac OSX, it will be easier to grab a python distribution which includes everything such as [Anaconda][].
 Additionally, grab a build of spams for windows [here][spams-windows] if you don't want to build it.
++ Additionally, you might need [Visual C++ Compiler for python 2.7][vspy27] if you encounter the *Unable to  find vsvarsall.bat* error when installing nlsam on Windows.
 
 If you have a working python setup already, doing
 
