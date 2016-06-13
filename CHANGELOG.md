@@ -6,7 +6,6 @@ The data is also internally converted to float32 to prevent overflowing on uint 
 - Scripts are now more memory friendly with nibabel uncaching.
 - The example was moved to a subfolder with an available test dataset.
 - Fix multiprocessing freeze_support in windows binaries.
-- Linux binaries now needs glibc >= 2.19 (Debian 8 and newer) instead of glibc >= 2.21 (Ubuntu 15.04 and newer).
 - Scipy >= 0.14 is now required to efficiently deal with sparse matrices.
 
 ## [0.2.1] - 2016-04-26
