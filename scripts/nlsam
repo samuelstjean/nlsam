@@ -96,7 +96,6 @@ def buildArgsParser():
 
     p.add_argument('--noise_est', action='store', dest='noise_method',
                    metavar='string', required=False, default='piesno', type=str,
-                   choices=['local_std', 'piesno', 'noise_map'],
                    help='Noise estimation method used for estimating sigma. \n' +
                    'local_std : Compute local noise standard deviation ' +
                    'with correction factor. No a priori needed.' +
@@ -141,6 +140,12 @@ def main():
     ##########################################
     #  Load up data and do some sanity checks
     ##########################################
+
+    # Check if we have a sigma map or we must compute it internally
+    choices = ['local_std', 'piesno', 'noise_map']
+    if (args.load_sigma is None) or (noise_method not in choices):
+        raise ValueError('You specified --noise_method {}, but it is not amongst the'
+                         'available options {}'.format(noise_method, choices))
 
     overwritable_files = [args.output, args.save_sigma, args.save_piesno_mask]
 
@@ -271,9 +276,8 @@ def main():
 
     print("Now denoising " + os.path.realpath(args.input))
 
-    # We have a bunch of views, so turn them into proper 4D arrays
-    # mask = np.asarray(mask)
-    sigma = np.array(sigma, copy=True)
+    # We have a bunch of views, but we only want a 3D array
+    sigma = np.median(sigma, axis=-1, overwrite_input=True)
 
     data_denoised = nlsam_denoise(data, mask, sigma, bvals, bvecs, **params)
     nib.save(nib.Nifti1Image(data_denoised.astype(np.float32), affine), args.output)
