@@ -1,0 +1,263 @@
+#!/usr/bin/env python
+
+from __future__ import division, print_function
+
+import os
+# Fix openblas threading bug with openmp before loading numpy
+# Spams has openmp support already, and openblas conflicts with python multiprocessing.
+os.environ['OPENBLAS_NUM_THREADS'] = '1'
+
+import nibabel as nib
+import numpy as np
+
+import argparse
+
+from itertools import repeat
+from multiprocessing import Pool, cpu_count, freeze_support
+
+from dipy.core.ndindex import ndindex
+from dipy.core.gradients import gradient_table
+from dipy.io.gradients import read_bvals_bvecs
+from dipy.denoise.noise_estimate import piesno
+
+from nlsam.smoothing import local_standard_deviation, sh_smooth, local_piesno
+from nlsam.stabilizer import chi_to_gauss, fixed_point_finder, corrected_sigma
+from nlsam.denoiser import denoise, greedy_set_finder
+from nlsam.angular_tools import angular_neighbors
+
+DESCRIPTION = """
+Main script for the NLSAM denoising [1], including the stabilizer framework from [2].
+"""
+
+EPILOG = """
+References :
+
+[1] St-Jean S., Coupe P. and Descoteaux M.
+Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising,
+Medical Image Analysis (2016).
+
+[2] Koay CG, Ozarslan E and Basser PJ.
+A signal transformational framework for breaking the noise floor and its applications in MRI.
+Journal of Magnetic Resonance 2009; 197: 108-119.
+"""
+
+
+def buildArgsParser():
+
+    p = argparse.ArgumentParser(description=DESCRIPTION,
+                                epilog=EPILOG,
+                                formatter_class=argparse.RawTextHelpFormatter)
+
+    p.add_argument('input', action='store', metavar='input', type=str,
+                   help='Path of the image file to stabilize.')
+
+    p.add_argument('output', action='store', metavar='output', type=str,
+                   help='Output filename for the saved stabilized file.')
+
+    p.add_argument('N', action='store', metavar='N', type=int,
+                   help='Number of receiver coils of the scanner. \n' +
+                   'Use N=1 in the case of a SENSE (GE, Phillips) reconstruction and ' +
+                   'N >= 1 for GRAPPA reconstruction (Siemens).')
+
+    p.add_argument('sigma', action='store', metavar='sigma', type=str,
+                   help='Output filename for the noise standard deviation volume.')
+
+    p.add_argument('--cores', action='store', dest='n_cores',
+                   metavar='int', required=False, default=None, type=int,
+                   help='Number of cores to use for multiprocessing. ' +
+                   'Default : all of them')
+
+    p.add_argument('-m', '--mask', action='store', dest='mask',
+                   metavar='', required=False, default=None, type=str,
+                   help='Path to a binary mask. Only the data inside the mask will be processed.')
+
+    p.add_argument('--noise_est', action='store', dest='noise_method',
+                   metavar='string', required=False, default='piesno', type=str,
+                   choices=['local_std', 'piesno', 'noise_map'],
+                   help='Noise estimation method used for estimating sigma. \n' +
+                   'local_std : Compute local noise standard deviation ' +
+                   'with correction factor. No a priori needed.' +
+                   '\npiesno : Use PIESNO estimation, assumes the presence of ' +
+                   'background in the data. (default)\n' +
+                   'noise_map : Use PIESNO locally on a stack of 4D noise maps.')
+
+    p.add_argument('--noise_map', action='store', dest='noise_maps',
+                   metavar='string', required=False, default=None, type=str,
+                   help='Path of the noise map(s) volume for local piesno.\n'
+                   'Either supply a 3D noise map or a stack of 3D maps as a 4D volume.\n'+
+                   'Required for --noise_est noise_map')
+
+    p.add_argument('--noise_mask', action='store', dest='save_piesno_mask',
+                   metavar='string', required=False, default=None, type=str,
+                   help='If supplied, output filename for saving the mask of noisy voxels '
+                   + 'found by PIESNO.')
+
+    p.add_argument('--smooth', action='store', dest='smooth_method',
+                   metavar='string', required=False, default='sh_smooth', type=str,
+                   choices=['sh_smooth', 'no_smoothing'],
+                   help='Smoothing method used for initializing m_hat.\n' +
+                   'sh_smooth (default): Fit SH for smoothing the raw signal. ' +
+                   'Also requires the bvals/bvecs to be given.\n' +
+                   'no_smoothing : Just use the data as-is for initialisation.')
+
+    p.add_argument('--sh_order', action='store', dest='sh_order',
+                   metavar='int', default=8, type=int,
+                   help='SH order used for sh_smooth. (Default: 8)')
+
+    p.add_argument('--bvals', action='store', dest='bvals',
+                   metavar='bvals', type=str, default='',
+                   help='Path of the bvals file, in FSL format. \n' +
+                   'Required for --smooth_method sh_smooth')
+
+    p.add_argument('--bvecs', action='store', dest='bvecs',
+                   metavar='bvecs', type=str, default='',
+                   help='Path of the bvecs file, in FSL format. \n' +
+                   'Required for --smooth_method sh_smooth')
+
+    p.add_argument('-f', '--force', action='store_true', dest='overwrite',
+                   help='If set, the output denoised volume will be overwritten ' +
+                   'if it already exists.')
+
+    return p
+
+
+def multiprocess_stabilisation(arglist):
+    """Helper function for multiprocessing the stabilization part."""
+
+    data, m_hat, mask, sigma, N = arglist
+    out = np.zeros(data.shape, dtype=np.float32)
+
+    for idx in ndindex(data.shape):
+
+        if sigma[idx] > 0 and mask[idx]:
+            eta = fixed_point_finder(m_hat[idx], sigma[idx], N)
+            out[idx] = chi_to_gauss(data[idx], eta, sigma[idx], N)
+
+    return out
+
+
+def main():
+
+    parser = buildArgsParser()
+    args = parser.parse_args()
+
+    if os.path.isfile(args.output):
+        if args.overwrite:
+            print('Overwriting {0}'.format(os.path.realpath(args.output)))
+        else:
+            parser.error('{0} already exists! Use -f or --force to overwrite it.'.format(args.output))
+
+    print("Now processing " + os.path.realpath(args.input))
+
+    vol = nib.load(args.input)
+    data = np.asarray(vol.get_data(caching='unchanged'))  # To force ndarray instead of memmaps
+    affine = vol.get_affine()
+
+    if args.mask is None:
+        mask = np.ones(data.shape[:-1], dtype=np.bool)
+    else:
+        mask = nib.load(args.mask).get_data().astype(np.bool)
+
+    if data.shape[:-1] != mask.shape:
+        raise ValueError('data shape is {}, but mask shape {} is different!'.format(data.shape, mask.shape))
+
+    N = args.N
+
+    if args.n_cores is None:
+        n_cores = cpu_count()
+    else:
+        if args.n_cores > cpu_count():
+            n_cores = cpu_count()
+        else:
+            n_cores = args.n_cores
+
+    noise_method = args.noise_method
+    smooth_method = args.smooth_method
+    sh_order = args.sh_order
+
+    if noise_method == 'noise_map':
+        if args.noise_maps is None:
+            raise ValueError('You need to supply --noise_map path_to_file to use --noise_est noise_map')
+
+        noise_maps = nib.load(args.noise_maps).get_data()
+
+    print("Estimating m_hat with method " + smooth_method)
+
+    if smooth_method == 'no_smoothing':
+        m_hat = np.array(data, copy=True, dtype=np.float32)
+
+    elif smooth_method == 'sh_smooth':
+
+        # Raise warning for sh order if there is not enough DWIs
+        if data.shape[-1] < (sh_order + 1) * (sh_order + 2) / 2:
+            print("We recommend having at least " +
+                  str((sh_order + 1) * (sh_order + 2) / 2) +
+                  " unique DWIs volumes, but you currently have " +
+                  str(data.shape[-1]) + " volumes. Try lowering the " +
+                  "parameter --sh_order in case of non convergence.")
+
+        bvals, bvecs = read_bvals_bvecs(args.bvals, args.bvecs)
+        gtab = gradient_table(bvals, bvecs)
+        m_hat = sh_smooth(data, gtab, sh_order=sh_order)
+        m_hat[m_hat < 0] = 0
+
+    print("Estimating noise with method " + noise_method)
+
+    if noise_method == 'piesno':
+        sigma_1D, mask_noise = piesno(data, N=N, return_mask=True)
+        sigma = np.broadcast_to(sigma_1D[None, None, :, None], data.shape)
+
+        if args.save_piesno_mask is not None:
+            nib.save(nib.Nifti1Image(mask_noise.astype(np.int16), affine), args.save_piesno_mask)
+
+    elif noise_method == 'local_std':
+        sigma_3D = local_standard_deviation(data, n_cores=n_cores)
+
+        # Compute the corrected value for each 3D volume
+        sigma = corrected_sigma(m_hat,
+                                np.broadcast_to(sigma_3D[..., None], data.shape),
+                                np.broadcast_to(mask[..., None], data.shape),
+                                N,
+                                n_cores=n_cores)
+
+    elif noise_method == 'noise_map':
+
+        # Local piesno works on 4D, so we need to broadcast before
+        if noise_maps.ndim == 3:
+            noise_maps = noise_maps[..., None]
+
+        sigma, mask_noise = local_piesno(noise_maps, N=N, return_mask=True)
+        sigma = np.broadcast_to(sigma[..., None], data.shape)
+
+        if args.save_piesno_mask is not None:
+            nib.save(nib.Nifti1Image(mask_noise.astype(np.int16), affine), args.save_piesno_mask)
+
+    nib.save(nib.Nifti1Image(sigma, affine), args.sigma)
+
+    print("Now performing stabilization")
+
+    mask = np.broadcast_to(mask[..., None], data.shape)
+
+    pool = Pool(processes=n_cores)
+    arglist = [(data[..., idx, :],
+                m_hat[..., idx, :],
+                mask[..., idx, :],
+                sigma[..., idx, :],
+                N_vox)
+               for idx, N_vox in zip(range(data.shape[-2]), repeat(N))]
+
+    data_out = pool.map(multiprocess_stabilisation, arglist)
+    pool.close()
+    pool.join()
+
+    data_stabilized = np.empty(data.shape, dtype=np.float32)
+
+    for idx in range(len(data_out)):
+        data_stabilized[..., idx, :] = data_out[idx]
+
+    nib.save(nib.Nifti1Image(data_stabilized, affine), args.output)
+
+
+if __name__ == "__main__":
+    freeze_support()
+    main()

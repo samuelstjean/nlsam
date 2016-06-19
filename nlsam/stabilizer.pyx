@@ -16,10 +16,61 @@ from nibabel.optpkg import optional_package
 cython_gsl, have_cython_gsl, _ = optional_package("cython_gsl")
 
 if not have_cython_gsl:
-    raise ValueError('cannot find gsl package (required for hyp1f1), \n'
+    raise ValueError('Cannot find gsl package (required for hyp1f1), \n'
         'try pip install cythongsl and sudo apt-get install libgsl0-dev libgsl0ldbl')
 
 from cython_gsl cimport gsl_sf_hyperg_1F1
+
+
+def multiprocess_stabilisation(data, m_hat, mask, sigma, N):
+
+      # Check all dims are ok
+      if (data.shape != sigma.shape):
+          raise ValueError('data shape {} is not compatible with sigma shape {}'.format(data.shape, sigma.shape))
+
+      if (data.shape[:-1] != mask.shape):
+          raise ValueError('data shape {} is not compatible with mask shape {}'.format(data.shape, mask.shape))
+
+      if (data.shape != m_hat.shape):
+          raise ValueError('data shape {} is not compatible with m_hat shape {}'.format(data.shape, m_hat.shape))
+
+      pool = Pool(processes=n_cores)
+      arglist = [(data[..., idx, :],
+                  m_hat[..., idx, :],
+                  mask[..., idx],
+                  sigma[..., idx, :],
+                  N_vox)
+                 for idx, N_vox in zip(range(data.shape[-2]), repeat(N))]
+
+      data_out = pool.map(_multiprocess_stabilisation, arglist)
+      pool.close()
+      pool.join()
+
+      data_stabilized = np.empty(data.shape, dtype=np.float32)
+
+      for idx in range(len(data_out)):
+          data_stabilized[..., idx, :] = data_out[idx]
+
+    return data_stabilized
+
+
+def _multiprocess_stabilisation(arglist):
+    """Helper function for multiprocessing the stabilization part."""
+
+    data, m_hat, mask, sigma, N = arglist
+    out = np.zeros(data.shape, dtype=np.float32)
+
+    data = data.astype(np.float64)
+    m_hat = m_hat.astype(np.float64)
+    sigma = sigma.astype(np.float64)
+
+    for idx in ndindex(data.shape):
+
+        if sigma[idx] > 0 and mask[idx]:
+            eta = fixed_point_finder(m_hat[idx], sigma[idx], N)
+            out[idx] = chi_to_gauss(data[idx], eta, sigma[idx], N)
+
+    return out
 
 
 cdef double hyp1f1(double a, int b, double x) nogil:
@@ -44,34 +95,6 @@ cdef double _inv_cdf_gauss(double y, double eta, double sigma):
         Value associated to probability y given a normal distribution N(eta, sigma**2)
     """
     return eta + sigma * sqrt(2) * erfinv(2*y - 1)
-
-
-def chi_to_gauss(m, eta, sigma, N, alpha=0.0001):
-    """Maps the noisy signal intensity from a Rician/Non central chi distribution
-    to its gaussian counterpart. See p. 4 of [1] eq. 12.
-
-    m : double
-        The noisy, Rician/Non central chi distributed value
-    eta : double
-        The underlying signal intensity estimated value
-    sigma : double
-        The gaussian noise estimated standard deviation
-    N : int
-        Number of coils of the acquision (N=1 for Rician noise)
-    alpha : double
-        Confidence interval for the cumulative distribution function.
-        Clips the cdf to alpha/2 <= cdf <= 1-alpha/2
-
-    return
-        double : The noisy gaussian distributed signal intensity
-
-    Reference:
-    [1]. Koay CG, Ozarslan E and Basser PJ.
-    A signal transformational framework for breaking the noise floor
-    and its applications in MRI.
-    Journal of Magnetic Resonance 2009; 197: 108-119.
-    """
-    return _chi_to_gauss(m, eta, sigma, N, alpha)
 
 
 cdef double _chi_to_gauss(double m, double eta, double sigma, int N,

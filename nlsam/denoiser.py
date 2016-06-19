@@ -5,10 +5,11 @@ import warnings
 from time import time
 
 from itertools import repeat
-# from functools import partial
 from multiprocessing import Pool
 
-from nlsam.utils import im2col_nd, col2im_nd, sparse_dot
+from nlsam.utils import im2col_nd, col2im_nd
+from nlsam.angular_tools import angular_neighbors
+
 from scipy.sparse import lil_matrix
 
 warnings.simplefilter("ignore", category=FutureWarning)
@@ -16,16 +17,122 @@ warnings.simplefilter("ignore", category=FutureWarning)
 try:
     import spams
 except ImportError:
-    raise ValueError("Couldn't find spams library, did you properly install the package?")
-
-# def universal_worker(input_pair):
-#     """http://stackoverflow.com/a/24446525"""
-#     function, args = input_pair
-#     return function(*args)
+    raise ValueError("Couldn't find spams library, is the package correctly installed?")
 
 
-# def pool_args(function, *args):
-#     return izip(repeat(function), *izip(*args))
+def nlsam_denoise(data, mask, sigma, bvals, bvecs, block_size, no_symmetry=False, n_cores=None, greedy_subsampler=True, n_iter=10,
+                  b0_thresh=10):
+    """Main nlsam denoising function which sets up everything nicely for the local
+    block denoising.
+
+    Input
+    -----------
+
+    Output
+    -----------
+
+    """
+
+    b0_loc = tuple(np.where(bvals <= b0_thresh)[0])
+    num_b0s = len(b0_loc)
+    sigma **= 2
+
+    print("found " + str(num_b0s) + " b0s at position " + str(b0_loc))
+
+    # Average multiple b0s, and just use the average for the rest of the script
+    # patching them in at the end
+    if num_b0s > 1:
+        mean_b0 = np.mean(data[..., b0_loc], axis=-1)
+        dwis = tuple(np.where(bvals > b0_thresh)[0])
+        data = data[..., dwis]
+        bvals = np.take(bvals, dwis, axis=0)
+        bvecs = np.take(bvecs, dwis, axis=0)
+
+        rest_of_b0s = b0_loc[1:]
+        b0_loc = b0_loc[0]
+
+        data = np.insert(data, b0_loc, mean_b0, axis=-1)
+        bvals = np.insert(bvals, b0_loc, [0.], axis=0)
+        bvecs = np.insert(bvecs, b0_loc, [0., 0., 0.], axis=0)
+        b0_loc = tuple([b0_loc])
+        num_b0s = 1
+
+    else:
+        rest_of_b0s = None
+
+    # Double bvecs to find neighbors with assumed symmetry if needed
+    if no_symmetry:
+        print('Data is assumed to be already symmetrized.')
+        sym_bvecs = np.delete(bvecs, b0_loc, axis=0)
+    else:
+        sym_bvecs = np.vstack((np.delete(bvecs, b0_loc, axis=0), np.delete(-bvecs, b0_loc, axis=0)))
+
+    neighbors = (angular_neighbors(sym_bvecs, block_size[-1] - num_b0s) % (data.shape[-1] - num_b0s))[:data.shape[-1] - num_b0s]
+
+    # if implausible_signal_boost:
+    #     data[..., b0_loc] = np.max(data, axis=-1, keepdims=True)
+
+    orig_shape = data.shape
+
+    # Full overlap
+    overlap = np.array(block_size, dtype=np.int16) - 1
+    b0 = np.squeeze(data[..., b0_loc])
+    data = np.delete(data, b0_loc, axis=-1)
+
+    indexes = []
+    for i in range(len(neighbors)):
+        indexes += [(i,) + tuple(neighbors[i])]
+
+    if greedy_subsampler:
+        indexes = greedy_set_finder(indexes)
+
+    b0_block_size = tuple(block_size[:-1]) + ((block_size[-1] + num_b0s,))
+
+    denoised_shape = data.shape[:-1] + (data.shape[-1] + num_b0s,)
+    data_denoised = np.zeros(denoised_shape, np.float64)
+
+    # Put all idx + b0 in this array in each iteration
+    to_denoise = np.empty(data.shape[:-1] + (block_size[-1] + 1,), dtype=np.float64)
+
+    for i, idx in enumerate(indexes):
+        dwi_idx = tuple(np.where(idx <= b0_loc, idx, np.array(idx) + num_b0s))
+        print('Now denoising volumes {} / block {} out of {}.'.format(idx, i+1, len(indexes)))
+
+        to_denoise[..., 0] = np.copy(b0)
+        to_denoise[..., 1:] = data[..., idx]
+
+        data_denoised[..., b0_loc + dwi_idx] += local_denoise(to_denoise,
+                                                              b0_block_size,
+                                                              overlap,
+                                                              param_alpha,
+                                                              param_D,
+                                                              sigma,
+                                                              n_iter,
+                                                              mask,
+                                                              dtype=np.float64)
+
+    divider = np.bincount(np.array(indexes, dtype=np.int16).ravel())
+    divider = np.insert(divider, b0_loc, len(indexes))
+
+    data_denoised = data_denoised[:orig_shape[0],
+                                  :orig_shape[1],
+                                  :orig_shape[2],
+                                  :orig_shape[3]] / divider
+
+    # Put back the original number of b0s
+    if rest_of_b0s is not None:
+
+        b0_denoised = np.squeeze(data_denoised[..., b0_loc])
+        data_denoised_insert = np.empty(orig_shape, dtype=np.float32)
+        n = 0
+        for i in range(orig_shape[-1]):
+            if i in rest_of_b0s:
+                data_denoised_insert[..., i] = b0_denoised
+                n += 1
+            else:
+                data_denoised_insert[..., i] = data_denoised[..., i - n]
+
+    return data_denoised_insert
 
 
 def greedy_set_finder(sets):
@@ -58,48 +165,12 @@ def greedy_set_finder(sets):
     return output
 
 
-# def apply_weights(alpha, W):
-#     cx = alpha.tocoo()
-#     for i, j in izip(cx.row, cx.col):
-#         cx[i, j] /= W[i, j]
-
-#     return cx
-
-
-def compute_weights(alpha_old, alpha, W, tau, eps):
-    cx = alpha_old.tocoo()
-    cy = alpha.tocoo()
-
-    # Reset W values to eps
-    idx = cx.nonzero()
-    W[idx] = 1. / eps[idx[1]]
-
-    # Assign new weights
-    idx = cy.nonzero()
-    W[idx] = 1. / ((cy.data**tau) + eps[idx[1]])
-
-    return
-
-
-def check_conv(alpha_old, alpha, eps=1e-5):
-    x = alpha.tocoo()
-    y = alpha_old.tocoo()
-
-    # eps >= is for efficiency reason, and matrices are always 2D so we remove the useless dimension
-    return (eps >= np.abs(x - y).max(axis=0)).toarray().squeeze()
-
-# def _processer(arglist):
-#     return processer(*arglist)
-#
 def processer(arglist):
     data, mask, variance, block_size, overlap, param_alpha, param_D, dtype, n_iter = arglist
     return _processer(data, mask, variance, block_size, overlap, param_alpha, param_D, dtype=dtype, n_iter=n_iter)
 
-# def processer(arglist):
+
 def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D, dtype=np.float64, n_iter=10, gamma=3., tau=1.):
-    # data, mask, variance, block_size, overlap, param_alpha, param_D, dtype, n_iter = arglist
-    # gamma = 3.
-    # tau = 1.
 
     orig_shape = data.shape
     mask_array = im2col_nd(mask, block_size[:3], overlap[:3])
@@ -155,11 +226,6 @@ def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D, 
         alpha_old = arr
         W[:] = 1. / (np.abs(alpha_old**tau) + eps)
 
-        # compute_weights(alpha_old, alpha, W, tau, eps)
-
-    # alpha = arr
-    # X = D.dot(alpha)
-    # X = sparse_dot(D,alpha)
     X = np.dot(D, arr)
     weigths = np.ones(X_full_shape[1], dtype=dtype, order='F')
     weigths[train_idx] = 1. / (alpha.getnnz(axis=0) + 1.)
@@ -170,8 +236,8 @@ def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D, 
     return col2im_nd(X2, block_size, orig_shape, overlap, weigths)
 
 
-def denoise(data, block_size, overlap, param_alpha, param_D, variance, n_iter=10,
-            mask=None, dtype=np.float64):
+def local_denoise(data, block_size, overlap, param_alpha, param_D, variance, n_iter=10,
+                  mask=None, dtype=np.float64):
 
     # no overlapping blocks for training
     no_over = (0, 0, 0, 0)
@@ -194,7 +260,6 @@ def denoise(data, block_size, overlap, param_alpha, param_D, variance, n_iter=10
     if 'D' in param_alpha:
         param_D['D'] = param_alpha['D']
 
-    # mask_col = im2col_nd(mask, block_size[:3], no_over[:3])
     mask_col = im2col_nd(np.broadcast_to(mask[..., None], data.shape), block_size, no_over)
     train_idx = np.sum(mask_col, axis=0) > mask_col.shape[0]/2
 

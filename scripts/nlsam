@@ -13,19 +13,23 @@ from multiprocessing import cpu_count, freeze_support
 import nibabel as nib
 import numpy as np
 
-from nlsam.denoiser import denoise, greedy_set_finder
-from nlsam.angular_tools import angular_neighbors
+from nlsam.denoiser import nlsam_denoise
+from nlsam.smoothing import local_standard_deviation, sh_smooth, local_piesno
+from nlsam.stabilizer import corrected_sigma, multiprocess_stabilisation
 
 from dipy.io.gradients import read_bvals_bvecs
+from dipy.core.gradients import gradient_table
+from dipy.denoise.noise_estimate import piesno
 
 
 DESCRIPTION = """
 Main script for the NLSAM denoising [1].
 """
 
-EPILOG="""Reference : [1] St-Jean S., Coupe P. and Descoteaux M.
+EPILOG = """Reference : [1] St-Jean S., Coupe P. and Descoteaux M.
 Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising,
 Medical Image Analysis (2016)."""
+
 
 def buildArgsParser():
 
@@ -39,8 +43,10 @@ def buildArgsParser():
     p.add_argument('output', action='store', metavar='output',
                    help='Path for the saved denoised file.')
 
-    p.add_argument('block_size', action='store', metavar='block_size',
-                   type=int, help='Number of angular neighbors used for denoising.')
+    p.add_argument('N', action='store', metavar='N', type=int,
+                   help='Number of receiver coils of the scanner. \n' +
+                   'Use N=1 in the case of a SENSE (GE, Phillips) reconstruction and ' +
+                   'N >= 1 for GRAPPA reconstruction (Siemens).')
 
     p.add_argument('bvals', action='store', metavar='bvals',
                    help='Path of the bvals file, in FSL format.')
@@ -48,29 +54,78 @@ def buildArgsParser():
     p.add_argument('bvecs', action='store', metavar='bvecs',
                    help='Path of the bvecs file, in FSL format.')
 
-    p.add_argument('sigma', action='store', metavar='sigma',
-                   help='Path to the standard deviation volume.')
+    p.add_argument('angular_block_size', action='store', metavar='int',
+                   type=int, help='Number of angular neighbors used for denoising.')
+
+    p.add_argument('--save_sigma', action='store', metavar='save_sigma',
+                   help='Path to save the intermediate standard deviation volume.'
+                   'Useful for debugging purposes.')
+
+    p.add_argument('--load_sigma', action='store', metavar='sigma',
+                   default=None, dest='load_sigma',
+                   help='Load this file as the standard deviation volume.'
+                   'Will be squared internally to turn into variance.')
 
     p.add_argument('--cores', action='store', dest='cores',
-                   metavar='int', required=False, default=None, type=int,
+                   metavar='int', default=None, type=int,
                    help='Number of cores to use for multithreading')
 
     p.add_argument('--iterations', action='store', dest='iterations',
-                   metavar='int', required=False, default=10, type=int,
+                   metavar='int', default=10, type=int,
                    help='Number of iterations for the l1 reweighting. Default 10.')
 
+    p.add_argument('--b0_threshold', action='store', dest='b0_threshold',
+                   metavar='int', default=10, type=int,
+                   help='Lowest b-value to be consdiered as a b0. Default 10.')
+
+    p.add_argument('--spatial_block_size', action='store', metavar='tuple',
+                   type=tuple, default=(3, 3, 3),
+                   help='Size of the 3D spatial patch to be denoised. Default : 3, 3, 3')
+
     p.add_argument('-m', '--mask', action='store', dest='mask',
-                   metavar='', required=False, default=None, type=str,
+                   metavar='', default=None, type=str,
                    help='Path to a binary mask. Only the data inside the mask will be reconstructed.')
 
     p.add_argument('--no_symmetry', dest='no_symmetry', action='store_true',
-                   default=False, required=False,
-                   help='If supplied, assumes the set of bvals/bvecs to already be symmetrized,\n' +
+                   default=False, help='If supplied, assumes the set of bvals/bvecs to already be symmetrized,\n' +
                    'i.e. All points (x,y,z) on the sphere and (-x,-y,-z) were acquired, such as in full grid DSI.')
 
     p.add_argument('-f', '--force', action='store_true', dest='overwrite',
                    help='If set, the output denoised volume will be overwritten ' +
                    'if it already exists.')
+
+    p.add_argument('--noise_est', action='store', dest='noise_method',
+                   metavar='string', required=False, default='piesno', type=str,
+                   choices=['local_std', 'piesno', 'noise_map'],
+                   help='Noise estimation method used for estimating sigma. \n' +
+                   'local_std : Compute local noise standard deviation ' +
+                   'with correction factor. No a priori needed.' +
+                   '\npiesno : Use PIESNO estimation, assumes the presence of ' +
+                   'background in the data. (default)\n' +
+                   'noise_map : Use PIESNO locally on a stack of 4D noise maps.')
+
+    p.add_argument('--noise_map', action='store', dest='noise_maps',
+                   metavar='string', required=False, default=None, type=str,
+                   help='Path of the noise map(s) volume for local piesno.\n'
+                   'Either supply a 3D noise map or a stack of 3D maps as a 4D volume.\n' +
+                   'Required for --noise_est noise_map')
+
+    p.add_argument('--noise_mask', action='store', dest='save_piesno_mask',
+                   metavar='string', required=False, default=None, type=str,
+                   help='If supplied, output filename for saving the mask of noisy voxels ' +
+                   'found by PIESNO.')
+
+    p.add_argument('--smooth', action='store', dest='smooth_method',
+                   metavar='string', required=False, default='sh_smooth', type=str,
+                   choices=['sh_smooth', 'no_smoothing'],
+                   help='Smoothing method used for initializing m_hat.\n' +
+                   'sh_smooth (default): Fit SH for smoothing the raw signal. ' +
+                   'no_smoothing : Just use the data as-is for initialisation.')
+
+    p.add_argument('--sh_order', action='store', dest='sh_order',
+                   metavar='int', default=8, type=int,
+                   help='SH order used for sh_smooth. (Default: 8)')
+
     return p
 
 
@@ -78,159 +133,150 @@ def main():
     parser = buildArgsParser()
     args = parser.parse_args()
 
-    if os.path.isfile(args.output):
-        if args.overwrite:
-            print('Overwriting {0}'.format(os.path.realpath(args.output)))
-        else:
-            parser.error('{0} already exists! Use -f or --force to overwrite it.'.format(args.output))
+    noise_method = args.noise_method
+    smooth_method = args.smooth_method
+    sh_order = args.sh_order
+    N = args.N
 
-    print("Now denoising " + os.path.realpath(args.input))
+    ##########################################
+    #  Load up data and do some sanity checks
+    ##########################################
+
+    overwritable_files = [args.output, args.save_sigma, args.save_piesno_mask]
+
+    for f in overwritable_files:
+        if os.path.isfile(f):
+            if args.overwrite:
+                print('Overwriting {0}'.format(os.path.realpath(f)))
+            else:
+                parser.error('{0} already exists! Use -f or --force to overwrite it.'.format(f))
 
     vol = nib.load(args.input)
-    data = np.asarray(vol.get_data(caching='unchanged'))  # To force ndarray instead of memmaps
+    data = np.asarray(vol.get_data(caching='unchanged'), dtype=np.float32)  # To force ndarray instead of memmaps
     affine = vol.get_affine()
     header = vol.get_header()
     header.set_data_dtype(np.float32)
 
-    sigma = nib.load(args.sigma).get_data()**2
-
-    greedy_subsampler = True
-    implausible_signal_boost = True
-    b0_thresh = 10
-    n_iter = args.iterations
-
-    original_dtype = data.dtype
-    original_shape = data.shape
-    data = data.astype(np.float64)
-    block_size = np.array((3, 3, 3, int(args.block_size)))
-    param_D = {}
-    param_alpha = {}
-
-    if len(block_size) != len(data.shape):
-        raise ValueError('Block shape and data shape are not of the same \
-                         dimensions', data.shape, block_size.shape)
-
-    if args.cores is None:
-        param_D['numThreads'] = cpu_count()
-        param_alpha['numThreads'] = cpu_count()
-    else:
-        param_D['numThreads'] = args.cores
-        param_alpha['numThreads'] = args.cores
-
-    param_alpha['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
-    param_D['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
+    if args.load_sigma is not None:
+        sigma = np.asarray(nib.load(args.load_sigma).get_data(caching='unchanged'), dtype=np.float32)
 
     if args.mask is not None:
-        mask = nib.load(args.mask).get_data().astype(np.bool)
+        mask = np.asarray(nib.load(args.mask).get_data(caching='unchanged'), dtype=np.bool)
     else:
         mask = np.ones(data.shape[:-1], dtype=np.bool)
+
+    bvals, bvecs = read_bvals_bvecs(args.bvals, args.bvecs)
+
+    params = {}
+    params['greedy_subsampler'] = args.greedy_subsampler
+    params['n_iter'] = args.iterations
+    params['no_symmetry'] = args.no_symmetry
+    params['block_size'] = np.array((args.spatial_block_size + (args.angular_block_size)))
+    params['b0_threshold'] = args.b0_threshold
+
+    if args.cores is None or args.core > cpu_count():
+        params['n_cores'] = cpu_count()
+    else:
+        params['n_cores'] = args.cores
+
+    if len(params['block_size']) != len(data.shape):
+        raise ValueError('Block shape {} and data shape {} are not of the same \
+                          length'.format(data.shape, params['block_size'].shape))
 
     if data.shape[:-1] != mask.shape:
         raise ValueError('data shape is {}, but mask shape {} is different!'.format(data.shape, mask.shape))
 
-    bvals, bvecs = read_bvals_bvecs(args.bvals, args.bvecs)
+    if data.shape[:-1] != sigma.shape:
+        raise ValueError('data shape is {}, but sigma shape {} is different!'.format(data.shape, sigma.shape))
 
-    b0_loc = tuple(np.where(bvals <= b0_thresh)[0])
-    num_b0s = len(b0_loc)
+    ##################
+    #  Stabilizer part
+    ##################
 
-    print("found " + str(num_b0s) + " b0s at position " + str(b0_loc))
-    # Average multiple b0s, and just use the average for the rest of the script
-    # patching them in at the end
-    if num_b0s > 1:
-        mean_b0 = np.mean(data[..., b0_loc], axis=-1)
-        dwis = tuple(np.where(bvals > b0_thresh)[0])
-        data = data[..., dwis]
-        bvals = np.take(bvals, dwis, axis=0)
-        bvecs = np.take(bvecs, dwis, axis=0)
+    if noise_method == 'noise_map':
+        if args.noise_maps is None:
+            raise ValueError('You need to supply --noise_map path_to_file to use --noise_est noise_map')
 
-        rest_of_b0s = b0_loc[1:]
-        b0_loc = b0_loc[0]
+        noise_maps = nib.load(args.noise_maps).get_data()
 
-        data = np.insert(data, b0_loc, mean_b0, axis=-1)
-        bvals = np.insert(bvals, b0_loc, [0.], axis=0)
-        bvecs = np.insert(bvecs, b0_loc, [0., 0., 0.], axis=0)
-        b0_loc = tuple([b0_loc])
-        num_b0s = 1
+    print("Estimating m_hat with method " + smooth_method)
 
-    else:
-        rest_of_b0s = None
+    if smooth_method == 'no_smoothing':
+        m_hat = np.array(data, copy=True, dtype=np.float32)
 
-    # Double bvecs to find neighbors with assumed symmetry if needed
-    if args.no_symmetry:
-        print('Data is assumed to be already symmetrized.')
-        sym_bvecs = np.delete(bvecs, b0_loc, axis=0)
-    else:
-        sym_bvecs = np.vstack((np.delete(bvecs, b0_loc, axis=0), np.delete(-bvecs, b0_loc, axis=0)))
+    elif smooth_method == 'sh_smooth':
 
-    neighbors = (angular_neighbors(sym_bvecs, block_size[-1] - num_b0s) % (data.shape[-1] - num_b0s))[:data.shape[-1] - num_b0s]
+        # Raise warning for sh order if there is not enough DWIs
+        if data.shape[-1] < (sh_order + 1) * (sh_order + 2) / 2:
+            print("We recommend having at least " +
+                  str((sh_order + 1) * (sh_order + 2) / 2) +
+                  " unique DWIs volumes, but you currently have " +
+                  str(data.shape[-1]) + " volumes. Try lowering the " +
+                  "parameter --sh_order in case of non convergence.")
 
-    if implausible_signal_boost:
-        data[..., b0_loc] = np.max(data, axis=-1, keepdims=True)
+        gtab = gradient_table(bvals, bvecs, b0_threshold=params['b0_threshold'])
+        m_hat = sh_smooth(data, gtab, sh_order=sh_order)
+        m_hat[m_hat < 0] = 0
 
-    orig_shape = data.shape
+    # Sigma map was already supplied by the user
+    if args.load_sigma is None:
+        print("Estimating noise with method " + noise_method)
 
-    # Full overlap
-    overlap = np.array(block_size, dtype=np.int16) - 1
-    b0 = np.squeeze(data[..., b0_loc])
-    data = np.delete(data, b0_loc, axis=-1)
+        if noise_method == 'piesno':
+            sigma_1D, mask_noise = piesno(data, N=N, return_mask=True)
+            sigma = np.broadcast_to(sigma_1D[None, None, :, None], data.shape)
 
-    indexes = []
-    for i in range(len(neighbors)):
-        indexes += [(i,) + tuple(neighbors[i])]
+            if args.save_piesno_mask is not None:
+                nib.save(nib.Nifti1Image(mask_noise.astype(np.int16), affine), args.save_piesno_mask)
 
-    if greedy_subsampler:
-        indexes = greedy_set_finder(indexes)
+        elif noise_method == 'local_std':
+            sigma_3D = local_standard_deviation(data, n_cores=params['n_cores'])
 
-    b0_block_size = tuple(block_size[:-1]) + ((block_size[-1] + num_b0s,))
+            # Compute the corrected value for each 3D volume
+            if N > 0:
+                sigma = corrected_sigma(m_hat,
+                                        np.broadcast_to(sigma_3D[..., None], data.shape),
+                                        np.broadcast_to(mask[..., None], data.shape),
+                                        N,
+                                        n_cores=params['n_cores'])
 
-    denoised_shape = data.shape[:-1] + (data.shape[-1] + num_b0s,)
-    data_denoised = np.zeros(denoised_shape, np.float64)
+        elif noise_method == 'noise_map':
 
-    # Put all idx + b0 in this array in each iteration
-    to_denoise = np.empty(data.shape[:-1] + (block_size[-1] + 1,), dtype=np.float64)
+            # Local piesno works on 4D, so we need to broadcast before
+            if noise_maps.ndim == 3:
+                noise_maps = noise_maps[..., None]
 
-    for i, idx in enumerate(indexes):
-        dwi_idx = tuple(np.where(idx <= b0_loc, idx, np.array(idx) + num_b0s))
-        print('Now denoising volumes {} / block {} out of {}.'.format(idx, i+1, len(indexes)))
+            sigma, mask_noise = local_piesno(noise_maps, N=N, return_mask=True)
 
-        to_denoise[..., 0] = np.copy(b0)
-        to_denoise[..., 1:] = data[..., idx]
+            if args.save_piesno_mask is not None:
+                nib.save(nib.Nifti1Image(mask_noise.astype(np.int16), affine), args.save_piesno_mask)
 
-        data_denoised[..., b0_loc + dwi_idx] += denoise(to_denoise,
-                                                        b0_block_size,
-                                                        overlap,
-                                                        param_alpha,
-                                                        param_D,
-                                                        sigma,
-                                                        n_iter,
-                                                        mask,
-                                                        dtype=np.float64)
+    if args.save_sigma is not None:
+        nib.save(nib.Nifti1Image(sigma, affine), args.save_sigma)
 
-    divider = np.bincount(np.array(indexes, dtype=np.int16).ravel())
-    divider = np.insert(divider, b0_loc, len(indexes))
+    print("Now performing stabilization")
 
-    data_denoised = data_denoised[:orig_shape[0],
-                                  :orig_shape[1],
-                                  :orig_shape[2],
-                                  :orig_shape[3]] / divider
+    # We have a 3D sigma map, so broadcast to 4D for indexing
+    if sigma.ndim == 3:
+        sigma = np.broadcast_to(sigma[..., None], data.shape)
 
-    # Put back the original number of b0s
-    if rest_of_b0s is not None:
+    data_stabilized = multiprocess_stabilisation(data, m_hat, mask, sigma, N)
 
-        b0_denoised = np.squeeze(data_denoised[..., b0_loc])
-        data_denoised_insert = np.empty(original_shape, original_dtype)
-        n = 0
-        for i in range(original_shape[-1]):
-            if i in rest_of_b0s:
-                data_denoised_insert[..., i] = b0_denoised
-                n += 1
-            else:
-                data_denoised_insert[..., i] = data_denoised[..., i - n]
+    if args.save_stab is not None:
+        nib.save(nib.Nifti1Image(data_stabilized, affine), args.save_stab)
 
-        data_denoised = data_denoised_insert
+    ##################
+    #  Denoising part
+    ##################
 
-    nib.save(nib.Nifti1Image(data_denoised.astype(np.float32), affine, header), args.output)
+    print("Now denoising " + os.path.realpath(args.input))
 
+    # We have a bunch of views, so turn them into proper 4D arrays
+    # mask = np.asarray(mask)
+    sigma = np.array(sigma, copy=True)
+
+    data_denoised = nlsam_denoise(data, mask, sigma, bvals, bvecs, **params)
+    nib.save(nib.Nifti1Image(data_denoised.astype(np.float32), affine), args.output)
 
 if __name__ == "__main__":
     freeze_support()
