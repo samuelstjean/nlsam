@@ -9,7 +9,7 @@ params['name'] = 'nlsam'
 params['author'] = 'Samuel St-Jean'
 params['author_email'] = 'samuel@isi.uu.nl'
 params['url'] = 'https://github.com/samuelstjean/nlsam'
-params['version'] = '0.2.1'
+params['version'] = '0.3'
 params['requires'] = ['cythongsl>=0.2.1',
                       'numpy>=1.10.4',
                       'cython>=0.21']
