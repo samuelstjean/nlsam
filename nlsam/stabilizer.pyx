@@ -443,3 +443,7 @@ def _test_multifactorial(N, k=1):
 
 def _test_inv_cdf_gauss(y, eta, sigma):
     return _inv_cdf_gauss(y, eta, sigma)
+
+
+def _test_chi_to_gauss(m, eta, sigma, N):
+    return chi_to_gauss(m, eta, sigma, N)

@@ -16,7 +16,7 @@ from nlsam.stabilizer import (_test_marcumq_cython,
                               _test_beta,
                               _test_xi,
                               fixed_point_finder,
-                              chi_to_gauss,
+                              _test_chi_to_gauss,
                               _test_inv_cdf_gauss,
                               _test_multifactorial)
 
@@ -56,10 +56,10 @@ def test_fixed_point_finder():
 
 def test_chi_to_gauss():
     # Values taken from hispeed.DistributionalMapping.nonCentralChiToGaussian
-    assert_almost_equal(chi_to_gauss(470, 600, 80, 12), 331.2511087335721, decimal=3)
-    assert_almost_equal(chi_to_gauss(700, 600, 80, 12), 586.5304199340127, decimal=3)
-    assert_almost_equal(chi_to_gauss(700, 600, 80, 1), 695.0548001366581, decimal=3)
-    assert_almost_equal(chi_to_gauss(470, 600, 80, 1), 463.965319619292, decimal=3)
+    assert_almost_equal(_test_chi_to_gauss(470, 600, 80, 12), 331.2511087335721, decimal=3)
+    assert_almost_equal(_test_chi_to_gauss(700, 600, 80, 12), 586.5304199340127, decimal=3)
+    assert_almost_equal(_test_chi_to_gauss(700, 600, 80, 1), 695.0548001366581, decimal=3)
+    assert_almost_equal(_test_chi_to_gauss(470, 600, 80, 1), 463.965319619292, decimal=3)
 
 
 def test_marcumq():
