@@ -68,7 +68,7 @@ dipy, have_dipy, _ = optional_package("dipy")
 
 if have_dipy:
     print('Found local version of dipy in ' + dipy.__file__)
-    if LooseVersion(dipy.__version__) <= '0.11':
+    if LooseVersion(dipy.__version__) < LooseVersion('0.11'):
         raise ValueError('Local dipy version is {}, but you need at least 0.11!'.format(dipy.__version__))
 else:
     print('Cannot find dipy, it will be installed using pip.')
