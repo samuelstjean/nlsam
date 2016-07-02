@@ -22,7 +22,7 @@ if not have_cython_gsl:
 from cython_gsl cimport gsl_sf_hyperg_1F1
 
 
-def multiprocess_stabilisation(data, m_hat, mask, sigma, N):
+def multiprocess_stabilisation(data, m_hat, mask, sigma, N, n_cores=None):
 
       # Check all dims are ok
       if (data.shape != sigma.shape):
@@ -51,7 +51,7 @@ def multiprocess_stabilisation(data, m_hat, mask, sigma, N):
       for idx in range(len(data_out)):
           data_stabilized[..., idx, :] = data_out[idx]
 
-    return data_stabilized
+      return data_stabilized
 
 
 def _multiprocess_stabilisation(arglist):
@@ -80,7 +80,7 @@ cdef double hyp1f1(double a, int b, double x) nogil:
 
 
 cdef double _inv_cdf_gauss(double y, double eta, double sigma):
-    """Helper function for _chi_to_gauss. Returns the gaussian distributed value
+    """Helper function for chi_to_gauss. Returns the gaussian distributed value
     associated to a given probability. See p. 4 of [1] eq. 13.
 
     y : double
@@ -97,7 +97,7 @@ cdef double _inv_cdf_gauss(double y, double eta, double sigma):
     return eta + sigma * sqrt(2) * erfinv(2*y - 1)
 
 
-cdef double _chi_to_gauss(double m, double eta, double sigma, int N,
+cdef double chi_to_gauss(double m, double eta, double sigma, int N,
                           double alpha=0.0001) nogil:
     """Maps the noisy signal intensity from a Rician/Non central chi distribution
     to its gaussian counterpart. See p. 4 of [1] eq. 12.
