@@ -11,14 +11,16 @@ except ImportError:
     from scipy.misc import factorialk
 
 from scipy.stats import norm
+from scipy.special import erfinv
 
 from nlsam.stabilizer import (_test_marcumq_cython,
                               _test_beta,
                               _test_xi,
-                              fixed_point_finder,
+                              _test_fixed_point_finder,
                               _test_chi_to_gauss,
                               _test_inv_cdf_gauss,
-                              _test_multifactorial)
+                              _test_multifactorial,
+                              _test_erfinv)
 
 # hispeed is the closed source java reference implementation,
 # from which most values are taken from.
@@ -47,11 +49,11 @@ def test_xi():
 
 def test_fixed_point_finder():
     # Values taken from hispeed.SignalFixedPointFinder.fixedPointFinder
-    assert_almost_equal(fixed_point_finder(50, 30, 12), 0)
-    assert_almost_equal(fixed_point_finder(650, 400, 1), 452.287728081486)
-    assert_almost_equal(fixed_point_finder(650, 40, 12), 620.9909935398028)
-    assert_almost_equal(fixed_point_finder(65, 40, 12), 0)
-    assert_almost_equal(fixed_point_finder(15, 4, 4), 10.420401964259176)
+    assert_almost_equal(_test_fixed_point_finder(50, 30, 12), 0)
+    assert_almost_equal(_test_fixed_point_finder(650, 400, 1), 452.287728081486)
+    assert_almost_equal(_test_fixed_point_finder(650, 40, 12), 620.9909935398028)
+    assert_almost_equal(_test_fixed_point_finder(65, 40, 12), 0)
+    assert_almost_equal(_test_fixed_point_finder(15, 4, 4), 10.420401964259176)
 
 
 def test_chi_to_gauss():
@@ -64,11 +66,11 @@ def test_chi_to_gauss():
 
 def test_marcumq():
     # Values taken from octave's marcumq function
-    assert_almost_equal(_test_marcumq_cython(2, 1, 0),  0.730987939964090, decimal=6)
-    assert_almost_equal(_test_marcumq_cython(7, 5, 0),  0.972285213704037, decimal=6)
-    assert_almost_equal(_test_marcumq_cython(3, 7, 5),  0.00115139503866225, decimal=6)
-    assert_almost_equal(_test_marcumq_cython(0, 7, 5),  4.07324330517049e-07, decimal=6)
-    assert_almost_equal(_test_marcumq_cython(7, 0, 5),  1., decimal=6)
+    assert_almost_equal(_test_marcumq_cython(2, 1, 0), 0.730987939964090, decimal=6)
+    assert_almost_equal(_test_marcumq_cython(7, 5, 0), 0.972285213704037, decimal=6)
+    assert_almost_equal(_test_marcumq_cython(3, 7, 5), 0.00115139503866225, decimal=6)
+    assert_almost_equal(_test_marcumq_cython(0, 7, 5), 4.07324330517049e-07, decimal=6)
+    assert_almost_equal(_test_marcumq_cython(7, 0, 5), 1., decimal=6)
 
 
 def test_factorial():
@@ -78,6 +80,11 @@ def test_factorial():
     assert_almost_equal(_test_multifactorial(0, 3), factorialk(0, 3), decimal=0)
 
 
+def test_erfinv():
+    for y in np.random.rand(1000):
+        assert_almost_equal(_test_erfinv(y), erfinv(y))
+        assert_almost_equal(_test_erfinv(-y), erfinv(-y))
+
 test_chi_to_gauss()
 test_fixed_point_finder()
 test_xi()
@@ -85,3 +92,4 @@ test_beta()
 test_inv_cdf_gauss()
 test_factorial()
 test_marcumq()
+test_erfinv()

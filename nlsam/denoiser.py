@@ -20,22 +20,63 @@ except ImportError:
     raise ValueError("Couldn't find spams library, is the package correctly installed?")
 
 
-def nlsam_denoise(data, mask, sigma, bvals, bvecs, block_size, no_symmetry=False, n_cores=None, greedy_subsampler=True, n_iter=10,
+def nlsam_denoise(data, sigma, bvals, bvecs, block_size, mask=None, no_symmetry=False, n_cores=None, greedy_subsampler=True, n_iter=10,
                   b0_thresh=10):
     """Main nlsam denoising function which sets up everything nicely for the local
     block denoising.
 
     Input
     -----------
+    data : ndarray
+
+
+    sigma : ndarray
+        Noise standard deviation estimation for each voxel.
+        Converted to variance internally.
+    bvals : ndarray
+    bvecs : ndarray
+
+    block_size : int
+        Number of angular neighbors to process at once as similar data.
+
+    Optional parameters
+    -------------------
+
+    mask : ndarray, default None
+        Retrict computations to voxels inside the mask to reduce runtime.
+
+    no_symmetry : bool, default False
+        If True, assumes that for each coordinate (x, y, z) in bvecs,
+        (-x, -y, -z) was also acquired.
+    n_cores : int, default None
+        Number of processes to use for the denoising. Default is to use
+        all available cores.
+    greedy_subsampler : bool, default True
+        If True, find the smallest subset of indices required to process each
+        dwi at least once.
+    n_iter : int, default 10
+        Maximum number of iterations for the reweighted l1 solver.
+    b0_thresh : int, default 10
+        A b-value below b0_thresh wil be consdered as a b0 image.
 
     Output
     -----------
-
+    data_denoised : ndarray
+        The denoised dataset
     """
+
+    if mask is None:
+        mask = np.ones(data.shape[:-1], dtype=np.bool)
+
+    if data.shape[:-1] != mask.shape:
+        raise ValueError('data shape is {}, but mask shape {} is different!'.format(data.shape, mask.shape))
+
+    if data.shape[:-1] != sigma.shape:
+        raise ValueError('data shape is {}, but sigma shape {} is different!'.format(data.shape, sigma.shape))
 
     b0_loc = tuple(np.where(bvals <= b0_thresh)[0])
     num_b0s = len(b0_loc)
-    sigma **= 2
+    variance = sigma**2
 
     print("found " + str(num_b0s) + " b0s at position " + str(b0_loc))
 
@@ -74,7 +115,7 @@ def nlsam_denoise(data, mask, sigma, bvals, bvecs, block_size, no_symmetry=False
 
     orig_shape = data.shape
 
-    # Full overlap
+    # Full overlap for dictionary learning
     overlap = np.array(block_size, dtype=np.int16) - 1
     b0 = np.squeeze(data[..., b0_loc])
     data = np.delete(data, b0_loc, axis=-1)
@@ -89,7 +130,7 @@ def nlsam_denoise(data, mask, sigma, bvals, bvecs, block_size, no_symmetry=False
     b0_block_size = tuple(block_size[:-1]) + ((block_size[-1] + num_b0s,))
 
     denoised_shape = data.shape[:-1] + (data.shape[-1] + num_b0s,)
-    data_denoised = np.zeros(denoised_shape, np.float64)
+    data_denoised = np.zeros(denoised_shape, np.float32)
 
     # Put all idx + b0 in this array in each iteration
     to_denoise = np.empty(data.shape[:-1] + (block_size[-1] + 1,), dtype=np.float64)
@@ -106,7 +147,7 @@ def nlsam_denoise(data, mask, sigma, bvals, bvecs, block_size, no_symmetry=False
                                                               overlap,
                                                               param_alpha,
                                                               param_D,
-                                                              sigma,
+                                                              variance,
                                                               n_iter,
                                                               mask,
                                                               dtype=np.float64)
@@ -125,6 +166,7 @@ def nlsam_denoise(data, mask, sigma, bvals, bvecs, block_size, no_symmetry=False
         b0_denoised = np.squeeze(data_denoised[..., b0_loc])
         data_denoised_insert = np.empty(orig_shape, dtype=np.float32)
         n = 0
+
         for i in range(orig_shape[-1]):
             if i in rest_of_b0s:
                 data_denoised_insert[..., i] = b0_denoised
@@ -132,7 +174,9 @@ def nlsam_denoise(data, mask, sigma, bvals, bvecs, block_size, no_symmetry=False
             else:
                 data_denoised_insert[..., i] = data_denoised[..., i - n]
 
-    return data_denoised_insert
+        data_denoised = data_denoised_insert
+
+    return data_denoised
 
 
 def greedy_set_finder(sets):
@@ -174,7 +218,7 @@ def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D, 
 
     orig_shape = data.shape
     mask_array = im2col_nd(mask, block_size[:3], overlap[:3])
-    train_idx = np.sum(mask_array, axis=0) > mask_array.shape[0]/2
+    train_idx = np.sum(mask_array, axis=0) > mask_array.shape[0] / 2.
 
     # If mask is empty, return a bunch of zeros as blocks
     if not np.any(train_idx):
@@ -299,7 +343,7 @@ def local_denoise(data, block_size, overlap, param_alpha, param_D, variance, n_i
     print('Multiprocessing done in {0:.2f} mins.'.format((time() - time_multi) / 60.))
 
     # Put together the multiprocessed results
-    data_subset = np.zeros_like(data)
+    data_subset = np.zeros_like(data, dtype=np.float32)
     divider = np.zeros_like(data, dtype=np.int16)
     ones = np.ones_like(data_denoised[0], dtype=np.int16)
 

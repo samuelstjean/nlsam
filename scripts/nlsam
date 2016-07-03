@@ -23,12 +23,20 @@ from dipy.denoise.noise_estimate import piesno
 
 
 DESCRIPTION = """
-Main script for the NLSAM denoising [1].
+Main script for the NLSAM denoising [1], including the stabilizer framework from [2].
 """
 
-EPILOG = """Reference : [1] St-Jean S., Coupe P. and Descoteaux M.
+EPILOG = """
+References :
+
+[1] St-Jean S., Coupe P. and Descoteaux M.
 Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising,
-Medical Image Analysis (2016)."""
+Medical Image Analysis (2016).
+
+[2] Koay CG, Ozarslan E and Basser PJ.
+A signal transformational framework for breaking the noise floor and its applications in MRI.
+Journal of Magnetic Resonance 2009; 197: 108-119.
+"""
 
 
 def buildArgsParser():
@@ -202,7 +210,7 @@ def main():
         if args.noise_maps is None:
             raise ValueError('You need to supply --noise_map path_to_file to use --noise_est noise_map')
 
-        noise_maps = nib.load(args.noise_maps).get_data()
+        noise_maps = np.asarray(nib.load(args.noise_maps).get_data(caching='unchanged'), dtype=np.float32)
 
     print("Estimating m_hat with method " + smooth_method)
 
@@ -223,7 +231,7 @@ def main():
         m_hat = sh_smooth(data, gtab, sh_order=sh_order)
         m_hat[m_hat < 0] = 0
 
-    # Sigma map was already supplied by the user
+    # Sigma map was already supplied by the user if it's not None
     if args.load_sigma is None:
         print("Estimating noise with method " + noise_method)
 
@@ -265,7 +273,8 @@ def main():
     if sigma.ndim == 3:
         sigma = np.broadcast_to(sigma[..., None], data.shape)
 
-    data_stabilized = multiprocess_stabilisation(data, m_hat, mask, sigma, N)
+    data_stabilized = multiprocess_stabilisation(data, m_hat, mask, sigma, N,
+                                                 n_cores=params['n_cores'])
 
     if args.save_stab is not None:
         nib.save(nib.Nifti1Image(data_stabilized, affine), args.save_stab)
@@ -276,8 +285,8 @@ def main():
 
     print("Now denoising " + os.path.realpath(args.input))
 
-    # We have a bunch of views, but we only want a 3D array
-    sigma = np.median(sigma, axis=-1, overwrite_input=True)
+    # We have a bunch of 4D views, but we only want a 3D array
+    sigma = np.median(sigma, axis=-1)
 
     data_denoised = nlsam_denoise(data, mask, sigma, bvals, bvecs, **params)
     nib.save(nib.Nifti1Image(data_denoised.astype(np.float32), affine), args.output)

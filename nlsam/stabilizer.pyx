@@ -3,7 +3,7 @@
 cimport cython
 
 from itertools import repeat
-from libc.math cimport sqrt, exp, fabs, M_PI
+from libc.math cimport sqrt, exp, fabs, M_PI, isnan
 from multiprocessing import Pool, cpu_count
 
 import numpy as np
@@ -11,6 +11,9 @@ cimport numpy as np
 
 from dipy.core.ndindex import ndindex
 from scipy.special import erfinv
+# from scipy.special._ufuncs cimport ndtri
+# cdef extern from "scipy.special.cephes.h" nogil:
+#     double ndtri (double y)
 
 from nibabel.optpkg import optional_package
 cython_gsl, have_cython_gsl, _ = optional_package("cython_gsl")
@@ -21,7 +24,7 @@ if not have_cython_gsl:
 
 from cython_gsl cimport gsl_sf_hyperg_1F1
 
-
+@cython.wraparound(True)
 def multiprocess_stabilisation(data, m_hat, mask, sigma, N, n_cores=None):
 
       # Check all dims are ok
@@ -57,15 +60,15 @@ def multiprocess_stabilisation(data, m_hat, mask, sigma, N, n_cores=None):
 def _multiprocess_stabilisation(arglist):
     """Helper function for multiprocessing the stabilization part."""
 
-    data, m_hat, mask, sigma, N = arglist
+    data = arglist[0].astype(np.float64)
+    m_hat = arglist[1].astype(np.float64)
+    mask = arglist[2].astype(np.bool)
+    sigma = arglist[3].astype(np.float64)
+    N = arglist[4]
+
     out = np.zeros(data.shape, dtype=np.float32)
 
-    data = data.astype(np.float64)
-    m_hat = m_hat.astype(np.float64)
-    sigma = sigma.astype(np.float64)
-
     for idx in ndindex(data.shape):
-
         if sigma[idx] > 0 and mask[idx]:
             eta = fixed_point_finder(m_hat[idx], sigma[idx], N)
             out[idx] = chi_to_gauss(data[idx], eta, sigma[idx], N)
@@ -79,10 +82,12 @@ cdef double hyp1f1(double a, int b, double x) nogil:
     return gsl_sf_hyperg_1F1(a, b, x)
 
 
-cdef double _inv_cdf_gauss(double y, double eta, double sigma):
+cdef double _inv_cdf_gauss(double y, double eta, double sigma) nogil:
     """Helper function for chi_to_gauss. Returns the gaussian distributed value
     associated to a given probability. See p. 4 of [1] eq. 13.
 
+    Input
+    -------
     y : double
         Probability of observing the desired value in the normal
         distribution N(eta, sigma**2)
@@ -91,10 +96,17 @@ cdef double _inv_cdf_gauss(double y, double eta, double sigma):
     sigma : double
         Standard deviation of the normal distribution N(eta, sigma**2)
 
-    return :
+    return
+    --------
         Value associated to probability y given a normal distribution N(eta, sigma**2)
     """
-    return eta + sigma * sqrt(2) * erfinv(2*y - 1)
+    with gil:
+        return eta + sigma * sqrt(2) * erfinv(2*y - 1)
+
+
+# cdef double erfinv(double y) nogil:
+#     '''Same as scipy.special.erfinv, but with nogil'''
+#     return ndtri((y + 1) / 2.0) / sqrt(2)
 
 
 cdef double chi_to_gauss(double m, double eta, double sigma, int N,
@@ -102,6 +114,8 @@ cdef double chi_to_gauss(double m, double eta, double sigma, int N,
     """Maps the noisy signal intensity from a Rician/Non central chi distribution
     to its gaussian counterpart. See p. 4 of [1] eq. 12.
 
+    Input
+    --------
     m : double
         The noisy, Rician/Non central chi distributed value
     eta : double
@@ -114,10 +128,12 @@ cdef double chi_to_gauss(double m, double eta, double sigma, int N,
         Confidence interval for the cumulative distribution function.
         Clips the cdf to alpha/2 <= cdf <= 1-alpha/2
 
-    return
+    Return
+    --------
         double : The noisy gaussian distributed signal intensity
 
-    Reference:
+    Reference
+    -----------
     [1]. Koay CG, Ozarslan E and Basser PJ.
     A signal transformational framework for breaking the noise floor
     and its applications in MRI.
@@ -134,7 +150,6 @@ cdef double chi_to_gauss(double m, double eta, double sigma, int N,
         elif cdf > 1 - alpha/2:
             cdf = 1 - alpha/2
 
-    with gil:
         return _inv_cdf_gauss(cdf, eta, sigma)
 
 
@@ -214,44 +229,12 @@ cdef double _marcumq_cython(double a, double b, int M, double eps=1e-8,
     return 1. - S
 
 
-def fixed_point_finder(m_hat, sigma, N, max_iter=100, eps=1e-4):
-    """Fixed point formula for finding eta. Table 1 p. 11 of [1].
-    This simply wraps the cython function _fixed_point_finder.
-
-    m_hat : double
-        Initial value for the estimation of eta.
-    sigma : double
-        Gaussian standard deviation of the noise.
-    N : int
-        Number of coils of the acquision (N=1 for Rician noise).
-    max_iter : int, default=100
-        Maximum number of iterations before breaking from the loop.
-    eps : double, default = 1e-4
-        Criterion for reaching convergence between two subsequent estimates of eta.
-
-    return
-    t1 : double
-        Estimation of the underlying signal value
-
-    Reference:
-    [1]. Koay CG, Ozarslan E and Basser PJ.
-    A signal transformational framework for breaking the noise floor
-    and its applications in MRI.
-    Journal of Magnetic Resonance 2009; 197: 108-119.
-    """
-
-    fpf = _fixed_point_finder(m_hat, sigma, N, max_iter, eps)
-
-    if np.isnan(fpf): # Should not happen unless hyp1f1 is unstable numerically
-        return 0
-
-    return fpf
-
-
-cdef double _fixed_point_finder(double m_hat, double sigma, int N,
+cdef double fixed_point_finder(double m_hat, double sigma, int N,
                                 int max_iter=100, double eps=1e-4) nogil:
     """Fixed point formula for finding eta. Table 1 p. 11 of [1]
 
+    Input
+    --------
     m_hat : double
         Initial value for the estimation of eta
     sigma : double
@@ -263,7 +246,8 @@ cdef double _fixed_point_finder(double m_hat, double sigma, int N,
     eps : double, default = 1e-4
         Criterion for reaching convergence between two subsequent estimates
 
-    return
+    Return
+    -------
     t1 : double
         Estimation of the underlying signal value
     """
@@ -272,35 +256,36 @@ cdef double _fixed_point_finder(double m_hat, double sigma, int N,
         int cond = True
         int n_iter = 0
 
-    # If m_hat is below the noise floor, return 0 instead of negatives
-    # as per Bai 2014
-    if m_hat < sqrt(0.5 * M_PI) * sigma:
-        return 0
+    with nogil:
+        # If m_hat is below the noise floor, return 0 instead of negatives
+        # as per Bai 2014
+        if m_hat < sqrt(0.5 * M_PI) * sigma:
+            return 0
 
-    delta = _beta(N) * sigma - m_hat
+        delta = _beta(N) * sigma - m_hat
 
-    if fabs(delta) < 1e-15:
-        return 0
+        if fabs(delta) < 1e-15:
+            return 0
 
-    m = m_hat
+        m = m_hat
 
-    t0 = m
-    t1 = _fixed_point_k(t0, m, sigma, N)
-
-    while cond:
-
-        t0 = t1
+        t0 = m
         t1 = _fixed_point_k(t0, m, sigma, N)
-        n_iter += 1
-        cond = fabs(t1 - t0) > eps
 
-        if n_iter > max_iter:
-            break
+        while cond:
 
-    if t1 < 0: # Should not happen unless numerically unstable
-        t1 = 0
+            t0 = t1
+            t1 = _fixed_point_k(t0, m, sigma, N)
+            n_iter += 1
+            cond = fabs(t1 - t0) > eps
 
-    return t1
+            if n_iter > max_iter:
+                break
+
+        if t1 < 0 or isnan(t1): # Should not happen unless numerically unstable
+            t1 = 0
+
+        return t1
 
 
 cdef double _beta(int N) nogil:
@@ -318,7 +303,7 @@ cdef double _fixed_point_g(double eta, double m, double sigma, int N) nogil:
 
 
 cdef double _fixed_point_k(double eta, double m, double sigma, int N) nogil:
-    """Helper function for _fixed_point_finder, see p. 11 [1] eq. D2."""
+    """Helper function for fixed_point_finder, see p. 11 [1] eq. D2."""
     cdef:
         double fpg, num, denom
         double eta2sigma = -eta**2/(2*sigma**2)
@@ -337,6 +322,8 @@ def corrected_sigma(eta, sigma, mask, N, n_cores=None):
     """Compute the local corrected standard deviation for the adaptive nonlocal
     means according to the correction factor xi.
 
+    Input
+    --------
     eta : double
         Signal intensity
     sigma : double
@@ -348,7 +335,9 @@ def corrected_sigma(eta, sigma, mask, N, n_cores=None):
     n_cores : int
         Number of cpu cores to use for parallel computations, default : all of them
 
-    return :
+    Return
+    --------
+    sigma, ndarray
         Corrected sigma value, where sigma_gaussian = sigma / sqrt(xi)
     """
     pool = Pool(processes=n_cores)
@@ -380,6 +369,8 @@ cdef double _corrected_sigma(double eta, double sigma, int N)  nogil:
     """Compute the local corrected standard deviation for the adaptive nonlocal
     means according to the correction factor xi.
 
+    Input
+    -------
     eta : double
         Signal intensity
     sigma : double
@@ -389,7 +380,9 @@ cdef double _corrected_sigma(double eta, double sigma, int N)  nogil:
     mask : ndarray
         Compute only the corrected sigma value inside the mask.
 
-    return :
+    Return
+    -------
+    ndarray
         Corrected sigma value, where sigma_gaussian = sigma / sqrt(xi)
     """
     return sigma / sqrt(_xi(eta, sigma, N))
@@ -398,6 +391,8 @@ cdef double _corrected_sigma(double eta, double sigma, int N)  nogil:
 cdef double _xi(double eta, double sigma, int N) nogil:
     """Standard deviation scaling factor formula, see p. 3 of [1], eq. 10.
 
+    Input
+    -------
     eta : double
         Signal intensity
     sigma : double
@@ -405,7 +400,9 @@ cdef double _xi(double eta, double sigma, int N) nogil:
     N : int
         Number of coils of the acquisition (N=1 for Rician noise)
 
-    return :
+    Return
+    --------
+    double
         The correction factor xi, where sigma_gaussian**2 = sigma**2 / xi
     """
 
@@ -447,3 +444,9 @@ def _test_inv_cdf_gauss(y, eta, sigma):
 
 def _test_chi_to_gauss(m, eta, sigma, N):
     return chi_to_gauss(m, eta, sigma, N)
+
+def _test_erfinv(y):
+    return erfinv(y)
+
+def _test_fixed_point_finder(m_hat, sigma, N):
+    return fixed_point_finder(m_hat, sigma, N)
