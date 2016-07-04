@@ -1,7 +1,8 @@
 Denoising a small example dataset
 ----------------------------------
 
-This tutorial shows how to denoise a crop of the 1.2 mm dataset [(Full dataset)](https://github.com/samuelstjean/nlsam_data).
+This tutorial shows how to denoise a crop of the 1.2 mm dataset
+[(Full dataset also available)](https://github.com/samuelstjean/nlsam_data).
 I also assume you have installed NLSAM and everything is running fine beforehand.
 
 ## 0. Prerequisite
