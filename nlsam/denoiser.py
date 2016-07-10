@@ -320,6 +320,7 @@ def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
 
     alpha_old = np.ones(alpha.shape, dtype=dtype)
     has_converged = np.zeros(alpha.shape[1], dtype=np.bool)
+    arr = np.empty(alpha.shape)
 
     xi = np.random.randn(X.shape[0], X.shape[1]) * var_mat
     eps = np.max(np.abs(np.dot(D.T, xi)), axis=0)
@@ -337,7 +338,7 @@ def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
                 DtDW = (1. / W[..., None, i]) * DtD * (1. / W[:, i])
                 alpha[:, i:i+1] = spams.lasso(X[:, i:i+1], Q=np.asfortranarray(DtDW), q=DtXW[:, i:i+1], **param_alpha)
 
-        arr = alpha.toarray()
+        alpha.toarray(out=arr)
         nonzero_ind = arr != 0
         arr[nonzero_ind] /= W[nonzero_ind]
         has_converged = np.max(np.abs(alpha_old - arr), axis=0) < tolerance
@@ -345,14 +346,13 @@ def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
         if np.all(has_converged):
             break
 
-        alpha_old = arr
+        alpha_old[:] = arr
         W[:] = 1. / (np.abs(alpha_old**tau) + eps)
 
-    X = np.dot(D, arr)
     weigths = np.ones(X_full_shape[1], dtype=dtype, order='F')
     weigths[train_idx] = 1. / (alpha.getnnz(axis=0) + 1.)
 
-    X2 = np.zeros(X_full_shape, dtype=dtype, order='F')
-    X2[:, train_idx] = X
+    X = np.zeros(X_full_shape, dtype=dtype, order='F')
+    X[:, train_idx] = np.dot(D, arr)
 
-    return col2im_nd(X2, block_size, orig_shape, overlap, weigths)
+    return col2im_nd(X, block_size, orig_shape, overlap, weigths)
