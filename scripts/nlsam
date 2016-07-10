@@ -15,7 +15,7 @@ import numpy as np
 
 from nlsam.denoiser import nlsam_denoise
 from nlsam.smoothing import local_standard_deviation, sh_smooth, local_piesno
-from nlsam.stabilizer import corrected_sigma, multiprocess_stabilisation
+from nlsam.stabilizer import corrected_sigma, stabilisation
 
 from dipy.io.gradients import read_bvals_bvecs
 from dipy.core.gradients import gradient_table
@@ -131,7 +131,8 @@ def buildArgsParser():
 
     p.add_argument('--sh_order', action='store', dest='sh_order',
                    metavar='int', default=8, type=int,
-                   help='SH order used for sh_smooth. (Default: 8)')
+                   help='Spherical harmonics order used for sh_smooth.'
+                   'Use 0 to disable the Spherical harmonics fitting (Default: 8)')
 
     return p
 
@@ -165,7 +166,7 @@ def main():
                 parser.error('{0} already exists! Use -f or --force to overwrite it.'.format(f))
 
     vol = nib.load(args.input)
-    data = np.asarray(vol.get_data(caching='unchanged'), dtype=np.float32)  # To force ndarray instead of memmaps
+    data = np.asarray(vol.get_data(caching='unchanged'), dtype=np.float32)
     affine = vol.get_affine()
     header = vol.get_header()
     header.set_data_dtype(np.float32)
@@ -214,7 +215,7 @@ def main():
 
     print("Estimating m_hat with method " + smooth_method)
 
-    if smooth_method == 'no_smoothing':
+    if (smooth_method == 'no_smoothing') or (sh_order <= 0):
         m_hat = np.array(data, copy=True, dtype=np.float32)
 
     elif smooth_method == 'sh_smooth':
@@ -243,14 +244,13 @@ def main():
                 nib.save(nib.Nifti1Image(mask_noise.astype(np.int16), affine), args.save_piesno_mask)
 
         elif noise_method == 'local_std':
-            sigma_3D = local_standard_deviation(data, n_cores=params['n_cores'])
+            sigma = local_standard_deviation(data, n_cores=params['n_cores'])
 
             # Compute the corrected value for each 3D volume
             if N > 0:
-                sigma = corrected_sigma(m_hat,
-                                        np.broadcast_to(sigma_3D[..., None], data.shape),
-                                        np.broadcast_to(mask[..., None], data.shape),
-                                        N,
+                sigma = np.broadcast_to(sigma[..., None], data.shape)
+                mask_4D = np.broadcast_to(mask[..., None], data.shape)
+                sigma = corrected_sigma(m_hat, sigma, mask_4D, N,
                                         n_cores=params['n_cores'])
 
         elif noise_method == 'noise_map':
@@ -273,8 +273,8 @@ def main():
     if sigma.ndim == 3:
         sigma = np.broadcast_to(sigma[..., None], data.shape)
 
-    data_stabilized = multiprocess_stabilisation(data, m_hat, mask, sigma, N,
-                                                 n_cores=params['n_cores'])
+    data_stabilized = stabilisation(data, m_hat, mask, sigma, N,
+                                    n_cores=params['n_cores'])
 
     if args.save_stab is not None:
         nib.save(nib.Nifti1Image(data_stabilized, affine), args.save_stab)

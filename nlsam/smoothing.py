@@ -42,7 +42,7 @@ def sh_smooth(data, gtab, sh_order=8, similarity_threshold=50, regul=0.006):
 
     if similarity_threshold > 200:
         raise ValueError("similarity_threshold = {}, which is higher than 200,"
-            " please use a lower value".format(similarity_threshold))
+                         " please use a lower value".format(similarity_threshold))
 
     m, n = sph_harm_ind_list(sh_order)
     L = -n * (n + 1)

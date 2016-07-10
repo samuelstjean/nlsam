@@ -84,7 +84,7 @@ def buildArgsParser():
     p.add_argument('--noise_map', action='store', dest='noise_maps',
                    metavar='string', required=False, default=None, type=str,
                    help='Path of the noise map(s) volume for local piesno.\n'
-                   'Either supply a 3D noise map or a stack of 3D maps as a 4D volume.\n'+
+                   'Either supply a 3D noise map or a stack of 3D maps as a 4D volume.\n' +
                    'Required for --noise_est noise_map')
 
     p.add_argument('--noise_mask', action='store', dest='save_piesno_mask',

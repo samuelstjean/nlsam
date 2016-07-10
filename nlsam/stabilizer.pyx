@@ -25,7 +25,7 @@ if not have_cython_gsl:
 from cython_gsl cimport gsl_sf_hyperg_1F1
 
 @cython.wraparound(True)
-def multiprocess_stabilisation(data, m_hat, mask, sigma, N, n_cores=None):
+def stabilisation(data, m_hat, mask, sigma, N, n_cores=None):
 
       # Check all dims are ok
       if (data.shape != sigma.shape):
@@ -445,8 +445,10 @@ def _test_inv_cdf_gauss(y, eta, sigma):
 def _test_chi_to_gauss(m, eta, sigma, N):
     return chi_to_gauss(m, eta, sigma, N)
 
+
 def _test_erfinv(y):
     return erfinv(y)
+
 
 def _test_fixed_point_finder(m_hat, sigma, N):
     return fixed_point_finder(m_hat, sigma, N)
