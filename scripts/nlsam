@@ -134,6 +134,11 @@ def buildArgsParser():
                    help='Spherical harmonics order used for sh_smooth.'
                    'Use 0 to disable the Spherical harmonics fitting (Default: 8)')
 
+    p.add_argument('--implausible_signal_fix', action='store_true', dest='implausible_signal_fix',
+                   help='If set, remove physically implausible signals from the input data by setting '
+                   'the b0 signal as the highest value along volumes. Useful if your data '
+                   'is highly noisy and the S0 signal is low.')
+
     return p
 
 
@@ -179,14 +184,18 @@ def main():
     else:
         mask = np.ones(data.shape[:-1], dtype=np.bool)
 
-    bvals, bvecs = read_bvals_bvecs(args.bvals, args.bvecs)
-
     params = {}
     params['greedy_subsampler'] = args.greedy_subsampler
     params['n_iter'] = args.iterations
     params['no_symmetry'] = args.no_symmetry
     params['block_size'] = np.array((args.spatial_block_size + (args.angular_block_size)))
     params['b0_threshold'] = args.b0_threshold
+
+    bvals, bvecs = read_bvals_bvecs(args.bvals, args.bvecs)
+    gtab = gradient_table(bvals, bvecs, b0_threshold=params['b0_threshold'])
+
+    if args.implausible_signal_fix:
+        data[..., gtab.b0s_mask] = np.max(data, axis=-1, keepdims=True)
 
     if args.cores is None or args.core > cpu_count():
         params['n_cores'] = cpu_count()
@@ -228,7 +237,6 @@ def main():
                   str(data.shape[-1]) + " volumes. Try lowering the " +
                   "parameter --sh_order in case of non convergence.")
 
-        gtab = gradient_table(bvals, bvecs, b0_threshold=params['b0_threshold'])
         m_hat = sh_smooth(data, gtab, sh_order=sh_order)
         m_hat[m_hat < 0] = 0
 
@@ -289,7 +297,9 @@ def main():
     sigma = np.median(sigma, axis=-1)
 
     data_denoised = nlsam_denoise(data, mask, sigma, bvals, bvecs, **params)
-    nib.save(nib.Nifti1Image(data_denoised.astype(np.float32), affine), args.output)
+
+    header.set_data_dtype(np.float32)
+    nib.save(nib.Nifti1Image(data_denoised.astype(np.float32), affine, header), args.output)
 
 if __name__ == "__main__":
     freeze_support()
