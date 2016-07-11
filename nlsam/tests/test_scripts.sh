@@ -10,6 +10,10 @@ function check_return_code()
         exit 1
     fi
 }
+
+# Crop example dataset
+python -c 'import nibabel as nib; import numpy as np; d = nib.load("dwi.nii.gz").get_data(); nib.save(nib.Nifti1Image(d[70:80],np.eye(4)), "dwi.nii.gz")'
+
 # Test on example dataset
 stabilizer dwi.nii.gz dwi_stab_localstd.nii.gz 1 sigma_localstd.nii.gz -m mask.nii.gz --bvals bvals --bvecs bvecs --noise_est local_std --smooth no_smoothing
 check_return_code $?
