@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.1] - 2016-07-11
+
+- The original header is now saved back as-is to prevent potential conflicts
+with other processing tools. Thanks to Derek Pisner for reporting.
+
 ## [0.3] - 2016-05-13
 
 - sh_smooth now uses order 8 by default and a regularized pseudo-inverse for the fit.
