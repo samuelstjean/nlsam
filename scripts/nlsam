@@ -89,6 +89,8 @@ def main():
     vol = nib.load(args.input)
     data = np.asarray(vol.get_data(caching='unchanged'))  # To force ndarray instead of memmaps
     affine = vol.get_affine()
+    header = vol.get_header()
+    header.set_data_dtype(np.float32)
 
     sigma = nib.load(args.sigma).get_data()**2
 
@@ -227,7 +229,7 @@ def main():
 
         data_denoised = data_denoised_insert
 
-    nib.save(nib.Nifti1Image(data_denoised.astype(original_dtype), affine), args.output)
+    nib.save(nib.Nifti1Image(data_denoised.astype(np.float32), affine, header), args.output)
 
 
 if __name__ == "__main__":
