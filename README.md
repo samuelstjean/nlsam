@@ -13,7 +13,7 @@ The reference implementation for the Non Local Spatial and Angular Matching (NLS
 
 ## How to install
 
-The easiest way is to go grab a [release][], in which case the downloaded zip file contains everything you need (no python installation required, you can use it straight away without installing anything else). 
+The easiest way is to go grab a [release][], in which case the downloaded zip file contains everything you need (no python installation required, you can use it straight away without installing anything else).
 After extracting the zip file, start a terminal/command line prompt (start button, then type cmd + enter on windows) and navigate to where you extracted the binaries.
 
 Since the tools are command line only, double-clicking it will open and immediately close a dos-like window, hence the need for opening a command line prompt.
@@ -26,10 +26,10 @@ You can also download the datasets used in the paper over [here][nlsam_data].
 Once installed, there are two main scripts, the stabilization algorithm and the NLSAM algorithm itself.
 The first one allows you to transform the data to Gaussian distributed signals if your dataset is Rician or Noncentral chi distributed.
 
-A simple example call for the stabilization would be 
+A simple example call for the stabilization would be
 
 ```bash
-stabilizer dwi.nii.gz dwi_stab.nii.gz 1 sigma.nii.gz -m mask.nii.gz --bvals bvals --bvecs bvecs 
+stabilizer dwi.nii.gz dwi_stab.nii.gz 1 sigma.nii.gz -m mask.nii.gz --bvals bvals --bvecs bvecs
 ```
 
 and for the NLSAM denoising
@@ -38,12 +38,14 @@ and for the NLSAM denoising
 nlsam dwi_stab.nii.gz dwi_nlsam.nii.gz 5 bvals bvecs sigma.nii.gz -m mask.nii.gz
 ```
 
-You can find a detailed usage example and assorted dataset to try out in the [example](example) folder.
+You can find a detailed usage example and assorted dataset to try out in the
+[example](example) folder.
 
 <a name="Dependencies"></a>
 ## Dependencies
 
-You will need to have at least numpy, scipy, nibabel, dipy, cython, cython-gsl and spams installed with python 2.7.
+You will need to have at least numpy, scipy, nibabel, dipy, cython, cython-gsl
+and spams installed with python 2.7.
 Fortunately, the setup.py will take care of installing everything you need.
 
 + On Debian/Ubuntu, you will need some development headers which can be installed with
@@ -57,7 +59,8 @@ but I got 5x faster runtimes out of openblas vs atlas for NLSAM just by switchin
 
 + On Windows and Mac OSX, it will be easier to grab a python distribution which includes everything such as [Anaconda][].
 Additionally, grab a build of spams for windows [here][spams-windows] if you don't want to build it.
-+ Additionally, you might need [Visual C++ Compiler for python 2.7][vspy27] if you encounter the *Unable to  find vsvarsall.bat* error when installing nlsam on Windows.
++ Additionally, you might need [Visual C++ Compiler for python 2.7][vspy27]
+if you encounter the *Unable to  find vsvarsall.bat* error when installing nlsam on Windows.
 
 If you have a working python setup already, doing
 
@@ -79,18 +82,21 @@ Don't forget to add the path where you cloned everything to your PYTHONPATH.
 
 ## Questions / Need help / Think this is great software?
 
-If you need help or would like more information, don't hesitate to drop me a line at firstname@isi.uu.nl, where of course firstname needs to be replace with samuel.
+If you need help or would like more information, don't hesitate to drop me a
+line at firstname@isi.uu.nl, where of course firstname needs to be replaced with samuel.
 
 ## Reference
 
-St-Jean, S., P. Coupé, and M. Descoteaux.
-"[Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising.][paper]"
-Medical Image Analysis, 2016. [DOI] [URL]
+St-Jean, S., Coupé, P., & Descoteaux, M. (2016).
+Non Local Spatial and Angular Matching : Enabling higher spatial resolution
+diffusion MRI datasets through adaptive denoising.
+Medical Image Analysis, 32(2016), 115–130. [DOI] [URL]
 
 ## License
 
-As the main solver I use (spams) is GPL licensed and the stabilization script uses the GNU GSL library,
-the NLSAM main codebase is also licensed under the GPL v3, see the file LICENSE for more information.
+As the main solver I use (spams) is GPL licensed and the stabilization script
+uses the GNU GSL library, the NLSAM main codebase is also licensed under the
+GPL v3, see the file LICENSE for more information.
 
 If you would like to reuse parts of this work under another project/license,
 feel free to drop me an email and I will gladly re-license the files you need
