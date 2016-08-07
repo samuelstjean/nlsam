@@ -16,7 +16,7 @@ params['requires'] = ['cythongsl>=0.2.1',
 params['deps'] = ['scipy>=0.14',
                   'nibabel>=2.0',
                   'spams>=2.4']
-params['links'] = ['https://github.com/samuelstjean/spams-python/archive/master.zip#egg=spams-2.5']
+params['links'] = ['https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-python-v2.5-python3.zip#egg=spams-2.5']
 
 ###############################################
 # Build stuff is below this line

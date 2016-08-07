@@ -181,7 +181,6 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
         mask = np.ones(data.shape[:-1], dtype=np.bool)
 
     # no overlapping blocks for training
-    # no_over = (0, 0, 0, 0)
     no_over = np.zeros(data.ndim)
     X = im2col_nd(data, block_size, no_over)
 
@@ -189,7 +188,6 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     param_alpha = {}
     param_alpha['pos'] = True
     param_alpha['mode'] = 1
-    # param_alpha['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
 
     param_D = {}
     param_D['verbose'] = False
@@ -204,7 +202,6 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     if 'D' in param_alpha:
         param_D['D'] = param_alpha['D']
 
-    # mask_col = im2col_nd(np.broadcast_to(mask[..., None], data.shape), block_size, no_over)
     mask_col = im2col_nd(mask, block_size[:-1], overlap[:-1])
     train_idx = np.sum(mask_col, axis=0) > (mask_col.shape[0] / 2.)
 
@@ -217,7 +214,6 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
 
     del train_data, X
 
-    # n_cores = param_alpha['numThreads']
     param_alpha['numThreads'] = 1
     param_D['numThreads'] = 1
 
@@ -237,9 +233,6 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     data_denoised = pool.map(processer, arglist)
     pool.close()
     pool.join()
-
-    # param_alpha['numThreads'] = n_cores
-    # param_D['numThreads'] = n_cores
 
     print('Multiprocessing done in {0:.2f} mins.'.format((time() - time_multi) / 60.))
 
@@ -324,8 +317,6 @@ def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
 
     xi = np.random.randn(X.shape[0], X.shape[1]) * var_mat
     eps = np.max(np.abs(np.dot(D.T, xi)), axis=0)
-    # param_alpha['mode'] = 1
-    # param_alpha['pos'] = True
 
     for _ in range(n_iter):
         not_converged = np.equal(has_converged, False)

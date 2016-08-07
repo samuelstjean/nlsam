@@ -259,9 +259,6 @@ def padding(A, block_shape, overlap):
     if np.sum(fit) == 0:
         return A
 
-    # print("Block size doesn't fit in the volume. \
-    #       \nIt will be padded at the end with value", value)
-
     padding = np.array(A.shape) + fit
     padded = np.zeros(padding, dtype=A.dtype, order='F')
     padded[:A.shape[0], :A.shape[1], :A.shape[2], ...] = A
