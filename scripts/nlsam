@@ -84,7 +84,7 @@ def buildArgsParser():
 
     p.add_argument('--b0_threshold', action='store', dest='b0_threshold',
                    metavar='int', default=10, type=int,
-                   help='Lowest b-value to be consdiered as a b0. Default 10.')
+                   help='Lowest b-value to be considered as a b0. Default 10.')
 
     p.add_argument('--spatial_block_size', action='store', metavar='tuple',
                    type=tuple, default=(3, 3, 3),
@@ -184,27 +184,26 @@ def main():
     else:
         mask = np.ones(data.shape[:-1], dtype=np.bool)
 
-    params = {}
-    params['greedy_subsampler'] = args.greedy_subsampler
-    params['n_iter'] = args.iterations
-    params['no_symmetry'] = args.no_symmetry
-    params['block_size'] = np.array((args.spatial_block_size + (args.angular_block_size)))
-    params['b0_threshold'] = args.b0_threshold
+    greedy_subsampler = args.greedy_subsampler
+    n_iter = args.iterations
+    no_symmetry = args.no_symmetry
+    block_size = np.array((args.spatial_block_size + (args.angular_block_size)))
+    b0_threshold = args.b0_threshold
 
     bvals, bvecs = read_bvals_bvecs(args.bvals, args.bvecs)
-    gtab = gradient_table(bvals, bvecs, b0_threshold=params['b0_threshold'])
+    gtab = gradient_table(bvals, bvecs, b0_threshold=b0_threshold)
 
     if args.implausible_signal_fix:
         data[..., gtab.b0s_mask] = np.max(data, axis=-1, keepdims=True)
 
-    if args.cores is None or args.core > cpu_count():
-        params['n_cores'] = cpu_count()
+    if args.cores is None or args.cores > cpu_count():
+        n_cores = cpu_count()
     else:
-        params['n_cores'] = args.cores
+        n_cores = args.cores
 
-    if len(params['block_size']) != len(data.shape):
+    if len(block_size) != len(data.shape):
         raise ValueError('Block shape {} and data shape {} are not of the same \
-                          length'.format(data.shape, params['block_size'].shape))
+                          length'.format(data.shape, block_size.shape))
 
     if data.shape[:-1] != mask.shape:
         raise ValueError('data shape is {}, but mask shape {} is different!'.format(data.shape, mask.shape))
@@ -252,14 +251,14 @@ def main():
                 nib.save(nib.Nifti1Image(mask_noise.astype(np.int16), affine), args.save_piesno_mask)
 
         elif noise_method == 'local_std':
-            sigma = local_standard_deviation(data, n_cores=params['n_cores'])
+            sigma = local_standard_deviation(data, n_cores=n_cores)
 
             # Compute the corrected value for each 3D volume
             if N > 0:
                 sigma = np.broadcast_to(sigma[..., None], data.shape)
                 mask_4D = np.broadcast_to(mask[..., None], data.shape)
                 sigma = corrected_sigma(m_hat, sigma, mask_4D, N,
-                                        n_cores=params['n_cores'])
+                                        n_cores=n_cores)
 
         elif noise_method == 'noise_map':
 
@@ -281,8 +280,7 @@ def main():
     if sigma.ndim == 3:
         sigma = np.broadcast_to(sigma[..., None], data.shape)
 
-    data_stabilized = stabilisation(data, m_hat, mask, sigma, N,
-                                    n_cores=params['n_cores'])
+    data_stabilized = stabilisation(data, m_hat, mask, sigma, N, n_cores=n_cores)
 
     if args.save_stab is not None:
         nib.save(nib.Nifti1Image(data_stabilized, affine), args.save_stab)
