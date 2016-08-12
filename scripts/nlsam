@@ -30,7 +30,7 @@ Main script for the NLSAM denoising [1], including the stabilizer framework from
 EPILOG = """
 References :
 
-# [1] St-Jean, S., Coupe, P., & Descoteaux, M. (2016).
+[1] St-Jean, S., Coupe, P., & Descoteaux, M. (2016).
 Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising.
 Medical Image Analysis, 32(2016), 115-130.
 
@@ -135,7 +135,7 @@ def buildArgsParser():
                    help='Spherical harmonics order used for sh_smooth.\n'
                    'Use 0 to disable the Spherical harmonics fitting. Default 8')
 
-    p.add_argument('--implausible_signal_fix', action='store_true', dest='implausible_signal_fix',
+    p.add_argument('--fix_implausible', action='store_true', dest='implausible_signal_fix',
                    help='If set, remove physically implausible signals from the input data by setting '
                    'the b0 signal as the highest value along volumes.\nUseful if your data '
                    'is highly noisy and the S0 signal is low.')
@@ -147,7 +147,8 @@ def buildArgsParser():
 
     p.add_argument('--no_stabilization', action='store_true', dest='no_stabilization',
                    help='If set, does not correct the data for the noise non gaussian bias.\n'
-                   'Useful if your data is already bias corrected or you would like to do it afterwards')
+                   'Useful if your data is already bias corrected or you would like to do it afterwards.\n'
+                   'You need to pass --load_sigma file in this case though for subsequent denoising.')
 
     p.add_argument('--no_denoising', action='store_true', dest='no_denoising',
                    help='If set, does not run the nlsam denoising.\n'
@@ -174,6 +175,7 @@ def main():
     block_size = np.array((args.spatial_block_size + (args.angular_block_size)))
 
     logger = logging.getLogger('script')
+
     if args.verbose:
         logger.setLevel(logging.INFO)
         logger.info('Verbosity is on')

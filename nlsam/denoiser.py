@@ -3,8 +3,8 @@ from __future__ import division, print_function
 import numpy as np
 import warnings
 import logging
-from time import time
 
+from time import time
 from itertools import repeat
 from multiprocessing import Pool
 
@@ -21,6 +21,7 @@ except ImportError:
     raise ValueError("Couldn't find spams library, is the package correctly installed?")
 
 logger = logging.getLogger('denoiser')
+
 
 def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                   mask=None, is_symmetric=False, n_cores=None,
@@ -65,6 +66,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     data_denoised : ndarray
         The denoised dataset
     """
+
     if verbose:
         logger.setLevel(logging.INFO)
 
@@ -85,7 +87,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     num_b0s = len(b0_loc)
     variance = sigma**2
 
-    logger.info("found " + str(num_b0s) + " b0s at position " + str(b0_loc))
+    logger.info("Found " + str(num_b0s) + " b0s at position " + str(b0_loc))
 
     # Average multiple b0s, and just use the average for the rest of the script
     # patching them in at the end
@@ -231,7 +233,15 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     time_multi = time()
     pool = Pool(processes=n_cores)
 
-    arglist = [(data[:, :, k:k+block_size[2]], mask[:, :, k:k+block_size[2]], variance[:, :, k:k+block_size[2]], block_size_subset, overlap_subset, param_alpha_subset, param_D_subset, dtype_subset, n_iter_subset)
+    arglist = [(data[:, :, k:k + block_size[2]],
+                mask[:, :, k:k + block_size[2]],
+                variance[:, :, k:k + block_size[2]],
+                block_size_subset,
+                overlap_subset,
+                param_alpha_subset,
+                param_D_subset,
+                dtype_subset,
+                n_iter_subset)
                for k, block_size_subset, overlap_subset, param_alpha_subset, param_D_subset, dtype_subset, n_iter_subset
                in zip(range(data.shape[2] - block_size[2] + 1),
                       repeat(block_size),
