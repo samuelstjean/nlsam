@@ -2,6 +2,7 @@ from __future__ import division, print_function
 
 import numpy as np
 import warnings
+import logging
 from time import time
 
 from itertools import repeat
@@ -19,10 +20,11 @@ try:
 except ImportError:
     raise ValueError("Couldn't find spams library, is the package correctly installed?")
 
+logger = logging.getLogger('denoiser')
 
 def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
-                  mask=None, no_symmetry=False, n_cores=None,
-                  greedy_subsampler=True, n_iter=10, b0_thresh=10):
+                  mask=None, is_symmetric=False, n_cores=None,
+                  subsample=True, n_iter=10, b0_threshold=10, verbose=False):
     """Main nlsam denoising function which sets up everything nicely for the local
     block denoising.
 
@@ -37,32 +39,34 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         the N b-values associated to each of the N diffusion volume.
     bvecs : N x 3 2D array
         the N 3D vectors for each acquired diffusion gradients.
-    block_size : int
-        Number of angular neighbors to process at once as similar data.
+    block_size : tuple, length = data.ndim
+        Patch size + number of angular neighbors to process at once as similar data.
 
     Optional parameters
     -------------------
     mask : ndarray, default None
-        Retrict computations to voxels inside the mask to reduce runtime.
-    no_symmetry : bool, default False
+        Restrict computations to voxels inside the mask to reduce runtime.
+    is_symmetric : bool, default False
         If True, assumes that for each coordinate (x, y, z) in bvecs,
         (-x, -y, -z) was also acquired.
     n_cores : int, default None
         Number of processes to use for the denoising. Default is to use
         all available cores.
-    greedy_subsampler : bool, default True
+    subsample : bool, default True
         If True, find the smallest subset of indices required to process each
         dwi at least once.
     n_iter : int, default 10
         Maximum number of iterations for the reweighted l1 solver.
-    b0_thresh : int, default 10
-        A b-value below b0_thresh wil be consdered as a b0 image.
+    b0_threshold : int, default 10
+        A b-value below b0_threshold will be considered as a b0 image.
 
     Output
     -----------
     data_denoised : ndarray
         The denoised dataset
     """
+    if verbose:
+        logger.setLevel(logging.INFO)
 
     if mask is None:
         mask = np.ones(data.shape[:-1], dtype=np.bool)
@@ -73,17 +77,21 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     if data.shape[:-1] != sigma.shape:
         raise ValueError('data shape is {}, but sigma shape {} is different!'.format(data.shape, sigma.shape))
 
-    b0_loc = tuple(np.where(bvals <= b0_thresh)[0])
+    if len(block_size) != len(data.shape):
+        raise ValueError('Block shape {} and data shape {} are not of the same '
+                         'length'.format(data.shape, block_size.shape))
+
+    b0_loc = tuple(np.where(bvals <= b0_threshold)[0])
     num_b0s = len(b0_loc)
     variance = sigma**2
 
-    print("found " + str(num_b0s) + " b0s at position " + str(b0_loc))
+    logger.info("found " + str(num_b0s) + " b0s at position " + str(b0_loc))
 
     # Average multiple b0s, and just use the average for the rest of the script
     # patching them in at the end
     if num_b0s > 1:
         mean_b0 = np.mean(data[..., b0_loc], axis=-1)
-        dwis = tuple(np.where(bvals > b0_thresh)[0])
+        dwis = tuple(np.where(bvals > b0_threshold)[0])
         data = data[..., dwis]
         bvals = np.take(bvals, dwis, axis=0)
         bvecs = np.take(bvecs, dwis, axis=0)
@@ -101,8 +109,8 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         rest_of_b0s = None
 
     # Double bvecs to find neighbors with assumed symmetry if needed
-    if no_symmetry:
-        print('Data is assumed to be already symmetrized.')
+    if is_symmetric:
+        logger.info('Data is assumed to be already symmetrized.')
         sym_bvecs = np.delete(bvecs, b0_loc, axis=0)
     else:
         sym_bvecs = np.vstack((np.delete(bvecs, b0_loc, axis=0), np.delete(-bvecs, b0_loc, axis=0)))
@@ -120,7 +128,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     for i in range(len(neighbors)):
         indexes += [(i,) + tuple(neighbors[i])]
 
-    if greedy_subsampler:
+    if subsample:
         indexes = greedy_set_finder(indexes)
 
     b0_block_size = tuple(block_size[:-1]) + ((block_size[-1] + num_b0s,))
@@ -133,7 +141,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
     for i, idx in enumerate(indexes):
         dwi_idx = tuple(np.where(idx <= b0_loc, idx, np.array(idx) + num_b0s))
-        print('Now denoising volumes {} / block {} out of {}.'.format(idx, i+1, len(indexes)))
+        logger.info('Now denoising volumes {} / block {} out of {}.'.format(idx, i+1, len(indexes)))
 
         to_denoise[..., 0] = np.copy(b0)
         to_denoise[..., 1:] = data[..., idx]
@@ -145,7 +153,8 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                                                               n_iter=n_iter,
                                                               mask=mask,
                                                               dtype=np.float64,
-                                                              n_cores=n_cores)
+                                                              n_cores=n_cores,
+                                                              verbose=verbose)
 
     divider = np.bincount(np.array(indexes, dtype=np.int16).ravel())
     divider = np.insert(divider, b0_loc, len(indexes))
@@ -175,7 +184,9 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
 
 def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
-                  dtype=np.float64, n_cores=None):
+                  dtype=np.float64, n_cores=None, verbose=False):
+    if verbose:
+        logger.setLevel(logging.INFO)
 
     if mask is None:
         mask = np.ones(data.shape[:-1], dtype=np.bool)
@@ -234,7 +245,7 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     pool.close()
     pool.join()
 
-    print('Multiprocessing done in {0:.2f} mins.'.format((time() - time_multi) / 60.))
+    logger.info('Multiprocessing done in {0:.2f} mins.'.format((time() - time_multi) / 60.))
 
     # Put together the multiprocessed results
     data_subset = np.zeros_like(data, dtype=np.float32)
