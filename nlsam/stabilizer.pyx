@@ -37,7 +37,7 @@ def stabilisation(data, m_hat, mask, sigma, N, n_cores=None):
       pool = Pool(processes=n_cores)
       arglist = [(data[..., idx, :],
                   m_hat[..., idx, :],
-                  mask[..., idx],
+                  mask,
                   sigma[..., idx, :],
                   N_vox)
                  for idx, N_vox in zip(range(data.shape[-2]), repeat(N))]

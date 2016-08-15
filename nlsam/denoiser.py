@@ -20,7 +20,7 @@ try:
 except ImportError:
     raise ValueError("Couldn't find spams library, is the package correctly installed?")
 
-logger = logging.getLogger('denoiser')
+logger = logging.getLogger('nlsam')
 
 
 def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
@@ -214,11 +214,12 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
 
     if 'D' in param_alpha:
         param_D['D'] = param_alpha['D']
-
+    print(mask.shape, block_size, overlap)
     mask_col = im2col_nd(mask, block_size[:-1], overlap[:-1])
     train_idx = np.sum(mask_col, axis=0) > (mask_col.shape[0] / 2.)
 
     train_data = X[:, train_idx]
+    print(train_data.shape, train_idx.shape, X.shape, mask_col.shape)
     train_data = np.asfortranarray(train_data[:, np.any(train_data != 0, axis=0)], dtype=dtype)
     train_data /= np.sqrt(np.sum(train_data**2, axis=0, keepdims=True), dtype=dtype)
     param_alpha['D'] = spams.trainDL(train_data, **param_D)
@@ -317,7 +318,7 @@ def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
         return np.zeros_like(data)
 
     X = im2col_nd(data, block_size, overlap)
-    var_mat = im2col_nd(variance, block_size[:-1], overlap[:-1])[:, train_idx]
+    var_mat = np.median(im2col_nd(variance, block_size[:-1], overlap[:-1])[:, train_idx], axis=0)
     X_full_shape = X.shape
     X = X[:, train_idx]
 
@@ -345,7 +346,6 @@ def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
 
         for i in range(alpha.shape[1]):
             if not has_converged[i]:
-
                 param_alpha['lambda1'] = var_mat[i] * (X.shape[0] + gamma * np.sqrt(2 * X.shape[0]))
                 DtDW = (1. / W[..., None, i]) * DtD * (1. / W[:, i])
                 alpha[:, i:i+1] = spams.lasso(X[:, i:i+1], Q=np.asfortranarray(DtDW), q=DtXW[:, i:i+1], **param_alpha)
