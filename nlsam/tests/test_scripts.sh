@@ -12,8 +12,8 @@ check_return_code ()
 }
 
 # Crop example dataset
-python -c 'import nibabel as nib; import numpy as np; d = nib.load("dwi.nii.gz").get_data(); nib.save(nib.Nifti1Image(d[90:110],np.eye(4)), "dwi_crop.nii.gz")'
-python -c 'import nibabel as nib; import numpy as np; d = nib.load("mask.nii.gz").get_data(); nib.save(nib.Nifti1Image(d[90:110],np.eye(4)), "mask_crop.nii.gz")'
+python -c 'import nibabel as nib; import numpy as np; d = nib.load("dwi.nii.gz").get_data(); nib.save(nib.Nifti1Image(d[:,:,90:110],np.eye(4)), "dwi_crop.nii.gz")'
+python -c 'import nibabel as nib; import numpy as np; d = nib.load("mask.nii.gz").get_data(); nib.save(nib.Nifti1Image(d[:,:,90:110],np.eye(4)), "mask_crop.nii.gz")'
 
 # Test on example dataset
 nlsam dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -f --noise_est local_std --smooth no_smoothing --log log

@@ -10,12 +10,13 @@ os.environ['OPENBLAS_NUM_THREADS'] = '1'
 import argparse
 import logging
 from multiprocessing import cpu_count, freeze_support
+from ast import literal_eval
 
 import nibabel as nib
 import numpy as np
 
 #Name logger to be used throughout the module before importing it
-logger = logging.getLogger('nlsam')
+# logger = logging.getLogger('nlsam').addHandler(logging.NullHandler)
 
 from nlsam.denoiser import nlsam_denoise
 from nlsam.smoothing import local_standard_deviation, sh_smooth, local_piesno
@@ -82,7 +83,7 @@ def buildArgsParser():
                    help='Lowest b-value to be considered as a b0. Default 10.')
 
     p.add_argument('--block_size', action='store', dest='spatial_block_size',
-                   metavar='tuple', type=tuple, default=(3, 3, 3),
+                   metavar='tuple', type=literal_eval, default=(3, 3, 3),
                    help='Size of the 3D spatial patch to be denoised. Default : 3, 3, 3')
 
     p.add_argument('--noise_est', action='store', dest='noise_method',
@@ -183,16 +184,19 @@ def main():
     is_symmetric = args.is_symmetric
     n_iter = args.iterations
     b0_threshold = args.b0_threshold
-    block_size = np.array((args.spatial_block_size + (args.angular_block_size,)))
+    block_size = np.array(args.spatial_block_size + (args.angular_block_size,))
+
+    logger = logging.getLogger('nlsam')
 
     if args.logfile is not None:
         handler = logging.FileHandler(args.logfile)
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-
         args.verbose = True
+    else:
+        handler = logging.StreamHandler(args.logfile)
+
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
 
     if args.verbose:
         logger.setLevel(logging.INFO)
@@ -211,7 +215,6 @@ def main():
     # Check if we have a sigma map or we must compute it internally
     choices = ['local_std', 'piesno', 'noise_map']
     if (args.load_sigma is None) and (noise_method not in choices):
-        print(noise_method, choices, noise_method in choices)
         raise ValueError('You specified --noise_method {}, but it is not amongst the '
                          'available options {}'.format(noise_method, choices))
 
@@ -248,7 +251,7 @@ def main():
 
     if args.implausible_signal_fix:
         data[..., gtab.b0s_mask] = np.max(data, axis=-1, keepdims=True)
-        logger.info("Fixing implausible signals to max(b0) voxelwise")
+        logger.info("Fixing b0 implausible signals to max(dwis) voxelwise")
 
     if args.cores is None or args.cores > cpu_count():
         n_cores = cpu_count()
@@ -257,7 +260,7 @@ def main():
 
     if len(block_size) != len(data.shape):
         raise ValueError('Block shape {} and data shape {} are not of the same '
-                         'length'.format(data.shape, block_size))
+                         'length'.format(block_size, data.shape))
 
     if data.shape[:-1] != mask.shape:
         raise ValueError('data shape is {}, but mask shape {} is different!'.format(data.shape, mask.shape))
