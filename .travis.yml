@@ -18,7 +18,12 @@ env:
         - DEPENDS_PIP="cythongsl dipy"
         - WHEELHOST="travis-wheels.scikit-image.org"
         - WHEELHOUSE="http://${WHEELHOST}/"
+
 python:
+  - 2.7
+  - 3.3
+  - 3.4
+  - 3.5
 
 matrix:
   include:
@@ -27,7 +32,10 @@ matrix:
       env:
         - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14 nibabel==2.0.1"
         - DEPENDS_PIP="cythongsl==0.2.1 dipy==0.11"
-    - python: 2.7
+    - python: 3.5
+      env:
+        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14 nibabel==2.0.1"
+        - DEPENDS_PIP="cythongsl==0.2.1 dipy==0.11"
 
 notifications:
     email: false
