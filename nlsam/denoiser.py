@@ -143,7 +143,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
     for i, idx in enumerate(indexes):
         dwi_idx = tuple(np.where(idx <= b0_loc, idx, np.array(idx) + num_b0s))
-        logger.info('Now denoising volumes {} / block {} out of {}.'.format(idx, i+1, len(indexes)))
+        logger.info('Now denoising volumes {} / block {} out of {}.'.format(idx, i + 1, len(indexes)))
 
         to_denoise[..., 0] = np.copy(b0)
         to_denoise[..., 1:] = data[..., idx]
@@ -193,9 +193,7 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     if mask is None:
         mask = np.ones(data.shape[:-1], dtype=np.bool)
 
-    # no overlapping blocks for training
-    no_over = np.zeros(data.ndim)
-    X = im2col_nd(data, block_size, no_over)
+    X = im2col_nd(data, block_size, overlap)
 
     # Solving for D
     param_alpha = {}
@@ -214,12 +212,11 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
 
     if 'D' in param_alpha:
         param_D['D'] = param_alpha['D']
-    print(mask.shape, block_size, overlap)
+
     mask_col = im2col_nd(mask, block_size[:-1], overlap[:-1])
     train_idx = np.sum(mask_col, axis=0) > (mask_col.shape[0] / 2.)
 
     train_data = X[:, train_idx]
-    print(train_data.shape, train_idx.shape, X.shape, mask_col.shape)
     train_data = np.asfortranarray(train_data[:, np.any(train_data != 0, axis=0)], dtype=dtype)
     train_data /= np.sqrt(np.sum(train_data**2, axis=0, keepdims=True), dtype=dtype)
     param_alpha['D'] = spams.trainDL(train_data, **param_D)

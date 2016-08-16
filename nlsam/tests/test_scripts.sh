@@ -16,31 +16,31 @@ python -c 'import nibabel as nib; import numpy as np; d = nib.load("dwi.nii.gz")
 python -c 'import nibabel as nib; import numpy as np; d = nib.load("mask.nii.gz").get_data(); nib.save(nib.Nifti1Image(d[:,:,90:110],np.eye(4)), "mask_crop.nii.gz")'
 
 # Test on example dataset
-nlsam dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -f --noise_est local_std --smooth no_smoothing --log log
+nlsam dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -f --noise_est local_std --sh_order 0 --log log
 check_return_code $?
 
 nlsam dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --noise_est local_std --smooth sh_smooth --sh_order 6 --iterations 5 -v
 check_return_code $?
 
-nlsam dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --noise_est piesno --smooth no_smoothing --b0_threshold 10 --noise_mask pmask.nii.gz
+nlsam dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --noise_est piesno --sh_order 0 --b0_threshold 10 --noise_mask pmask.nii.gz
 check_return_code $?
 
-nlsam dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --noise_est local_std --smooth no_smoothing --block_size 4,4,4 --save_sigma sigma.nii.gz
+nlsam dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --noise_est local_std --sh_order 0 --block_size 4,4,4 --save_sigma sigma.nii.gz
 check_return_code $?
 
-nlsam dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --smooth no_smoothing --load_sigma sigma.nii.gz --no_subsample
+nlsam dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --sh_order 0 --load_sigma sigma.nii.gz --no_subsample
 check_return_code $?
 
-nlsam dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --smooth no_smoothing --noise_map sigma.nii.gz --cores 1
+nlsam dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --sh_order 0 --noise_map sigma.nii.gz --cores 1
 check_return_code $?
 
-nlsam dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --smooth no_smoothing --noise_map sigma.nii.gz --no_stabilization --no_denoising
+nlsam dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --sh_order 0 --noise_map sigma.nii.gz --no_stabilization --no_denoising
 check_return_code $?
 
-nlsam dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --smooth no_smoothing --noise_map sigma.nii.gz --no_stabilization --load_sigma sigma.nii.gz
+nlsam dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --sh_order 0 --noise_map sigma.nii.gz --no_stabilization --load_sigma sigma.nii.gz
 check_return_code $?
 
-nlsam dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --smooth no_smoothing --noise_map sigma.nii.gz --no_denoising --save_sigma sigma.nii.gz --save_stab stab.nii.gz
+nlsam dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --sh_order 0 --noise_map sigma.nii.gz --no_denoising --save_sigma sigma.nii.gz --save_stab stab.nii.gz
 check_return_code $?
 
 # # Test on niftis
