@@ -1,6 +1,7 @@
 language: python
 sudo: false
 cache:
+  - pip
   directories:
     - $HOME/.cache/pip
 addons:
