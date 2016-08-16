@@ -4,7 +4,6 @@ import numpy as np
 from numpy.lib.stride_tricks import as_strided as ast
 
 from multiprocessing import Pool, cpu_count
-from warnings import warn
 
 from dipy.core.geometry import cart2sphere
 from dipy.reconst.shm import sph_harm_ind_list, real_sph_harm, smooth_pinv
@@ -218,7 +217,7 @@ def local_piesno(data, N, size=5, return_mask=True):
         mask[i] = np.squeeze(m)
         sigma[i] = np.std(cur_map)
 
-    s_out = sigma.reshape(data.shape[0]//size, data.shape[1]//size, data.shape[2]//size)
+    s_out = sigma.reshape(data.shape[0] // size, data.shape[1] // size, data.shape[2] // size)
 
     n = 0
     for i in np.ndindex(s_out.shape):
@@ -288,7 +287,7 @@ def sliding_window(a, ws, ss=None, flatten=True):
     # the strides tuple will be the array's strides multiplied by step size, plus
     # the array's strides (tuple addition)
     newstrides = norm_shape(np.array(a.strides) * ss) + a.strides
-    strided = ast(a,shape = newshape,strides = newstrides)
+    strided = ast(a, shape=newshape, strides=newstrides)
     if not flatten:
         return strided
 
@@ -298,7 +297,8 @@ def sliding_window(a, ws, ss=None, flatten=True):
     firstdim = (np.product(newshape[:-meat]),) if ws.shape else ()
     dim = firstdim + (newshape[-meat:])
     # remove any dimensions with size 1
-    dim = filter(lambda i : i != 1,dim)
+    dim = np.squeeze(dim)
+    # dim = filter(lambda i : i != 1,dim)
     return strided.reshape(dim)
 
 

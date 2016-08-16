@@ -23,26 +23,26 @@ check_return_code $?
 nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --noise_est local_std --sh_order 6 --iterations 5 --verbose
 check_return_code $?
 
-nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --noise_est piesno --sh_order 0 --b0_threshold 10 --noise_mask pmask.nii.gz
+nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --noise_est piesno --sh_order 0 --b0_threshold 10 --noise_mask pmask.nii.gz
 check_return_code $?
 
-nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --noise_est local_std --sh_order 0 --block_size 4,4,4 --save_sigma sigma.nii.gz
+nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --noise_est local_std --sh_order 0 --block_size 4,4,4 --save_sigma sigma.nii.gz
 check_return_code $?
 
-nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --sh_order 0 --load_sigma sigma.nii.gz --no_subsample --fix_implausible
+nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --sh_order 0 --load_sigma sigma.nii.gz --no_subsample --fix_implausible
 check_return_code $?
 
-nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --sh_order 0 --noise_est noise_map --noise_map noise.nii.gz --cores 1 --noise_mask pmask.nii.gz
+nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --sh_order 0 --noise_est noise_map --noise_map noise.nii.gz --cores 1 --noise_mask pmask.nii.gz
 check_return_code $?
 
-nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --sh_order 0 --load_sigma sigma.nii.gz --no_stabilization --no_denoising
+nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --sh_order 0 --load_sigma sigma.nii.gz --no_stabilization --no_denoising
 check_return_code $?
 
 # Test on niftis
 gunzip dwi_crop.nii.gz mask_crop.nii.gz sigma.nii.gz
 
-nlsam_denoising dwi_crop.nii dwi_nlsam.nii 1 bvals bvecs 5 -m mask_crop.nii -f --sh_order 0 --no_stabilization --load_sigma sigma.nii --is_symmetric
+nlsam_denoising dwi_crop.nii dwi_nlsam.nii 1 bvals bvecs 5 -m mask_crop.nii -f --verbose --sh_order 0 --no_stabilization --load_sigma sigma.nii --is_symmetric
 check_return_code $?
 
-nlsam_denoising dwi_crop.nii dwi_nlsam.nii 1 bvals bvecs 5 -m mask_crop.nii -f --sh_order 0 --no_denoising --save_sigma sigma.nii --save_stab stab.nii
+nlsam_denoising dwi_crop.nii dwi_nlsam.nii 1 bvals bvecs 5 -m mask_crop.nii -f --verbose --sh_order 0 --no_denoising --save_sigma sigma.nii --save_stab stab.nii
 check_return_code $?
