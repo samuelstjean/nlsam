@@ -3,8 +3,7 @@
 params = {}
 params['modlist'] = ['nlsam.utils',
                      'nlsam.stabilizer']
-params['scripts'] = ['scripts/stabilizer',
-                     'scripts/nlsam']
+params['scripts'] = ['scripts/nlsam_denoising']
 params['name'] = 'nlsam'
 params['author'] = 'Samuel St-Jean'
 params['author_email'] = 'samuel@isi.uu.nl'
@@ -59,8 +58,8 @@ except ImportError:
 cython_gsl, have_cython_gsl, _ = optional_package("cython_gsl")
 
 if not have_cython_gsl:
-    raise ImportError('cannot find gsl package (required for hyp1f1), \n\
-        try pip install cythongsl and sudo apt-get install libgsl0-dev libgsl0ldbl')
+    raise ImportError('cannot find gsl package (required for hyp1f1), \n'
+                      'try pip install cythongsl and sudo apt-get install libgsl0-dev libgsl0ldbl')
 
 # Check for local version of dipy if it exists, since it would replace a locally built
 # but not installed version.

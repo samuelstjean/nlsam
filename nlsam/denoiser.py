@@ -18,7 +18,7 @@ warnings.simplefilter("ignore", category=FutureWarning)
 try:
     import spams
 except ImportError:
-    raise ValueError("Couldn't find spams library, is the package correctly installed?")
+    raise ImportError("Couldn't find spams library, is the package correctly installed?")
 
 logger = logging.getLogger('nlsam')
 
@@ -219,6 +219,7 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     train_data = X[:, train_idx]
     train_data = np.asfortranarray(train_data[:, np.any(train_data != 0, axis=0)], dtype=dtype)
     train_data /= np.sqrt(np.sum(train_data**2, axis=0, keepdims=True), dtype=dtype)
+
     param_alpha['D'] = spams.trainDL(train_data, **param_D)
     param_alpha['D'] /= np.sqrt(np.sum(param_alpha['D']**2, axis=0, keepdims=True, dtype=dtype))
     param_D['D'] = param_alpha['D']
@@ -345,7 +346,7 @@ def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
             if not has_converged[i]:
                 param_alpha['lambda1'] = var_mat[i] * (X.shape[0] + gamma * np.sqrt(2 * X.shape[0]))
                 DtDW = (1. / W[..., None, i]) * DtD * (1. / W[:, i])
-                alpha[:, i:i+1] = spams.lasso(X[:, i:i+1], Q=np.asfortranarray(DtDW), q=DtXW[:, i:i+1], **param_alpha)
+                alpha[:, i:i + 1] = spams.lasso(X[:, i:i + 1], Q=np.asfortranarray(DtDW), q=DtXW[:, i:i + 1], **param_alpha)
 
         alpha.toarray(out=arr)
         nonzero_ind = arr != 0
