@@ -267,7 +267,9 @@ def main():
     if args.no_stabilization and args.load_sigma is None:
         raise ValueError('You passed --no_stabilization, but you also need to pass --load_sigma')
 
-    if not args.no_stabilization:
+    if args.no_stabilization:
+        data_stabilized = data
+    else:
         if noise_method == 'noise_map':
             if args.noise_maps is None:
                 raise ValueError('You need to supply --noise_map path_to_file to use --noise_est noise_map')
@@ -350,7 +352,7 @@ def main():
         if sigma.ndim == data.ndim:
             sigma = np.median(sigma, axis=-1)
 
-        data_denoised = nlsam_denoise(data, sigma, bvals, bvecs, block_size,
+        data_denoised = nlsam_denoise(data_stabilized, sigma, bvals, bvecs, block_size,
                                       mask=mask,
                                       is_symmetric=is_symmetric,
                                       n_cores=n_cores,
