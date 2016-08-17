@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.5] - unreleased
+
+- Heavy refactor of the library. There is now a single script name nlsam_denoising
+to replace both stabilizer and nlsam in one go.
+The new usage is now
+
+~~~bash
+nlsam_denoising input output N bvals bvecs n_angular_neighbors
+~~~
+
+- There is also new cool command line options (such as logging) to discover with nlsam -h
+- Some code from the previous scripts was moved in the library part of nlsam,
+so now it is easier to hook in with other python projects.
+
 ## [0.3.1] - 2016-07-11
 
 - The original header is now saved back as-is to prevent potential conflicts

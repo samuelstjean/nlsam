@@ -24,34 +24,36 @@ from cython_gsl cimport gsl_sf_hyperg_1F1
 @cython.wraparound(True)
 def stabilisation(data, m_hat, mask, sigma, N, n_cores=None):
 
-      # Check all dims are ok
-      if (data.shape != sigma.shape):
-          raise ValueError('data shape {} is not compatible with sigma shape {}'.format(data.shape, sigma.shape))
+    # Check all dims are ok
+    if (data.shape != sigma.shape):
+      raise ValueError('data shape {} is not compatible with sigma shape {}'.format(data.shape, sigma.shape))
 
-      if (data.shape[:-1] != mask.shape):
-          raise ValueError('data shape {} is not compatible with mask shape {}'.format(data.shape, mask.shape))
+    if (data.shape[:-1] != mask.shape):
+      raise ValueError('data shape {} is not compatible with mask shape {}'.format(data.shape, mask.shape))
 
-      if (data.shape != m_hat.shape):
-          raise ValueError('data shape {} is not compatible with m_hat shape {}'.format(data.shape, m_hat.shape))
+    if (data.shape != m_hat.shape):
+      raise ValueError('data shape {} is not compatible with m_hat shape {}'.format(data.shape, m_hat.shape))
 
-      pool = Pool(processes=n_cores)
-      arglist = [(data[..., idx, :],
-                  m_hat[..., idx, :],
-                  mask,
-                  sigma[..., idx, :],
-                  N_vox)
-                 for idx, N_vox in zip(range(data.shape[-2]), repeat(N))]
+    mask = np.broadcast_to(mask[..., None], data.shape)
 
-      data_out = pool.map(_multiprocess_stabilisation, arglist)
-      pool.close()
-      pool.join()
+    pool = Pool(processes=n_cores)
+    arglist = [(data[..., idx, :],
+              m_hat[..., idx, :],
+              mask[..., idx, :],
+              sigma[..., idx, :],
+              N_vox)
+             for idx, N_vox in zip(range(data.shape[-2]), repeat(N))]
 
-      data_stabilized = np.empty(data.shape, dtype=np.float32)
+    data_out = pool.map(_multiprocess_stabilisation, arglist)
+    pool.close()
+    pool.join()
 
-      for idx in range(len(data_out)):
-          data_stabilized[..., idx, :] = data_out[idx]
+    data_stabilized = np.empty(data.shape, dtype=np.float32)
 
-      return data_stabilized
+    for idx in range(len(data_out)):
+      data_stabilized[..., idx, :] = data_out[idx]
+
+    return data_stabilized
 
 
 def _multiprocess_stabilisation(arglist):
