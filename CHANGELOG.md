@@ -10,7 +10,7 @@ The new usage is now
 nlsam_denoising input output N bvals bvecs n_angular_neighbors
 ~~~
 
-- There is also new cool command line options (such as logging) to discover with nlsam -h
+- There is also new cool command line options (such as logging) to discover with nlsam_denoising -h
 - Some code from the previous scripts was moved in the library part of nlsam,
 so now it is easier to hook in with other python projects.
 

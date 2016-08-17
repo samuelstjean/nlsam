@@ -194,7 +194,8 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
         mask = np.ones(data.shape[:-1], dtype=np.bool)
 
     X = im2col_nd(data, block_size, overlap)
-
+    print(X.shape)
+    1/0
     # Solving for D
     param_alpha = {}
     param_alpha['pos'] = True

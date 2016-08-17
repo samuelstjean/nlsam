@@ -22,7 +22,7 @@ if not have_cython_gsl:
 from cython_gsl cimport gsl_sf_hyperg_1F1
 
 @cython.wraparound(True)
-def stabilisation(data, m_hat, mask, sigma, N, n_cores=None):
+def stabilization(data, m_hat, mask, sigma, N, n_cores=None):
 
     # Check all dims are ok
     if (data.shape != sigma.shape):
@@ -44,7 +44,7 @@ def stabilisation(data, m_hat, mask, sigma, N, n_cores=None):
               N_vox)
              for idx, N_vox in zip(range(data.shape[-2]), repeat(N))]
 
-    data_out = pool.map(_multiprocess_stabilisation, arglist)
+    data_out = pool.map(_multiprocess_stabilization, arglist)
     pool.close()
     pool.join()
 
@@ -56,7 +56,7 @@ def stabilisation(data, m_hat, mask, sigma, N, n_cores=None):
     return data_stabilized
 
 
-def _multiprocess_stabilisation(arglist):
+def _multiprocess_stabilization(arglist):
     """Helper function for multiprocessing the stabilization part."""
 
     data = arglist[0].astype(np.float64)

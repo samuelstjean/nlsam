@@ -17,7 +17,7 @@ import numpy as np
 
 from nlsam.denoiser import nlsam_denoise
 from nlsam.smoothing import local_standard_deviation, sh_smooth, local_piesno
-from nlsam.stabilizer import corrected_sigma, stabilisation
+from nlsam.stabilizer import corrected_sigma, stabilization
 
 from dipy.io.gradients import read_bvals_bvecs
 from dipy.core.gradients import gradient_table
@@ -335,7 +335,7 @@ def main():
         if sigma.ndim == 3:
             sigma = np.broadcast_to(sigma[..., None], data.shape)
 
-        data_stabilized = stabilisation(data, m_hat, mask, sigma, N, n_cores=n_cores)
+        data_stabilized = stabilization(data, m_hat, mask, sigma, N, n_cores=n_cores)
 
         if args.save_stab is not None:
             nib.save(nib.Nifti1Image(data_stabilized, affine), args.save_stab)

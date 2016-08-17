@@ -93,7 +93,7 @@ line at firstname@isi.uu.nl, where of course firstname needs to be replaced with
 ## Reference
 
 St-Jean, S., Coupé, P., & Descoteaux, M. (2016).
-Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising.
+"[Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising.][paper]"
 Medical Image Analysis, 32(2016), 115–130. [DOI] [URL]
 
 ## License
