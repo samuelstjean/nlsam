@@ -94,7 +94,6 @@ def im2col_nd(A,  block_shape, overlap, order='F'):
         raise ValueError('Invalid overlap value, it must lie between 0' +
                          'and min(block_size)-1', overlap, block_shape)
     A = padding(A, block_shape, overlap)
-    dtype = A.dtype
     A = np.asarray(A, dtype=np.float64, order='F')
 
     if len(A.shape) != len(block_shape):
@@ -118,7 +117,7 @@ def im2col_nd(A,  block_shape, overlap, order='F'):
     else:
         raise ValueError("3D or 4D supported only!", A.shape)
 
-    return R.astype(dtype, copy=False)
+    return R
 
 
 cdef void _col2im3D_overlap(double[::1,:,:] A, double[::1,:,:] div, double[:,:] R, double[:] weights, int[:] block_shape, int[:] overlap):
@@ -216,7 +215,6 @@ def col2im_nd(R, block_shape, end_shape, overlap, weights=None, order='F'):
     else:
         weights = np.asarray(weights, dtype=np.float64, order=order)
 
-    dtype = R.dtype
     R = np.asarray(R, dtype=np.float64, order=order)
     A = np.zeros(end_shape, dtype=np.float64, order=order)
     div = np.zeros(end_shape[:3], dtype=np.float64, order=order)
@@ -239,13 +237,13 @@ def col2im_nd(R, block_shape, end_shape, overlap, weights=None, order='F'):
     else:
         raise ValueError("3D or 4D supported only!", A.shape)
 
-    return (A / div).astype(dtype, copy=False)
+    return A / div
 
 
 def padding(A, block_shape, overlap):
     """
     Pad A at the end so that block_shape will cut an integer number of blocks
-    across all dimensions. A is padded with value (default : 0).
+    across all dimensions. A is padded with 0s.
     """
 
     block_shape = np.array(block_shape)

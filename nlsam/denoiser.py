@@ -193,9 +193,10 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     if mask is None:
         mask = np.ones(data.shape[:-1], dtype=np.bool)
 
-    X = im2col_nd(data, block_size, overlap)
-    print(X.shape)
-    1/0
+    # no overlapping blocks for training
+    no_over = (0, 0, 0, 0)
+    X = im2col_nd(data, block_size, no_over)
+
     # Solving for D
     param_alpha = {}
     param_alpha['pos'] = True
@@ -214,7 +215,7 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     if 'D' in param_alpha:
         param_D['D'] = param_alpha['D']
 
-    mask_col = im2col_nd(mask, block_size[:-1], overlap[:-1])
+    mask_col = im2col_nd(np.broadcast_to(mask[..., None], data.shape), block_size, no_over)
     train_idx = np.sum(mask_col, axis=0) > (mask_col.shape[0] / 2.)
 
     train_data = X[:, train_idx]

@@ -2,7 +2,7 @@
 
 ## [0.5] - unreleased
 
-- Heavy refactor of the library. There is now a single script name nlsam_denoising
+- Heavy refactor of the library. There is now a single script named nlsam_denoising
 to replace both stabilizer and nlsam in one go.
 The new usage is now
 
