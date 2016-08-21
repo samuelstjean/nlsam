@@ -4,7 +4,7 @@ import numpy as np
 from dipy.core.sphere import Sphere
 
 
-def sphere_neighbors(vec, sphere, n=5):
+def sphere_neighbors(vec, sphere, n):
     """
     Returns the indices of the n closest neighbors of vec
     on the sphere given an array of m points with x, y and z coordinates.
@@ -34,7 +34,7 @@ def sphere_neighbors(vec, sphere, n=5):
     return angular_neighbors(np.concatenate((vec, sphere), axis=0), n)[0]
 
 
-def angular_neighbors(vec, n=5):
+def angular_neighbors(vec, n):
     """
     Returns the indices of the n closest neighbors (excluding the vector itself)
     given an array of m points with x, y and z coordinates.

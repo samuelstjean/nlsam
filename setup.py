@@ -3,8 +3,7 @@
 params = {}
 params['modlist'] = ['nlsam.utils',
                      'nlsam.stabilizer']
-params['scripts'] = ['scripts/stabilizer',
-                     'scripts/nlsam']
+params['scripts'] = ['scripts/nlsam_denoising']
 params['name'] = 'nlsam'
 params['author'] = 'Samuel St-Jean'
 params['author_email'] = 'samuel@isi.uu.nl'
@@ -16,7 +15,7 @@ params['requires'] = ['cythongsl>=0.2.1',
 params['deps'] = ['scipy>=0.14',
                   'nibabel>=2.0',
                   'spams>=2.4']
-params['links'] = ['https://github.com/samuelstjean/spams-python/archive/master.zip#egg=spams-2.5']
+params['links'] = ['https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-python-v2.5-python3.zip#egg=spams-2.5']
 
 ###############################################
 # Build stuff is below this line
@@ -59,8 +58,8 @@ except ImportError:
 cython_gsl, have_cython_gsl, _ = optional_package("cython_gsl")
 
 if not have_cython_gsl:
-    raise ImportError('cannot find gsl package (required for hyp1f1), \n\
-        try pip install cythongsl and sudo apt-get install libgsl0-dev libgsl0ldbl')
+    raise ImportError('cannot find gsl package (required for hyp1f1), \n'
+                      'try pip install cythongsl and sudo apt-get install libgsl0-dev libgsl0ldbl')
 
 # Check for local version of dipy if it exists, since it would replace a locally built
 # but not installed version.
@@ -68,7 +67,7 @@ dipy, have_dipy, _ = optional_package("dipy")
 
 if have_dipy:
     print('Found local version of dipy in ' + dipy.__file__)
-    if LooseVersion(dipy.__version__) <= '0.11':
+    if LooseVersion(dipy.__version__) < LooseVersion('0.11'):
         raise ValueError('Local dipy version is {}, but you need at least 0.11!'.format(dipy.__version__))
 else:
     print('Cannot find dipy, it will be installed using pip.')
