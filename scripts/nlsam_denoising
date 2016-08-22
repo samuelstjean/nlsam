@@ -89,7 +89,7 @@ def buildArgsParser():
                    help='Number of iterations for the l1 reweighting. Default 10.')
 
     p.add_argument('--sh_order', action='store', dest='sh_order',
-                   metavar='int', default=8, type=int, choices=[0, 2, 4, 8],
+                   metavar='int', default=8, type=int, choices=[0, 2, 4, 6, 8],
                    help='Spherical harmonics order used for sh_smooth.\n'
                    'Use 0 to disable the spherical harmonics fitting. Default 8')
 
