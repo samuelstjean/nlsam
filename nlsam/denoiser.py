@@ -87,7 +87,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     num_b0s = len(b0_loc)
     variance = sigma**2
 
-    logger.info("Found " + str(num_b0s) + " b0s at position " + str(b0_loc))
+    logger.info("Found {} b0s at position {}".format(str(num_b0s), str(b0_loc)))
 
     # Average multiple b0s, and just use the average for the rest of the script
     # patching them in at the end

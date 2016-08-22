@@ -213,11 +213,11 @@ def main():
     data = np.asarray(vol.get_data(caching='unchanged'), dtype=np.float32)
     affine = vol.get_affine()
     header = vol.get_header()
-    logger.info("Loading data {}".format(args.input))
+    logger.info("Loading data {}".format(os.path.realpath(args.input)))
 
     if args.mask is not None:
         mask = np.asarray(nib.load(args.mask).get_data(caching='unchanged'), dtype=np.bool)
-        logger.info("Loading mask {}".format(args.mask))
+        logger.info("Loading mask {}".format(os.path.realpath(args.mask)))
     else:
         mask = np.ones(data.shape[:-1], dtype=np.bool)
 
@@ -246,19 +246,19 @@ def main():
 
     if args.load_sigma is not None:
         sigma = np.asarray(nib.load(args.load_sigma).get_data(caching='unchanged'), dtype=np.float32)
-        logger.info("Loading sigma {}".format(args.load_sigma))
+        logger.info("Loading sigma {}".format(os.path.realpath(args.load_sigma)))
 
         # If we have a bunch of 4D views, we only want a 3D array
         if sigma.ndim == data.ndim:
             sigma = np.median(sigma, axis=-1)
-            logger.warning("{} was {}D, but was downcasted to {}D.".format(args.load_sigma, sigma.ndim + 1, sigma.ndim))
+            logger.warning("{} was {}D, but was downcasted to {}D.".format(os.path.realpath(args.load_sigma), sigma.ndim + 1, sigma.ndim))
 
         if data.shape[:-1] != sigma.shape:
             raise ValueError('data shape is {}, but sigma shape {} is different!'.format(data.shape, sigma.shape))
 
     elif args.noise_maps is not None:
         noise_maps = np.asarray(nib.load(args.noise_maps).get_data(caching='unchanged'), dtype=np.float32)
-        logger.info("Loading {} as a noise map".format(args.noise_maps))
+        logger.info("Loading {} as a noise map".format(os.path.realpath(args.noise_maps)))
 
         # Local piesno works on 4D, so we need to broadcast before
         if noise_maps.ndim == 3:
@@ -268,19 +268,19 @@ def main():
 
         if args.save_piesno_mask is not None:
             nib.save(nib.Nifti1Image(mask_noise.astype(np.int16), affine), args.save_piesno_mask)
-            logger.info("Piesno mask saved as {}".format(args.save_piesno_mask))
+            logger.info("Piesno mask saved as {}".format(os.path.realpath(args.save_piesno_mask)))
 
     elif noise_method == 'piesno':
-        logger.info("Estimating noise with method " + noise_method)
+        logger.info("Estimating noise with method {}".format(noise_method))
         sigma_1D, mask_noise = piesno(data, N=N, return_mask=True)
         sigma = np.broadcast_to(sigma_1D[None, None, :, None], data.shape)
 
         if args.save_piesno_mask is not None:
             nib.save(nib.Nifti1Image(mask_noise.astype(np.int16), affine), args.save_piesno_mask)
-            logger.info("Piesno mask saved as {}".format(args.save_piesno_mask))
+            logger.info("Piesno mask saved as {}".format(os.path.realpath(args.save_piesno_mask)))
 
     elif noise_method == 'local_std':
-        logger.info("Estimating noise with method " + noise_method)
+        logger.info("Estimating noise with method {}".format(noise_method))
         sigma = local_standard_deviation(data, n_cores=n_cores)
 
         # Compute the corrected value for each 3D volume
@@ -291,7 +291,7 @@ def main():
 
     if args.save_sigma is not None:
         nib.save(nib.Nifti1Image(sigma, affine), args.save_sigma)
-        logger.info("Sigma map saved as {}".format(args.save_sigma))
+        logger.info("Sigma map saved as {}".format(os.path.realpath(args.save_sigma)))
 
     ##################
     #  Stabilizer part
@@ -327,14 +327,14 @@ def main():
 
         if args.save_stab is not None:
             nib.save(nib.Nifti1Image(data_stabilized, affine), args.save_stab)
-            logger.info("Stabilized data saved as {}".format(args.save_stab))
+            logger.info("Stabilized data saved as {}".format(os.path.realpath(args.save_stab)))
 
     ##################
     #  Denoising part
     ##################
 
     if not args.no_denoising:
-        logger.info("Now denoising " + os.path.realpath(args.input))
+        logger.info("Now denoising ".format(os.path.realpath(args.input)))
 
         # If we have a bunch of 4D views, we only want a 3D array
         if sigma.ndim == data.ndim:
@@ -350,7 +350,7 @@ def main():
 
         header.set_data_dtype(np.float32)
         nib.save(nib.Nifti1Image(data_denoised.astype(np.float32), affine, header), args.output)
-        logger.info("Denoised data saved as {}".format(args.output))
+        logger.info("Denoised data saved as {}".format(os.path.realpath(args.output)))
 
 
 if __name__ == "__main__":
