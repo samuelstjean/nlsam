@@ -308,12 +308,13 @@ def main():
             logger.info("Estimating m_hat with sh order {}".format(sh_order))
 
             # Raise warning for sh order if there is not enough DWIs
-            if data.shape[-1] < (sh_order + 1) * (sh_order + 2) / 2:
-                logger.warning("We recommend having at least " +
-                               str((sh_order + 1) * (sh_order + 2) / 2) +
-                               " unique DWIs volumes, but you currently have " +
-                               str(data.shape[-1]) + " volumes. Try lowering the " +
-                               "parameter --sh_order in case of non convergence.")
+            required_dwis = (sh_order + 1) * (sh_order + 2) / 2
+
+            if data.shape[-1] < required_dwis:
+                logger.warning('We recommend having at least {} unique DWIs volumes, '
+                               'but you currently have {} volumes. Try lowering the '
+                               'parameter --sh_order in case of non '
+                               'convergence.'.format(required_dwis, data.shape[-1]))
 
             m_hat = sh_smooth(data, gtab, sh_order=sh_order)
             m_hat[m_hat < 0] = 0
