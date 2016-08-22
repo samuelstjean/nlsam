@@ -244,8 +244,6 @@ def main():
     #  Noise estimation part
     #########################
 
-    logger.info("Estimating noise with method " + noise_method)
-
     if args.load_sigma is not None:
         sigma = np.asarray(nib.load(args.load_sigma).get_data(caching='unchanged'), dtype=np.float32)
         logger.info("Loading sigma {}".format(args.load_sigma))
@@ -257,23 +255,6 @@ def main():
 
         if data.shape[:-1] != sigma.shape:
             raise ValueError('data shape is {}, but sigma shape {} is different!'.format(data.shape, sigma.shape))
-
-    elif noise_method == 'piesno':
-        sigma_1D, mask_noise = piesno(data, N=N, return_mask=True)
-        sigma = np.broadcast_to(sigma_1D[None, None, :, None], data.shape)
-
-        if args.save_piesno_mask is not None:
-            nib.save(nib.Nifti1Image(mask_noise.astype(np.int16), affine), args.save_piesno_mask)
-            logger.info("Piesno mask saved as {}".format(args.save_piesno_mask))
-
-    elif noise_method == 'local_std':
-        sigma = local_standard_deviation(data, n_cores=n_cores)
-
-        # Compute the corrected value for each 3D volume
-        if N > 0:
-            sigma = np.broadcast_to(sigma[..., None], data.shape)
-            mask_4D = np.broadcast_to(mask[..., None], data.shape)
-            sigma = corrected_sigma(data, sigma, mask_4D, N, n_cores=n_cores)
 
     elif args.noise_maps is not None:
         noise_maps = np.asarray(nib.load(args.noise_maps).get_data(caching='unchanged'), dtype=np.float32)
@@ -288,6 +269,25 @@ def main():
         if args.save_piesno_mask is not None:
             nib.save(nib.Nifti1Image(mask_noise.astype(np.int16), affine), args.save_piesno_mask)
             logger.info("Piesno mask saved as {}".format(args.save_piesno_mask))
+
+    elif noise_method == 'piesno':
+        logger.info("Estimating noise with method " + noise_method)
+        sigma_1D, mask_noise = piesno(data, N=N, return_mask=True)
+        sigma = np.broadcast_to(sigma_1D[None, None, :, None], data.shape)
+
+        if args.save_piesno_mask is not None:
+            nib.save(nib.Nifti1Image(mask_noise.astype(np.int16), affine), args.save_piesno_mask)
+            logger.info("Piesno mask saved as {}".format(args.save_piesno_mask))
+
+    elif noise_method == 'local_std':
+        logger.info("Estimating noise with method " + noise_method)
+        sigma = local_standard_deviation(data, n_cores=n_cores)
+
+        # Compute the corrected value for each 3D volume
+        if N > 0:
+            sigma = np.broadcast_to(sigma[..., None], data.shape)
+            mask_4D = np.broadcast_to(mask[..., None], data.shape)
+            sigma = corrected_sigma(data, sigma, mask_4D, N, n_cores=n_cores)
 
     if args.save_sigma is not None:
         nib.save(nib.Nifti1Image(sigma, affine), args.save_sigma)
