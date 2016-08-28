@@ -135,3 +135,97 @@ From an input noisy image
 This is the final, NLSAM denoised result
 
 ![](images/nlsam.png)
+
+#### 3. Using the python API
+
+This example went through the classical command line interface nlsam_denoising, which is actually
+a fancy script which set up stuff for us. Here is the same example, but using the python API.
+
+For those wanting to extend the functionality of the algorithm or embed it in their python workflow,
+I suggest having a look at the [script itself][../scripts/nlsam_denoising] as it contains much more options.
+
+~~~python
+from __future__ import division, print_function
+
+import nibabel as nib
+import numpy as np
+
+from multiprocessing import cpu_count
+
+from nlsam.denoiser import nlsam_denoise
+from nlsam.smoothing import sh_smooth, local_standard_deviation
+from nlsam.stabilizer import stabilization, corrected_sigma
+
+from dipy.io.gradients import read_bvals_bvecs
+from dipy.core.gradients import gradient_table
+
+# Set up the options for nlsam
+input_data = 'dwi.nii.gz'
+output_data = 'dwi_nlsam.nii.gz'
+mask_data = 'mask.nii.gz'
+bvals_file = 'bvals'
+bvecs_file = 'bvecs'
+
+N = 1
+block_size = (3, 3, 3, 5)
+b0_threshold = 10
+n_cores = cpu_count()
+subsample = True
+is_symmetric = False
+n_iter = 10
+sh_order = 8
+
+# Load up the data
+vol = nib.load(input_data)
+data = np.asarray(vol.get_data(caching='unchanged'), dtype=np.float32)
+affine = vol.get_affine()
+header = vol.get_header()
+header.set_data_dtype(np.float32)
+
+mask = np.asarray(nib.load(mask_data).get_data(caching='unchanged'))
+bvals, bvecs = read_bvals_bvecs(bvals_file, bvecs_file)
+gtab = gradient_table(bvals, bvecs, b0_threshold=b0_threshold)
+
+# Fix the implausible signals, note this 'option' is only in the script and not a function.
+# I could make one if there is enough demand I guess, but anyway, it's a one liner as you can see.
+data[..., gtab.b0s_mask] = np.max(data, axis=-1, keepdims=True)
+
+#########################
+#  Noise estimation part
+#########################
+
+sigma = local_standard_deviation(data, n_cores=n_cores)
+sigma = np.broadcast_to(sigma[..., None], data.shape)
+mask_4D = np.broadcast_to(mask[..., None], data.shape)
+sigma = corrected_sigma(data, sigma, mask_4D, N, n_cores=n_cores)
+
+##################
+#  Stabilizer part
+##################
+
+m_hat = sh_smooth(data, gtab, sh_order=sh_order)
+m_hat[m_hat < 0] = 0
+
+data_stabilized = stabilization(data, m_hat, mask, sigma, N, n_cores=n_cores)
+
+##################
+#  Denoising part
+##################
+
+# We need a 3D sigma map down for later, but we just estimated a 4D one as we did
+# a voxelwise correction, so we just pick the median along the 4th dimension.
+sigma = np.median(sigma, axis=-1)
+
+data_denoised = nlsam_denoise(data_stabilized, sigma, bvals, bvecs, block_size,
+                              mask=mask,
+                              is_symmetric=is_symmetric,
+                              n_cores=n_cores,
+                              subsample=subsample,
+                              n_iter=n_iter,
+                              b0_threshold=b0_threshold)
+
+nib.save(nib.Nifti1Image(data_denoised.astype(np.float32), affine, header), output_data)
+~~~
+
+As you can see the bulk of the work is loading the data and making sure everything plays nicely regarding options or dimensions,
+so feel free to adapt your workflow based on the main nlsam_denoising processing script.
