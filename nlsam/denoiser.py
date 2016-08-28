@@ -20,6 +20,8 @@ try:
 except ImportError:
     raise ImportError("Couldn't find spams library, is the package correctly installed?")
 
+logger = logging.getLogger('nlsam')
+
 
 def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                   mask=None, is_symmetric=False, n_cores=None,
@@ -66,7 +68,6 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     """
 
     if verbose:
-        logger = logging.getLogger('nlsam')
         logger.setLevel(logging.INFO)
 
     if mask is None:
@@ -187,7 +188,6 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
                   dtype=np.float64, n_cores=None, verbose=False):
     if verbose:
-        logger = logging.getLogger('nlsam')
         logger.setLevel(logging.INFO)
 
     if mask is None:
