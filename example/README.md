@@ -56,7 +56,7 @@ Once installed, the first processing step allows you to transform the data to Ga
 signals if your dataset is Rician or Noncentral chi distributed.
 
 Of course if your dataset is already bias corrected or you would like to use another method for noise estimation,
-you can skip this step and proceed to the denoising itself by passing the option --no_stabilization.
+you can skip this step and proceed to the denoising itself by passing the option **--no_stabilization**.
 The correction for Rician or Noncentral chi distributed noise would then be left to any other method of your choosing.
 
 #### 1.1a Advanced techniques for estimating N (optional topic)
@@ -68,13 +68,13 @@ for a discussion on the subject.
 
 To initialize the estimation for the stabilization algorithm, we will use a spherical harmonics fit (which is the default),
 to remove extreme/implausible signals. In case you have few directions (per shell), you can deactivate this option
-by passing --sh_order 0 or lowering the order if your data does not have enough dwi volumes (the script will warn you in that case).
+by passing **--sh_order 0** or lowering the order if your data does not have enough dwi volumes (the script will warn you in that case).
 
 The default is to use a noise estimation based on piesno, but since this dataset is fairly noisy and has no background,
-we will instead use an estimation based on the local standard deviation with the option --noise_est local_std
+we will instead use an estimation based on the local standard deviation with the option **--noise_est local_std**
 
 If you data is really noisy and the S0 signal is low, you might want to use the option
---fix_implausible which will ensure that the b0 image always has the highest value through the volume.
+**--fix_implausible** which will ensure that the b0 image always has the highest value through the volume.
 This option was implicitly used in NLSAM versions before 0.5 and now need to be activated if needed.
 
 #### 1.3 Required command line inputs
@@ -100,9 +100,9 @@ shells to favor picking radial decay in the denoising.
 
 #### 1.4 Advanced options
 
-More options are available for various advanced usage, which can be viewed with nlsam_denoising --help.
-Some are mostly useful for debugging and saving intermediate steps, such as --verbose for
-printing various useful information or --log logfile.txt for processing a large number of file
+More options are available for various advanced usage, which can be viewed with **nlsam_denoising --help**.
+Some are mostly useful for debugging and saving intermediate steps, such as **--verbose** for
+printing various useful information or **--log logfile.txt** for processing a large number of file
 and saving the various outputs.
 
 Feel free to check them out if you want finer grained controls over the denoising process.
