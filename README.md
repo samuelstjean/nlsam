@@ -18,37 +18,35 @@ After extracting the zip file, start a terminal/command line prompt (start butto
 
 Since the tools are command line only, double-clicking it will open and immediately close a dos-like window, hence the need for opening a command line prompt.
 
-If you have a working python setup already, doing
+If you have a working python setup already, the next command should give you everything you need.
 
 ```shell
 pip install https://github.com/samuelstjean/nlsam/archive/master.zip --user --process-dependency-links
 ```
 
-should give you everything you need.
-
-If you would like to look at the code and modify it, you can build it from source after grabbing some dependencies,
-check out the [wiki][wiki] for detailled intructions about each platforms.
-+ [Windows](https://github.com/samuelstjean/nlsam/wiki/Installation-for-Windows)
-+ [Mac OSX](https://github.com/samuelstjean/nlsam/wiki/Installation-for-Mac-OSX)
-+ [Linux](https://github.com/samuelstjean/nlsam/wiki/Installation-for-linux)
-
-You can also clone it locally and then install everything with
+If you would like to look at the code and modify it, you can also clone it locally
+and then install everything through pip after grabbing some dependencies
 
 ```shell
 git clone https://github.com/samuelstjean/nlsam.git
-cd nlsam
-python setup.py develop
+pip install -e nlsam
 ```
+
+Check out the [wiki][wiki] for detailled intructions about each platforms.
+
++ [Windows](https://github.com/samuelstjean/nlsam/wiki/Installation-for-Windows)
++ [Mac OSX](https://github.com/samuelstjean/nlsam/wiki/Installation-for-Mac-OSX)
++ [Linux](https://github.com/samuelstjean/nlsam/wiki/Installation-for-linux)
 
 You can also download the datasets used in the paper over [here][nlsam_data].
 
 ## Using the NLSAM algorithm
 
 Once installed, there is now a single script to do the whole pocessing.
-Feel fee to have a look if you want to build your own python pipeline as it
+Feel free to have a look if you want to build your own python pipeline as it
 wraps the various parts of the algorithm provided inside the python-part library.
 
-The process is to first tranform your data to Gaussian distributed signals if your dataset is
+The process is to first transform your data to Gaussian distributed signals if your dataset is
 Rician or Noncentral chi distributed and then proceceed to the NLSAM denoising part itself.
 
 A quickstart example call would be
