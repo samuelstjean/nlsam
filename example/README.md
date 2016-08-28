@@ -94,7 +94,7 @@ the angular neighbors and we need to choose how many we want to denoise at once.
 Here I selected 5 as it is the number of dwis which are roughly equidistant on the sphere.
 Using a larger number could mean more blurring if we mix q-space points which are too far part.
 
-For a multishell acquisition, only the direction (as opposed ot the norm)
+For a multishell acquisition, only the direction (as opposed to the norm)
 of the b-vector is taken into account, so you can freely mix dwi from different
 shells to favor picking radial decay in the denoising.
 
@@ -112,15 +112,15 @@ Feel free to check them out if you want finer grained controls over the denoisin
 Finally, the required call to the nlsam_denoising script for this example would be
 
 ```bash
-nlsam_denoising dwi.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask.nii.g --noise_est local_std --verbose
+nlsam_denoising dwi.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask.nii.gz --noise_est local_std --fix_implausible  --verbose
 ```
 
-The script will output the time taken at each denoising iterations so you can estimate the total time required.
+The script will output the time taken at each denoising iterations so you can ballpark estimate the total time required.
 On my current computer (an intel xeon quad core at 3.5 GHz, much faster than the one reported originally in the paper),
 it took around 40 s per iteration for this example, for a total of 8 minutes.
 
 The full dataset required 23 mins per iteration, for a total processing time of 276 mins.
-As a side note, using piesno for the nosie estimation (which is the default) resulted in an iteration taking only 8 mins,
+As a side note, using piesno for the noise estimation (which is the default) resulted in an iteration taking only 8 mins,
 so the whole dataset could be denoised in around ~100 mins with the default options.
 
 #### 2. The result

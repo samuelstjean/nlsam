@@ -32,7 +32,7 @@ git clone https://github.com/samuelstjean/nlsam.git
 pip install -e nlsam
 ```
 
-Check out the [wiki][wiki] for detailled intructions about each platforms.
+Check out the [wiki][wiki] for detailed instructions about each platforms.
 
 + [Windows](https://github.com/samuelstjean/nlsam/wiki/Installation-for-Windows)
 + [Mac OSX](https://github.com/samuelstjean/nlsam/wiki/Installation-for-Mac-OSX)
@@ -42,12 +42,12 @@ You can also download the datasets used in the paper over [here][nlsam_data].
 
 ## Using the NLSAM algorithm
 
-Once installed, there is now a single script to do the whole pocessing.
+Once installed, there is now a single script to do the whole processing.
 Feel free to have a look if you want to build your own python pipeline as it
 wraps the various parts of the algorithm provided inside the python-part library.
 
 The process is to first transform your data to Gaussian distributed signals if your dataset is
-Rician or Noncentral chi distributed and then proceceed to the NLSAM denoising part itself.
+Rician or Noncentral chi distributed and then proceed to the NLSAM denoising part itself.
 
 A quickstart example call would be
 
