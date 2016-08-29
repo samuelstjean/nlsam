@@ -132,7 +132,7 @@ As a side note, using piesno for the noise estimation (which is the default) res
 so the whole dataset could be denoised in around ~100 mins with the default options.
 
 <a name="result"></a>
-#### 3. The result
+## 3. The result
 
 At the end, you can continue your regular diffusion MRI pipeline with the denoised version of the dataset,
 here named dwi_nlsam.nii.gz for the purposes of this example.
@@ -146,7 +146,7 @@ This is the final, NLSAM denoised result
 ![](images/nlsam.png)
 
 <a name="api"></a>
-#### 4. Using the python API
+## 4. Using the python API
 
 This example went through the classical command line interface nlsam_denoising, which is actually
 a fancy script which set up stuff for us. Here is the same example, but using the python API.
