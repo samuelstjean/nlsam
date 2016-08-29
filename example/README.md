@@ -16,9 +16,16 @@ to the final denoised result like this
 We also showcase some advanced options for highly noisy datasets, but for your regular
 everyday processing the default options should work just fine.
 
-## 0. Prerequisite
+# Table of Contents
+1. [Prerequisite](#prerequisite)
+2. [Processing steps](#steps)
+3. [The result](#result)
+4. [Using the python API](#api)
 
-#### 0.1 Get a binary mask of the brain
+<a name="prerequisite"></a>
+## 1. Prerequisite
+
+#### 1.1 Get a binary mask of the brain
 
 This will reduce the computation time by only denoising the voxels which are included inside the mask.
 For this example, I used bet2 from fsl to create mask.nii.gz using only the b0 image, but feel free to use your favorite tool of course.
@@ -27,7 +34,7 @@ For this example, I used bet2 from fsl to create mask.nii.gz using only the b0 i
 bet2 b0.nii.gz brain -m -f 0.1
 ```
 
-#### 0.2 Minimally required data for processing
+#### 1.2 Minimally required data for processing
 
 You will need a set of diffusion weighted images and the associated bvals/bvecs files as used by FSL.
 
@@ -35,7 +42,7 @@ If your data is not in the bvals/bvecs format, you will first need to convert it
 Your favorite diffusion MRI processing tool probably has a function to help you with the conversion
 (Scilpy, MRtrix3 and ExploreDTI all offer options for this conversion for example).
 
-#### 0.3 Required command line inputs
+#### 1.3 Required command line inputs
 
 A typical example call requires only a diffusion weighted dataset (dwi.nii.gz), the bvals/bvecs file
 and the number of coils from the acquisition (N),
@@ -48,9 +55,10 @@ While this value can be difficult to estimate, asking help from your friendly MR
 In the meantime, you can still run the algorithm with N = 1 to use a Rician correction and check the result, in which case there would be a slight intensity
 bias left in the image, but which would be lower than not correcting it in the first place.
 
-## 1. Processing steps
+<a name="steps"></a>
+## 2. Processing steps
 
-#### 1.1 Correcting the noise bias
+#### 2.1 Correcting the noise bias
 
 Once installed, the first processing step allows you to transform the data to Gaussian distributed
 signals if your dataset is Rician or Noncentral chi distributed.
@@ -59,12 +67,12 @@ Of course if your dataset is already bias corrected or you would like to use ano
 you can skip this step and proceed to the denoising itself by passing the option **--no_stabilization**.
 The correction for Rician or Noncentral chi distributed noise would then be left to any other method of your choosing.
 
-#### 1.1a Advanced techniques for estimating N (optional topic)
+#### 2.1a Advanced techniques for estimating N (optional topic)
 
 See the [wiki](https://github.com/samuelstjean/nlsam/wiki/Advanced-noise-estimation)
 for a discussion on the subject.
 
-#### 1.2 Algorithms for noise estimation
+#### 2.2 Algorithms for noise estimation
 
 To initialize the estimation for the stabilization algorithm, we will use a spherical harmonics fit (which is the default),
 to remove extreme/implausible signals. In case you have few directions (per shell), you can deactivate this option
@@ -77,7 +85,7 @@ If you data is really noisy and the S0 signal is low, you might want to use the 
 **--fix_implausible** which will ensure that the b0 image always has the highest value through the volume.
 This option was implicitly used in NLSAM versions before 0.5 and now need to be activated if needed.
 
-#### 1.3 Required command line inputs
+#### 2.3 Required command line inputs
 
 There are 6 required command line inputs (their order is important) which are
 
@@ -98,7 +106,7 @@ For a multishell acquisition, only the direction (as opposed to the norm)
 of the b-vector is taken into account, so you can freely mix dwi from different
 shells to favor picking radial decay in the denoising.
 
-#### 1.4 Advanced options
+#### 2.4 Advanced options
 
 More options are available for various advanced usage, which can be viewed with **nlsam_denoising --help**.
 Some are mostly useful for debugging and saving intermediate steps, such as **--verbose** for
@@ -107,7 +115,7 @@ and saving the various outputs.
 
 Feel free to check them out if you want finer grained controls over the denoising process.
 
-#### 1.5 Example call to the nlsam_denoising script
+#### 2.5 Example call to the nlsam_denoising script
 
 Finally, the required call to the nlsam_denoising script for this example would be
 
@@ -123,7 +131,8 @@ The full dataset required 23 mins per iteration, for a total processing time of 
 As a side note, using piesno for the noise estimation (which is the default) resulted in an iteration taking only 8 mins,
 so the whole dataset could be denoised in around ~100 mins with the default options.
 
-#### 2. The result
+<a name="result"></a>
+#### 3. The result
 
 At the end, you can continue your regular diffusion MRI pipeline with the denoised version of the dataset,
 here named dwi_nlsam.nii.gz for the purposes of this example.
@@ -136,13 +145,14 @@ This is the final, NLSAM denoised result
 
 ![](images/nlsam.png)
 
-#### 3. Using the python API
+<a name="api"></a>
+#### 4. Using the python API
 
 This example went through the classical command line interface nlsam_denoising, which is actually
 a fancy script which set up stuff for us. Here is the same example, but using the python API.
 
 For those wanting to extend the functionality of the algorithm or embed it in their python workflow,
-I suggest having a look at the [script itself][../scripts/nlsam_denoising] as it contains much more options.
+I suggest having a look at the [script itself](../scripts/nlsam_denoising) as it contains much more options.
 
 ~~~python
 from __future__ import division, print_function
