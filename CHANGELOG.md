@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.5] - unreleased
+## [0.5] - 2016-08-30
 
 - Heavy refactor of the library. There is now a single script named nlsam_denoising
 to replace both stabilizer and nlsam in one go.
@@ -13,6 +13,8 @@ nlsam_denoising input output N bvals bvecs n_angular_neighbors
 - There is also new cool command line options (such as logging) to discover with nlsam_denoising -h
 - Some code from the previous scripts was moved in the library part of nlsam,
 so now it is easier to hook in with other python projects.
+- (Un)Official python 3 support. You will also need to grab an
+[unofficial spams build](https://github.com/samuelstjean/spams-python/releases) which has been patched for python 3 support.
 
 ## [0.3.1] - 2016-07-11
 
