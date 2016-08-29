@@ -213,6 +213,7 @@ def main():
     data = np.asarray(vol.get_data(caching='unchanged'), dtype=np.float32)
     affine = vol.get_affine()
     header = vol.get_header()
+    header.set_data_dtype(np.float32)
     logger.info("Loading data {}".format(os.path.realpath(args.input)))
 
     if args.mask is not None:
@@ -348,7 +349,6 @@ def main():
                                       n_iter=n_iter,
                                       b0_threshold=b0_threshold)
 
-        header.set_data_dtype(np.float32)
         nib.save(nib.Nifti1Image(data_denoised.astype(np.float32), affine, header), args.output)
         logger.info("Denoised data saved as {}".format(os.path.realpath(args.output)))
 
