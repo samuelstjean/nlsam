@@ -69,13 +69,6 @@ def sh_smooth(data, gtab, sh_order=8, similarity_threshold=50, regul=0.006):
                 pred_sig[..., idx] = data[..., idx]
             continue
 
-        # If it's not a b0, check if enough data for requested sh order
-        # if np.sum(idx) < (sh_order + 1) * (sh_order + 2) / 2:
-        #     warn("bval {} has not enough values for sh order {}."
-        #          "\nPutting back the original values.".format(unique_bval, sh_order))
-        #     pred_sig[..., idx] = data[..., idx]
-        #     continue
-
         x, y, z = gtab.gradients[idx].T
         r, theta, phi = cart2sphere(x, y, z)
 
@@ -114,7 +107,7 @@ def _local_standard_deviation(arr):
     mean_squared_high_freq = np.empty_like(arr, dtype=np.float32)
     mean_high_freq = np.empty_like(arr, dtype=np.float32)
 
-    # A noise field estimation is made by substracting the data
+    # A noise field estimation is made by subtracting the data
     # from it's low pass filtered version
     convolve(arr, k, mode='reflect', output=low_pass_arr)
     high_freq = arr - low_pass_arr
@@ -133,7 +126,7 @@ def _local_standard_deviation(arr):
 def local_standard_deviation(arr, n_cores=None):
     """Standard deviation estimation from local patches.
 
-    The noise field is estimated by substrating the data from it's low pass
+    The noise field is estimated by subtracting the data from it's low pass
     filtered version, from which we then compute the variance on a local
     neighborhood basis.
 
@@ -246,15 +239,14 @@ def sliding_window(a, ws, ss=None, flatten=True):
     shape = np.array(a.shape)
 
     # ensure that ws, ss, and a.shape all have the same number of dimensions
-    ls = [len(shape),len(ws),len(ss)]
+    ls = [len(shape), len(ws), len(ss)]
     if 1 != len(set(ls)):
-        raise ValueError(\
-        'a.shape, ws and ss must all have the same length. They were %s' % str(ls))
+        raise ValueError('a.shape, ws and ss must all have the same length. They were %s' % str(ls))
 
     # ensure that ws is smaller than a in every dimension
     if np.any(ws > shape):
         raise ValueError('ws cannot be larger than a in any dimension.'
-                         'a.shape was %s and ws was %s' % (str(a.shape),str(ws)))
+                         'a.shape was %s and ws was %s' % (str(a.shape), str(ws)))
 
     # how many slices will there be in each dimension?
     newshape = norm_shape(((shape - ws) // ss) + 1)
