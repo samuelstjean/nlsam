@@ -3,7 +3,7 @@
 from __future__ import division, print_function
 
 import numpy as np
-from numpy.testing import assert_almost_equal
+from numpy.testing import assert_almost_equal, run_module_suite
 
 from nlsam.utils import col2im_nd, im2col_nd
 from nlsam.smoothing import sliding_window
@@ -55,4 +55,6 @@ def test_reshaping():
     redo = col2im_nd(out, (2, 2, 2, 10), (10, 10, 10, 10), (0, 0, 0, 0))
     np.testing.assert_allclose(a, redo)
 
-test_reshaping()
+
+if __name__ == "__main__":
+    run_module_suite()

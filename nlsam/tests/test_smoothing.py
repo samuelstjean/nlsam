@@ -3,7 +3,7 @@
 from __future__ import division, print_function
 
 import numpy as np
-from numpy.testing import assert_almost_equal
+from numpy.testing import assert_almost_equal, run_module_suite
 
 from nlsam.stabilizer import _test_xi as xi
 from nlsam.smoothing import (sh_smooth,
@@ -81,6 +81,5 @@ def test_local_piesno():
         assert(np.alltrue(0.03 > np.abs(std - local_piesno(noise, N, return_mask=False).mean()) / std))
 
 
-test_sh_smooth()
-test_local_standard_deviation()
-test_local_piesno()
+if __name__ == "__main__":
+    run_module_suite()
