@@ -85,6 +85,7 @@ def test_erfinv():
         assert_almost_equal(_test_erfinv(y), erfinv(y))
         assert_almost_equal(_test_erfinv(-y), erfinv(-y))
 
+
 test_chi_to_gauss()
 test_fixed_point_finder()
 test_xi()
