@@ -3,7 +3,7 @@
 from __future__ import division, print_function
 
 import numpy as np
-from numpy.testing import assert_almost_equal
+from numpy.testing import assert_almost_equal, run_module_suite
 
 try:
     from scipy.special import factorialk
@@ -85,11 +85,6 @@ def test_erfinv():
         assert_almost_equal(_test_erfinv(y), erfinv(y))
         assert_almost_equal(_test_erfinv(-y), erfinv(-y))
 
-test_chi_to_gauss()
-test_fixed_point_finder()
-test_xi()
-test_beta()
-test_inv_cdf_gauss()
-test_factorial()
-test_marcumq()
-test_erfinv()
+
+if __name__ == "__main__":
+    run_module_suite()

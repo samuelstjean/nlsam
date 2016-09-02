@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.5.1] - development version
+
+- Fixed a bug in local piesno (option --noise_map) where the noise would be underestimated.
+
 ## [0.5] - 2016-08-30
 
 - Heavy refactor of the library. There is now a single script named nlsam_denoising
