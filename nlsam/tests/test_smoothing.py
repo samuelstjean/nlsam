@@ -47,7 +47,7 @@ def test_local_standard_deviation():
         assert(np.alltrue(0.1 > (np.abs(std - corrected_std.mean()) / std)))
 
     # This estimation has a harder time at low SNR, high coils value, probably due
-    # to how the synthetic nosie field is computed
+    # to how the synthetic noise field is computed
     # SNR = 5
     mean = 250
     std = 50
