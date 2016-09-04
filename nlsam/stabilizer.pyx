@@ -3,7 +3,7 @@
 cimport cython
 
 from itertools import repeat
-from libc.math cimport sqrt, exp, fabs, M_PI, isnan
+from libc.math cimport sqrt, exp, fabs, M_PI
 from multiprocessing import Pool, cpu_count
 
 import numpy as np
@@ -20,6 +20,11 @@ if not have_cython_gsl:
         'try pip install cythongsl and sudo apt-get install libgsl0-dev libgsl0ldbl')
 
 from cython_gsl cimport gsl_sf_hyperg_1F1
+
+#libc.math isnan does not work on windows, it is called _isnan, so we use this one instead
+cdef extern from "numpy/npy_math.h" nogil:
+    bint npy_isnan(double x)
+
 
 @cython.wraparound(True)
 def stabilization(data, m_hat, mask, sigma, N, n_cores=None):
@@ -276,7 +281,7 @@ cdef double fixed_point_finder(double m_hat, double sigma, int N,
             if n_iter > max_iter:
                 break
 
-        if t1 < 0 or isnan(t1): # Should not happen unless numerically unstable
+        if t1 < 0 or npy_isnan(t1): # Should not happen unless numerically unstable
             t1 = 0
 
         return t1
