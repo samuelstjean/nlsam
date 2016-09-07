@@ -10,6 +10,12 @@
 
 The reference implementation for the Non Local Spatial and Angular Matching (NLSAM) denoising algorithm for diffusion MRI.
 
+## tl;dr
+
++ [Source downloads + precompiled binaries](https://github.com/samuelstjean/nlsam/releases)
++ [Example + Usage guide](example/README.md)
++ [License](LICENSE) : GPL v3
+
 ## How to install
 
 The easiest way is to go grab a [release][], in which case the downloaded zip file contains everything you need (no python installation required,
