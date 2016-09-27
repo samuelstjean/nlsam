@@ -3,6 +3,7 @@
 ## [0.5.1] - development version
 
 - Fixed a bug in local piesno (option --noise_map) where the noise would be underestimated.
+- Fixed a bug from v0.5 where datasets with multiple b0s would be incorrectly reshaped and dropped some volumes. Thanks to Samuel Deslauriers-Gauthier for reporting.
 
 ## [0.5] - 2016-08-30
 
