@@ -8,7 +8,7 @@ params['name'] = 'nlsam'
 params['author'] = 'Samuel St-Jean'
 params['author_email'] = 'samuel@isi.uu.nl'
 params['url'] = 'https://github.com/samuelstjean/nlsam'
-params['version'] = '0.5'
+params['version'] = '0.5.1'
 params['requires'] = ['cythongsl>=0.2.1',
                       'numpy>=1.10.4',
                       'cython>=0.21']
@@ -26,7 +26,8 @@ from os.path import join, exists, splitext
 
 # BEFORE importing distutils, remove MANIFEST. distutils doesn't properly
 # update it when the contents of directories change.
-if exists('MANIFEST'): os.remove('MANIFEST')
+if exists('MANIFEST'):
+    os.remove('MANIFEST')
 
 # Download setuptools if not present
 try:
