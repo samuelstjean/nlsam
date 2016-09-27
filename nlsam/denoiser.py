@@ -86,6 +86,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     b0_loc = tuple(np.where(bvals <= b0_threshold)[0])
     num_b0s = len(b0_loc)
     variance = sigma**2
+    orig_shape = data.shape
 
     logger.info("Found {} b0s at position {}".format(str(num_b0s), str(b0_loc)))
 
@@ -118,8 +119,6 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         sym_bvecs = np.vstack((np.delete(bvecs, b0_loc, axis=0), np.delete(-bvecs, b0_loc, axis=0)))
 
     neighbors = (angular_neighbors(sym_bvecs, block_size[-1] - num_b0s) % (data.shape[-1] - num_b0s))[:data.shape[-1] - num_b0s]
-
-    orig_shape = data.shape
 
     # Full overlap for dictionary learning
     overlap = np.array(block_size, dtype=np.int16) - 1
