@@ -14,7 +14,6 @@ The reference implementation for the Non Local Spatial and Angular Matching (NLS
 
 + [Source downloads + precompiled binaries](https://github.com/samuelstjean/nlsam/releases)
 + [Example + Usage guide](example/README.md)
-+ [License](LICENSE) : GPL v3
 
 ## How to install
 
