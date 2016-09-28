@@ -285,6 +285,19 @@ def main():
             nib.save(nib.Nifti1Image(mask_noise.astype(np.int16), affine), args.save_piesno_mask)
             logger.info("Piesno mask saved as {}".format(os.path.realpath(args.save_piesno_mask)))
 
+        # If the detected noise standard deviation is low and the noise mask has few voxels,
+        # maybe something went wrong. We check here that at least 1% of noisy voxels
+        # were found and warn the user otherwise.
+        frac_noisy_voxels = np.sum(mask_noise) / np.size(mask_noise) * 100
+
+        if frac_noisy_voxels < 1.:
+            logger.warning('PIESNO was used with N={}, but it found only {:.3f}%'
+                           ' of voxels as pure noise with a mean standard deviation'
+                           ' of {:.5f}. This is suspicious, so please check'
+                           ' the resulting sigma volume if something went wrong.'
+                           ' In cases where PIESNO is not working, you might want to try'
+                           ' --noise_est local_std'.format(N, frac_noisy_voxels, np.mean(sigma_1D)))
+
     elif noise_method == 'local_std':
         logger.info("Estimating noise with method {}".format(noise_method))
         sigma = local_standard_deviation(data, n_cores=n_cores)

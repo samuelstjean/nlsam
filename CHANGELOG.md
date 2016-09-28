@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.5.2] - Development version
+
+- PIESNO will now warn if less than 1% of noisy voxels were identified, which might indicate that something have gone wrong during the noise estimation.
+
 ## [0.5.1] - 2016-09-27
 
 - Fixed a bug in local piesno (option --noise_map) where the noise would be underestimated.
@@ -23,7 +27,7 @@ so now it is easier to hook in with other python projects.
 
 ## [0.3.1] - 2016-07-11
 
-- The original header is now saved back as-is to prevent potential conflicts
+- The original header is now saved back as is to prevent potential conflicts
 with other processing tools. Thanks to Derek Pisner for reporting.
 
 ## [0.3] - 2016-05-13
