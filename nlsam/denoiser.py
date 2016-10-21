@@ -49,9 +49,10 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         If True, assumes that for each coordinate (x, y, z) in bvecs,
         (-x, -y, -z) was also acquired.
     rejection : tuple, default None
-        List of indexes to discard from the training set. They will still be reconstructed,
-        so this is useful for excluding datasets heavily corrupted by artifacts if they affect the
-        whole reconstructed data.
+        List of indexes to discard from the training set.
+        b0s images will be completely discarded from the image and replaced with the mean b0s:
+        DWIs will still be reconstructed, so this is useful for excluding datasets
+        heavily corrupted by artifacts if they affect the whole reconstructed data.
     n_cores : int, default None
         Number of processes to use for the denoising. Default is to use
         all available cores.
@@ -93,6 +94,22 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
     logger.info("Found {} b0s at position {}".format(str(num_b0s), str(b0_loc)))
 
+    if rejection is not None:
+
+        new_b0_loc = tuple()
+
+        for r in rejection:
+            if r in b0_loc:
+                logger.info("b0 {} will be excluded as a whole".format(str(r)))
+                num_b0s -= 1
+            else:
+                new_b0_loc += (r,)
+
+        if num_b0s == 0:
+            raise ValueError('It seems like all b0s {} have been excluded from the rejection set {}'.format(str(b0_loc), str(rejection)))
+
+        b0_loc = new_b0_loc
+
     # Average multiple b0s, and just use the average for the rest of the script
     # patching them in at the end
     if num_b0s > 1:
@@ -113,6 +130,17 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
     else:
         rest_of_b0s = None
+
+    # We need to shift the indexes for rejection if the b0 is not at position 0
+    if rejection is not None:
+        cond = np.array(rejection) >= np.array(b0_loc)
+        rejection = tuple(np.where(cond, b0_loc - 1, rejection))
+
+        if rest_of_b0s is not None:
+
+            for loc in b0_loc:
+                cond = np.array(rejection) >= loc
+                rejection = tuple(np.where(cond, loc - 1, rejection))
 
     # Double bvecs to find neighbors with assumed symmetry if needed
     if is_symmetric:
