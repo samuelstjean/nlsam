@@ -356,11 +356,13 @@ def greedy_set_finder(sets):
 def reject_from_training(indexes, rejection):
     """Puts the subsets from indexes specified in rejection at the end of indexes"""
 
+    indexes = np.array(indexes)
     to_reject = np.zeros(len(indexes), dtype=np.bool)
 
     for i in range(len(indexes)):
-        if any(r in indexes[i] for r in rejection):
-            to_reject[i] = True
+        for r in rejection:
+            if r in indexes[i]:
+                to_reject[i] = True
 
     sorted_args = np.argsort(to_reject)
 
