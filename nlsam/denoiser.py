@@ -70,8 +70,9 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         The denoised dataset
     """
 
+    logger = logging.getLogger('nlsam')
+
     if verbose:
-        logger = logging.getLogger('nlsam')
         logger.setLevel(logging.INFO)
 
     if mask is None:
@@ -247,8 +248,10 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 def local_denoise(data, block_size, overlap, variance, param_alpha, param_D,
                   n_iter=10, reject=False, mask=None, dtype=np.float64,
                   n_cores=None, verbose=False):
+
+    logger = logging.getLogger('nlsam')
+
     if verbose:
-        logger = logging.getLogger('nlsam')
         logger.setLevel(logging.INFO)
 
     if mask is None:
