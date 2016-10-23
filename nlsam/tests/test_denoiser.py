@@ -21,20 +21,18 @@ def test_greedy_set_finder():
 
 
 def test_reject_from_training():
-    indexes = np.array([[1,2,3],
-                        [4,5,6],
-                        [7,8,9,],
-                        [10,10,10],
-                        [7,8,9],
-                        [1,4,5]])
+    indexes = np.array([[1, 2, 3],
+                        [4, 5, 6],
+                        [7, 8, 9],
+                        [10, 10, 10],
+                        [11, 11, 11],
+                        [1, 4, 5]])
 
-    idx_reordered = np.array([[7,8,9,],
-                              [10,10,10],
-                              [7,8,9],
-                              [1,2,3],
-                              [4,5,6],
-                              [1,4,5]])
+    # put anything with volume 1, 3 or 4 at the end
     rejection = (1, 3, 4)
+
+    # index set 0, 1 and 5 are thus problematics
+    idx_reordered = np.take(indexes, (2, 3, 4, 0, 1, 5), axis=0)
     rej_bool = [False, False, False, True, True, True]
 
     idx, rej = reject_from_training(indexes, rejection)

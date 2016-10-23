@@ -363,15 +363,14 @@ def reject_from_training(indexes, rejection):
     """Puts the subsets from indexes specified in rejection at the end of indexes"""
 
     indexes = np.array(indexes)
-    to_reject = np.zeros(len(indexes), dtype=np.bool)
+    to_reject = np.zeros(indexes.shape[0], dtype=np.bool)
 
-    for i in range(len(indexes)):
-        for r in rejection:
+    for r in rejection:
+        for i in range(indexes.shape[0]):
             if r in indexes[i]:
                 to_reject[i] = True
 
     sorted_args = np.argsort(to_reject)
-
     return indexes[sorted_args], to_reject[sorted_args]
 
 
