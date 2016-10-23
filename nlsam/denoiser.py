@@ -135,17 +135,20 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     else:
         rest_of_b0s = None
 
-    # We need to shift the indexes for rejection if the b0 is not at position 0
+    # b0_loc = (0,)
+    # rest_of_b0s = (8,14,60)
+    # print(rejection, b0_loc, rest_of_b0s)
+    # We need to shift the indexes for rejection by 1 for each b0s we removed which are located afterwards
     if rejection is not None:
-        cond = np.array(rejection) >= np.array(b0_loc)
-        rejection = tuple(np.where(cond, b0_loc - num_b0s, rejection))
-
+        cond = np.greater(b0_loc, rejection)
+        rejection = tuple(np.where(cond, np.array(rejection), np.array(rejection) - 1))
+        # print(rejection, b0_loc, rest_of_b0s)
         if rest_of_b0s is not None:
-
-            for loc in b0_loc:
-                cond = np.array(rejection) >= loc
-                rejection = tuple(np.where(cond, loc - num_b0s, rejection))
-
+            for loc in rest_of_b0s:
+                cond = np.greater(loc, rejection)
+                rejection = tuple(np.where(cond, np.array(rejection), np.array(rejection) - 1))
+                # print(rejection, cond)
+    # 1/0
     # Double bvecs to find neighbors with assumed symmetry if needed
     if is_symmetric:
         logger.info('Data is assumed to be already symmetrized.')
@@ -168,6 +171,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         indexes = greedy_set_finder(indexes)
 
     if rejection is not None:
+        logger.info("Volumes {} will be excluded from the training set.".format(str(rejection)))
         indexes, to_reject = reject_from_training(indexes, rejection)
     else:
         to_reject = np.zeros(len(indexes), dtype=np.bool)
@@ -266,6 +270,7 @@ def local_denoise(data, block_size, overlap, variance, param_alpha, param_D,
             raise ValueError('D is in not in param_alpha, but we are supposed to '
                              'skip training for this set.')
         # param_D['D'] = param_alpha['D']
+        print('currently rejecting stuff')
 
     else:
         # no overlapping blocks for training
@@ -288,7 +293,7 @@ def local_denoise(data, block_size, overlap, variance, param_alpha, param_D,
         param_D['D'] = param_alpha['D']
 
         del train_data, X
-
+    return data
     time_multi = time()
     pool = Pool(processes=n_cores)
 
@@ -426,7 +431,7 @@ def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
             if not_converged[i]:
                 param_alpha['lambda1'] = var_mat[i] * (X.shape[0] + gamma * np.sqrt(2 * X.shape[0]))
                 DtDW[:] = (1. / W[..., None, i]) * DtD * (1. / W[:, i])
-                spams.lasso(X[:, i:i + 1], Q=DtDW, q=DtXW[:, i:i + 1], **param_alpha).toarray(alpha[:, i:i + 1])
+                spams.lasso(X[:, i:i + 1], Q=DtDW, q=DtXW[:, i:i + 1], **param_alpha).toarray(out=alpha[:, i:i + 1])
 
         # alpha.toarray(out=arr)
         nonzero_ind[:] = alpha != 0
@@ -442,7 +447,7 @@ def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
     weigths = np.ones(X_full_shape[1], dtype=dtype, order='F')
     weigths[train_idx] = 1. / (np.sum(alpha != 0, axis=0) + 1.)
 
-    X = np.zeros(X_full_shape, dtype=dtype, order='F')
-    np.dot(D, alpha, out=X[:, train_idx])
+    X = np.zeros(X_full_shape, dtype=dtype)
+    X[:, train_idx] = np.dot(D, alpha)
 
     return col2im_nd(X, block_size, orig_shape, overlap, weigths)

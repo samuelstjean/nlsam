@@ -188,6 +188,13 @@ def main():
     block_size = np.array(args.spatial_block_size + (args.angular_block_size,))
     rejection = args.rejection
 
+    # A single volume will give an int, we want a tuple
+    if isinstance(rejection, int):
+        rejection = tuple((rejection,))
+
+    if len(rejection) > len(set(rejection)):
+        raise ValueError('Some indices to reject where specified twice {}'.format(str(rejection)))
+
     logger = logging.getLogger('nlsam')
 
     if args.logfile is not None:
@@ -229,6 +236,10 @@ def main():
     header = vol.get_header()
     header.set_data_dtype(np.float32)
     logger.info("Loading data {}".format(os.path.realpath(args.input)))
+
+    if any(np.logical_or(np.greater(0, np.array(rejection)), np.less(data.shape[-1] - 1, np.array(rejection)))):
+        raise ValueError('Some indices to reject where negative or larger than the number '
+                         'of volumes {}'.format(str(rejection)))
 
     if args.mask is not None:
         mask = np.asarray(nib.load(args.mask).get_data(caching='unchanged'), dtype=np.bool)
