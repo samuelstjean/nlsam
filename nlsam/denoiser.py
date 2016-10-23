@@ -423,17 +423,17 @@ def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
 
     has_converged = np.zeros(alpha.shape[1], dtype=np.bool)
     not_converged = np.zeros(alpha.shape[1], dtype=np.bool)
-    nonzero_ind = np.zeros_like(alpha, dtype=np.bool)
+    nonzero_ind = np.zeros_like(alpha, dtype=np.bool, order='F')
 
     DtD = np.dot(D.T, D)
     DtX = np.dot(D.T, X)
-    DtXW = np.empty_like(DtX, order='F')
-    DtDW = np.empty((D.shape[1], W.shape[0]), dtype=dtype, order='F')
+    DtXW = np.zeros_like(DtX, order='F')
+    DtDW = np.zeros((D.shape[1], W.shape[0]), dtype=dtype, order='F')
 
     # has_converged = np.zeros(alpha.shape[1], dtype=np.bool)
     # arr = np.empty(alpha.shape)
 
-    alpha_old = np.zeros(alpha.shape, dtype=dtype)
+    alpha_old = np.zeros(alpha.shape, dtype=dtype, order='F')
     xi = np.random.randn(X.shape[0], X.shape[1]) * var_mat
     eps = np.max(np.abs(np.dot(D.T, xi)), axis=0)
 
@@ -461,7 +461,7 @@ def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
     weigths = np.ones(X_full_shape[1], dtype=dtype, order='F')
     weigths[train_idx] = 1. / (np.sum(alpha != 0, axis=0) + 1.)
 
-    X = np.zeros(X_full_shape, dtype=dtype)
+    X = np.zeros(X_full_shape, dtype=dtype, order='F')
     X[:, train_idx] = np.dot(D, alpha)
 
     return col2im_nd(X, block_size, orig_shape, overlap, weigths)
