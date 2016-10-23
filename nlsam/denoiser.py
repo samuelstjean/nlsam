@@ -110,7 +110,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
     # Rejection happens later, but the indices are converted without b0s, so this is the actual user input
     if rejection is not None:
-        logger.info("Volumes {} will be excluded from the training set.".format(str(tuple(rejection))))
+        logger.info("Volumes {} will be excluded from the training set.".format(str(rejection)))
 
     # Average multiple b0s, and just use the average for the rest of the script
     # patching them in at the end
@@ -120,7 +120,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
             good_b0s = tuple(x for x in b0_loc if x not in bad_b0s)
         else:
             good_b0s = b0_loc
-
+        # print(good_b0s)
         mean_b0 = np.mean(data[..., good_b0s], axis=-1)
         dwis = tuple(np.where(bvals > b0_threshold)[0])
         data = data[..., dwis]
@@ -135,16 +135,16 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         bvecs = np.insert(bvecs, b0_loc, [0., 0., 0.], axis=0)
         b0_loc = tuple([b0_loc])
         num_b0s = 1
-
+        # print(dwis)
     else:
         rest_of_b0s = None
 
-    rejection = np.array(rejection)
     # b0_loc = (0,)
     # rest_of_b0s = (8,14,60)
     # print(rejection, b0_loc, rest_of_b0s)
     # We need to shift the indexes for rejection by 1 for each b0s we removed which are located afterwards
     if rejection is not None:
+        rejection = np.array(rejection)
         # cond = b0_loc < rejection
         # print(b0_loc < rejection)
         # print(tuple(np.where(cond, np.array(rejection), np.array(rejection) - 1)))
@@ -155,6 +155,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                 # cond = loc < rejection
                 rejection = np.where(loc < rejection, rejection - 1, rejection)
                 # print(rejection, cond)
+        logger.info("Internal numbering for rejected volumes is {}".format(str(rejection)))
     # 1/0
     # print(rejection, b0_loc, rest_of_b0s)
     # 1/0
@@ -214,12 +215,14 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         param_D['numThreads'] = -1
 
     for i, idx in enumerate(indexes):
-        logger.info('Now denoising volumes {} / block {} out of {}.'.format(tuple(idx), i + 1, len(indexes)))
+        logger.info('Now denoising volumes {} / block {} out of {}.'.format(idx, i + 1, len(indexes)))
 
-        dwi_idx = tuple(np.where(idx <= b0_loc, idx, np.array(idx) + num_b0s))
+        dwi_idx = tuple(np.where(idx < b0_loc, idx, np.array(idx) + num_b0s))
         to_denoise[..., 0] = np.copy(b0)
         to_denoise[..., 1:] = data[..., idx]
-
+        # data_denoised[..., b0_loc + dwi_idx] += to_denoise
+        # print(b0_loc + dwi_idx)
+        # print(idx)
         data_denoised[..., b0_loc + dwi_idx] += local_denoise(to_denoise,
                                                               b0_block_size,
                                                               overlap,
@@ -240,7 +243,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                                   :orig_shape[1],
                                   :orig_shape[2],
                                   :orig_shape[3]] / divider
-
+    # print(rest_of_b0s)
     # Put back the original number of b0s
     if rest_of_b0s is not None:
 
