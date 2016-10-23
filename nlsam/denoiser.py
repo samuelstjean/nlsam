@@ -115,18 +115,23 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     # patching them in at the end
     if num_b0s > 1:
         mean_b0 = np.mean(data[..., b0_loc], axis=-1)
-        dwis = tuple(np.where(bvals > b0_threshold)[0])
-        data = data[..., dwis]
-        bvals = np.take(bvals, dwis, axis=0)
-        bvecs = np.take(bvecs, dwis, axis=0)
+        data[..., b0_loc] = mean_b0
+        bvals[b0_loc] = [0.]
+        bvecs[b0_loc] = [0., 0., 0.]
+
+        # dwis = tuple(np.where(bvals > b0_threshold)[0])
+        # data = data[..., dwis]
+        # bvals = np.take(bvals, dwis, axis=0)
+        # bvecs = np.take(bvecs, dwis, axis=0)
 
         rest_of_b0s = b0_loc[1:]
-        b0_loc = b0_loc[0]
+        b0_loc = tuple(b0_loc[0])
 
-        data = np.insert(data, b0_loc, mean_b0, axis=-1)
-        bvals = np.insert(bvals, b0_loc, [0.], axis=0)
-        bvecs = np.insert(bvecs, b0_loc, [0., 0., 0.], axis=0)
-        b0_loc = tuple([b0_loc])
+        # data = np.insert(data, b0_loc, mean_b0, axis=-1)
+        # data[..., b0_loc] = mean_b0
+        # bvals = np.insert(bvals, b0_loc, [0.], axis=0)
+        # bvecs = np.insert(bvecs, b0_loc, [0., 0., 0.], axis=0)
+        # b0_loc = tuple([b0_loc])
         num_b0s = 1
 
     else:
@@ -397,45 +402,51 @@ def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
 
     D = param_alpha['D']
 
-    alpha = lil_matrix((D.shape[1], X.shape[1]))
+    alpha = np.zeros((D.shape[1], X.shape[1]), dtype=dtype, order='F')
     W = np.ones(alpha.shape, dtype=dtype, order='F')
+
+    has_converged = np.zeros(alpha.shape[1], dtype=np.bool)
+    not_converged = np.zeros(alpha.shape[1], dtype=np.bool)
+    nonzero_ind = np.zeros_like(alpha, dtype=np.bool)
 
     DtD = np.dot(D.T, D)
     DtX = np.dot(D.T, X)
     DtXW = np.empty_like(DtX, order='F')
+    DtDW = np.empty((D.shape[1], W.shape[0]), dtype=dtype, order='F')
 
-    alpha_old = np.ones(alpha.shape, dtype=dtype)
-    has_converged = np.zeros(alpha.shape[1], dtype=np.bool)
-    arr = np.empty(alpha.shape)
 
+    # has_converged = np.zeros(alpha.shape[1], dtype=np.bool)
+    # arr = np.empty(alpha.shape)
+
+    alpha_old = np.zeros(alpha.shape, dtype=dtype)
     xi = np.random.randn(X.shape[0], X.shape[1]) * var_mat
     eps = np.max(np.abs(np.dot(D.T, xi)), axis=0)
 
     for _ in range(n_iter):
-        not_converged = np.equal(has_converged, False)
+        np.equal(has_converged, False, out=not_converged)
         DtXW[:, not_converged] = DtX[:, not_converged] / W[:, not_converged]
 
         for i in range(alpha.shape[1]):
-            if not has_converged[i]:
+            if not_converged[i]:
                 param_alpha['lambda1'] = var_mat[i] * (X.shape[0] + gamma * np.sqrt(2 * X.shape[0]))
-                DtDW = (1. / W[..., None, i]) * DtD * (1. / W[:, i])
-                alpha[:, i:i + 1] = spams.lasso(X[:, i:i + 1], Q=np.asfortranarray(DtDW), q=DtXW[:, i:i + 1], **param_alpha)
+                DtDW[:] = (1. / W[..., None, i]) * DtD * (1. / W[:, i])
+                spams.lasso(X[:, i:i + 1], Q=DtDW, q=DtXW[:, i:i + 1], **param_alpha).toarray(alpha[:, i:i + 1])
 
-        alpha.toarray(out=arr)
-        nonzero_ind = arr != 0
-        arr[nonzero_ind] /= W[nonzero_ind]
-        has_converged = np.max(np.abs(alpha_old - arr), axis=0) < tolerance
+        # alpha.toarray(out=arr)
+        nonzero_ind[:] = alpha != 0
+        alpha[nonzero_ind] /= W[nonzero_ind]
+        has_converged = np.max(np.abs(alpha_old - alpha), axis=0) < tolerance
 
         if np.all(has_converged):
             break
 
-        alpha_old[:] = arr
+        alpha_old[:] = alpha
         W[:] = 1. / (np.abs(alpha_old**tau) + eps)
 
     weigths = np.ones(X_full_shape[1], dtype=dtype, order='F')
     weigths[train_idx] = 1. / (alpha.getnnz(axis=0) + 1.)
 
     X = np.zeros(X_full_shape, dtype=dtype, order='F')
-    X[:, train_idx] = np.dot(D, arr)
+    X[:, train_idx] = np.dot(D, alpha)
 
     return col2im_nd(X, block_size, orig_shape, overlap, weigths)
