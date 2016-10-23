@@ -97,6 +97,9 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
     if rejection is not None:
 
+        # Rejection happens later, but the indices are converted without b0s, so this is the actual user input
+        logger.info("Volumes {} will be excluded from the training set.".format(str(rejection)))
+
         bad_b0s = tuple()
 
         for r in rejection:
@@ -107,10 +110,6 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
         if num_b0s == 0:
             raise ValueError('It seems like all b0s {} have been excluded from the rejection set {}'.format(str(b0_loc), str(rejection)))
-
-    # Rejection happens later, but the indices are converted without b0s, so this is the actual user input
-    if rejection is not None:
-        logger.info("Volumes {} will be excluded from the training set.".format(str(rejection)))
 
     # Average multiple b0s, and just use the average for the rest of the script
     # patching them in at the end
@@ -181,9 +180,11 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         indexes = greedy_set_finder(indexes)
     # print(len(indexes))
     if rejection is not None:
+        # print(type(indexes))
         indexes, to_reject = reject_from_training(indexes, rejection)
     else:
         to_reject = np.zeros(len(indexes), dtype=np.bool)
+    # print(type(indexes))
     # print(len(indexes))
     b0_block_size = tuple(block_size[:-1]) + ((block_size[-1] + num_b0s,))
 
@@ -216,13 +217,14 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
     for i, idx in enumerate(indexes):
         logger.info('Now denoising volumes {} / block {} out of {}.'.format(idx, i + 1, len(indexes)))
-
-        dwi_idx = tuple(np.where(idx < b0_loc, idx, np.array(idx) + num_b0s))
+        # print(type(idx), idx)
+        dwi_idx = tuple(np.where(tuple(idx) <= b0_loc, idx, np.array(idx) + num_b0s))
         to_denoise[..., 0] = np.copy(b0)
         to_denoise[..., 1:] = data[..., idx]
         # data_denoised[..., b0_loc + dwi_idx] += to_denoise
         # print(b0_loc + dwi_idx)
         # print(idx)
+        # print(type(idx), type(b0_loc), num_b0s)
         data_denoised[..., b0_loc + dwi_idx] += local_denoise(to_denoise,
                                                               b0_block_size,
                                                               overlap,
@@ -379,10 +381,10 @@ def reject_from_training(indexes, rejection):
     """Puts the subsets from indexes specified in rejection at the end of indexes"""
 
     indexes = np.array(indexes)
-    to_reject = np.zeros(indexes.shape[0], dtype=np.bool)
+    to_reject = np.zeros(len(indexes), dtype=np.bool)
 
     for r in rejection:
-        for i in range(indexes.shape[0]):
+        for i in range(len(indexes)):
             if r in indexes[i]:
                 to_reject[i] = True
 
