@@ -11,7 +11,7 @@ from multiprocessing import Pool
 from nlsam.utils import im2col_nd, col2im_nd
 from nlsam.angular_tools import angular_neighbors
 
-from scipy.sparse import lil_matrix
+# from scipy.sparse import lil_matrix
 
 warnings.simplefilter("ignore", category=FutureWarning)
 
@@ -97,41 +97,39 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
     if rejection is not None:
 
-        new_b0_loc = tuple()
+        bad_b0s = tuple()
 
         for r in rejection:
             if r in b0_loc:
                 logger.info("b0 {} will be excluded as a whole".format(str(r)))
+                bad_b0s += (r,)
                 num_b0s -= 1
-            else:
-                new_b0_loc += (r,)
 
         if num_b0s == 0:
             raise ValueError('It seems like all b0s {} have been excluded from the rejection set {}'.format(str(b0_loc), str(rejection)))
 
-        b0_loc = new_b0_loc
-
     # Average multiple b0s, and just use the average for the rest of the script
     # patching them in at the end
     if num_b0s > 1:
-        mean_b0 = np.mean(data[..., b0_loc], axis=-1)
-        data[..., b0_loc] = mean_b0
-        bvals[b0_loc] = [0.]
-        bvecs[b0_loc] = [0., 0., 0.]
 
-        # dwis = tuple(np.where(bvals > b0_threshold)[0])
-        # data = data[..., dwis]
-        # bvals = np.take(bvals, dwis, axis=0)
-        # bvecs = np.take(bvecs, dwis, axis=0)
+        if any(bad_b0s):
+            good_b0s = tuple(x for x in b0_loc if x not in bad_b0s)
+        else:
+            good_b0s = b0_loc
+
+        mean_b0 = np.mean(data[..., good_b0s], axis=-1)
+        dwis = tuple(np.where(bvals > b0_threshold)[0])
+        data = data[..., dwis]
+        bvals = np.take(bvals, dwis, axis=0)
+        bvecs = np.take(bvecs, dwis, axis=0)
 
         rest_of_b0s = b0_loc[1:]
-        b0_loc = tuple(b0_loc[0])
+        b0_loc = b0_loc[0]
 
-        # data = np.insert(data, b0_loc, mean_b0, axis=-1)
-        # data[..., b0_loc] = mean_b0
-        # bvals = np.insert(bvals, b0_loc, [0.], axis=0)
-        # bvecs = np.insert(bvecs, b0_loc, [0., 0., 0.], axis=0)
-        # b0_loc = tuple([b0_loc])
+        data = np.insert(data, b0_loc, mean_b0, axis=-1)
+        bvals = np.insert(bvals, b0_loc, [0.], axis=0)
+        bvecs = np.insert(bvecs, b0_loc, [0., 0., 0.], axis=0)
+        b0_loc = tuple([b0_loc])
         num_b0s = 1
 
     else:
@@ -140,13 +138,13 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     # We need to shift the indexes for rejection if the b0 is not at position 0
     if rejection is not None:
         cond = np.array(rejection) >= np.array(b0_loc)
-        rejection = tuple(np.where(cond, b0_loc - 1, rejection))
+        rejection = tuple(np.where(cond, b0_loc - num_b0s, rejection))
 
         if rest_of_b0s is not None:
 
             for loc in b0_loc:
                 cond = np.array(rejection) >= loc
-                rejection = tuple(np.where(cond, loc - 1, rejection))
+                rejection = tuple(np.where(cond, loc - num_b0s, rejection))
 
     # Double bvecs to find neighbors with assumed symmetry if needed
     if is_symmetric:
@@ -267,7 +265,7 @@ def local_denoise(data, block_size, overlap, variance, param_alpha, param_D,
         if 'D' not in param_alpha:
             raise ValueError('D is in not in param_alpha, but we are supposed to '
                              'skip training for this set.')
-        param_D['D'] = param_alpha['D']
+        # param_D['D'] = param_alpha['D']
 
     else:
         # no overlapping blocks for training
@@ -414,7 +412,6 @@ def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
     DtXW = np.empty_like(DtX, order='F')
     DtDW = np.empty((D.shape[1], W.shape[0]), dtype=dtype, order='F')
 
-
     # has_converged = np.zeros(alpha.shape[1], dtype=np.bool)
     # arr = np.empty(alpha.shape)
 
@@ -435,7 +432,7 @@ def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
         # alpha.toarray(out=arr)
         nonzero_ind[:] = alpha != 0
         alpha[nonzero_ind] /= W[nonzero_ind]
-        has_converged = np.max(np.abs(alpha_old - alpha), axis=0) < tolerance
+        has_converged[:] = np.max(np.abs(alpha_old - alpha), axis=0) < tolerance
 
         if np.all(has_converged):
             break
@@ -444,9 +441,9 @@ def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
         W[:] = 1. / (np.abs(alpha_old**tau) + eps)
 
     weigths = np.ones(X_full_shape[1], dtype=dtype, order='F')
-    weigths[train_idx] = 1. / (alpha.getnnz(axis=0) + 1.)
+    weigths[train_idx] = 1. / (np.sum(alpha != 0, axis=0) + 1.)
 
     X = np.zeros(X_full_shape, dtype=dtype, order='F')
-    X[:, train_idx] = np.dot(D, alpha)
+    np.dot(D, alpha, out=X[:, train_idx])
 
     return col2im_nd(X, block_size, orig_shape, overlap, weigths)
