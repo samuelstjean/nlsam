@@ -154,7 +154,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                 # cond = loc < rejection
                 rejection = np.where(loc < rejection, rejection - 1, rejection)
                 # print(rejection, cond)
-        logger.info("Internal numbering for rejected volumes is {}".format(str(rejection)))
+        # logger.info("Internal numbering for rejected volumes is {}".format(str(rejection)))
     # 1/0
     # print(rejection, b0_loc, rest_of_b0s)
     # 1/0
@@ -216,11 +216,12 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         param_D['numThreads'] = -1
 
     for i, idx in enumerate(indexes):
-        logger.info('Now denoising volumes {} / block {} out of {}.'.format(idx, i + 1, len(indexes)))
         # print(type(idx), idx)
         dwi_idx = tuple(np.where(tuple(idx) <= b0_loc, idx, np.array(idx) + num_b0s))
         to_denoise[..., 0] = np.copy(b0)
         to_denoise[..., 1:] = data[..., idx]
+
+        logger.info('Now denoising volumes {} / block {} out of {}.'.format(dwi_idx, i + 1, len(indexes)))
         # data_denoised[..., b0_loc + dwi_idx] += to_denoise
         # print(b0_loc + dwi_idx)
         # print(idx)
@@ -306,7 +307,7 @@ def local_denoise(data, block_size, overlap, variance, param_alpha, param_D,
         param_D['D'] = param_alpha['D']
 
         del train_data, X
-    return data
+    # return data
     time_multi = time()
     pool = Pool(processes=n_cores)
 
