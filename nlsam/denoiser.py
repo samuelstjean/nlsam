@@ -108,6 +108,10 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         if num_b0s == 0:
             raise ValueError('It seems like all b0s {} have been excluded from the rejection set {}'.format(str(b0_loc), str(rejection)))
 
+    # Rejection happens later, but the indices are converted without b0s, so this is the actual user input
+    if rejection is not None:
+        logger.info("Volumes {} will be excluded from the training set.".format(str(tuple(rejection))))
+
     # Average multiple b0s, and just use the average for the rest of the script
     # patching them in at the end
     if num_b0s > 1:
@@ -135,19 +139,24 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     else:
         rest_of_b0s = None
 
+    rejection = np.array(rejection)
     # b0_loc = (0,)
     # rest_of_b0s = (8,14,60)
     # print(rejection, b0_loc, rest_of_b0s)
     # We need to shift the indexes for rejection by 1 for each b0s we removed which are located afterwards
     if rejection is not None:
-        cond = np.greater(b0_loc, rejection)
-        rejection = tuple(np.where(cond, np.array(rejection), np.array(rejection) - 1))
+        # cond = b0_loc < rejection
+        # print(b0_loc < rejection)
+        # print(tuple(np.where(cond, np.array(rejection), np.array(rejection) - 1)))
+        rejection = np.where(b0_loc < rejection, rejection - 1, rejection)
         # print(rejection, b0_loc, rest_of_b0s)
         if rest_of_b0s is not None:
             for loc in rest_of_b0s:
-                cond = np.greater(loc, rejection)
-                rejection = tuple(np.where(cond, np.array(rejection), np.array(rejection) - 1))
+                # cond = loc < rejection
+                rejection = np.where(loc < rejection, rejection - 1, rejection)
                 # print(rejection, cond)
+    # 1/0
+    # print(rejection, b0_loc, rest_of_b0s)
     # 1/0
     # Double bvecs to find neighbors with assumed symmetry if needed
     if is_symmetric:
@@ -169,13 +178,12 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
     if subsample:
         indexes = greedy_set_finder(indexes)
-
+    # print(len(indexes))
     if rejection is not None:
-        logger.info("Volumes {} will be excluded from the training set.".format(str(rejection)))
         indexes, to_reject = reject_from_training(indexes, rejection)
     else:
         to_reject = np.zeros(len(indexes), dtype=np.bool)
-
+    # print(len(indexes))
     b0_block_size = tuple(block_size[:-1]) + ((block_size[-1] + num_b0s,))
 
     denoised_shape = data.shape[:-1] + (data.shape[-1] + num_b0s,)
@@ -206,7 +214,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         param_D['numThreads'] = -1
 
     for i, idx in enumerate(indexes):
-        logger.info('Now denoising volumes {} / block {} out of {}.'.format(idx, i + 1, len(indexes)))
+        logger.info('Now denoising volumes {} / block {} out of {}.'.format(tuple(idx), i + 1, len(indexes)))
 
         dwi_idx = tuple(np.where(idx <= b0_loc, idx, np.array(idx) + num_b0s))
         to_denoise[..., 0] = np.copy(b0)
