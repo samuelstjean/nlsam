@@ -11,7 +11,7 @@ from multiprocessing import Pool
 from nlsam.utils import im2col_nd, col2im_nd
 from nlsam.angular_tools import angular_neighbors
 
-# from scipy.sparse import lil_matrix
+from scipy.sparse import lil_matrix
 
 warnings.simplefilter("ignore", category=FutureWarning)
 
@@ -460,4 +460,3 @@ def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
     X[:, train_idx] = np.dot(D, arr)
 
     return col2im_nd(X, block_size, orig_shape, overlap, weigths)
-
