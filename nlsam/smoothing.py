@@ -146,11 +146,7 @@ def local_standard_deviation(arr, n_cores=None):
 
     # No multiprocessing for 3D array since we smooth on each separate volume
     if arr.ndim == 3:
-        n_cores = 1
-
-    if n_cores == 1:
         result = _local_standard_deviation(arr)
-
     else:
         list_arr = []
         for i in range(arr.shape[-1]):
