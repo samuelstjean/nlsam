@@ -5,7 +5,7 @@ import warnings
 import logging
 
 from time import time
-from itertools import repeat
+from itertools import repeat, product
 from multiprocessing import Pool
 
 from nlsam.utils import im2col_nd, col2im_nd
@@ -96,7 +96,6 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     logger.info("Found {} b0s at position {}".format(str(num_b0s), str(b0_loc)))
 
     if rejection is not None:
-
         # Rejection happens later, but the indices are converted without b0s, so this is the actual user input
         logger.info("Volumes {} will be excluded from the training set.".format(str(rejection)))
 
@@ -119,7 +118,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
             good_b0s = tuple(x for x in b0_loc if x not in bad_b0s)
         else:
             good_b0s = b0_loc
-        # print(good_b0s)
+
         mean_b0 = np.mean(data[..., good_b0s], axis=-1)
         dwis = tuple(np.where(bvals > b0_threshold)[0])
         data = data[..., dwis]
@@ -134,30 +133,18 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         bvecs = np.insert(bvecs, b0_loc, [0., 0., 0.], axis=0)
         b0_loc = tuple([b0_loc])
         num_b0s = 1
-        # print(dwis)
     else:
         rest_of_b0s = None
 
-    # b0_loc = (0,)
-    # rest_of_b0s = (8,14,60)
-    # print(rejection, b0_loc, rest_of_b0s)
     # We need to shift the indexes for rejection by 1 for each b0s we removed which are located afterwards
     if rejection is not None:
         rejection = np.array(rejection)
-        # cond = b0_loc < rejection
-        # print(b0_loc < rejection)
-        # print(tuple(np.where(cond, np.array(rejection), np.array(rejection) - 1)))
         rejection = np.where(b0_loc < rejection, rejection - 1, rejection)
-        # print(rejection, b0_loc, rest_of_b0s)
+
         if rest_of_b0s is not None:
             for loc in rest_of_b0s:
-                # cond = loc < rejection
                 rejection = np.where(loc < rejection, rejection - 1, rejection)
-                # print(rejection, cond)
-        # logger.info("Internal numbering for rejected volumes is {}".format(str(rejection)))
-    # 1/0
-    # print(rejection, b0_loc, rest_of_b0s)
-    # 1/0
+
     # Double bvecs to find neighbors with assumed symmetry if needed
     if is_symmetric:
         logger.info('Data is assumed to be already symmetrized.')
@@ -178,14 +165,12 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
     if subsample:
         indexes = greedy_set_finder(indexes)
-    # print(len(indexes))
+
     if rejection is not None:
-        # print(type(indexes))
         indexes, to_reject = reject_from_training(indexes, rejection)
     else:
         to_reject = np.zeros(len(indexes), dtype=np.bool)
-    # print(type(indexes))
-    # print(len(indexes))
+
     b0_block_size = tuple(block_size[:-1]) + ((block_size[-1] + num_b0s,))
 
     denoised_shape = data.shape[:-1] + (data.shape[-1] + num_b0s,)
@@ -216,16 +201,12 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         param_D['numThreads'] = -1
 
     for i, idx in enumerate(indexes):
-        # print(type(idx), idx)
         dwi_idx = tuple(np.where(tuple(idx) <= b0_loc, idx, np.array(idx) + num_b0s))
-        to_denoise[..., 0] = np.copy(b0)
+        to_denoise[..., 0] = b0
         to_denoise[..., 1:] = data[..., idx]
 
         logger.info('Now denoising volumes {} / block {} out of {}.'.format(dwi_idx, i + 1, len(indexes)))
-        # data_denoised[..., b0_loc + dwi_idx] += to_denoise
-        # print(b0_loc + dwi_idx)
-        # print(idx)
-        # print(type(idx), type(b0_loc), num_b0s)
+
         data_denoised[..., b0_loc + dwi_idx] += local_denoise(to_denoise,
                                                               b0_block_size,
                                                               overlap,
@@ -246,7 +227,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                                   :orig_shape[1],
                                   :orig_shape[2],
                                   :orig_shape[3]] / divider
-    # print(rest_of_b0s)
+
     # Put back the original number of b0s
     if rest_of_b0s is not None:
 
@@ -307,7 +288,7 @@ def local_denoise(data, block_size, overlap, variance, param_alpha, param_D,
         param_D['D'] = param_alpha['D']
 
         del train_data, X
-    # return data
+
     time_multi = time()
     pool = Pool(processes=n_cores)
 
@@ -384,10 +365,9 @@ def reject_from_training(indexes, rejection):
     indexes = np.array(indexes)
     to_reject = np.zeros(len(indexes), dtype=np.bool)
 
-    for r in rejection:
-        for i in range(len(indexes)):
-            if r in indexes[i]:
-                to_reject[i] = True
+    for r, i in product(rejection, range(len(indexes))):
+        if r in indexes[i]:
+            to_reject[i] = True
 
     sorted_args = np.argsort(to_reject)
     return indexes[sorted_args], to_reject[sorted_args]
@@ -417,37 +397,37 @@ def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
     param_alpha['L'] = int(0.5 * X.shape[0])
 
     D = param_alpha['D']
-
     alpha = lil_matrix((D.shape[1], X.shape[1]))
-    W = np.ones(alpha.shape, dtype=dtype, order='F')
+    W = np.ones(alpha.shape, dtype=dtype)
 
     DtD = np.dot(D.T, D)
     DtX = np.dot(D.T, X)
-    DtXW = np.empty_like(DtX, order='F')
+    DtXW = np.zeros_like(DtX, order='F')
+    DtDW = np.zeros_like(DtD, order='F')
 
-    alpha_old = np.ones(alpha.shape, dtype=dtype)
-    has_converged = np.zeros(alpha.shape[1], dtype=np.bool)
-    arr = np.empty(alpha.shape)
+    alpha_old = np.zeros(alpha.shape, dtype=dtype)
+    not_converged = np.ones(alpha.shape[1], dtype=np.bool)
+    arr = np.zeros(alpha.shape, dtype=dtype)
+    nonzero_ind = np.zeros(alpha.shape, dtype=np.bool)
 
     xi = np.random.randn(X.shape[0], X.shape[1]) * var_mat
     eps = np.max(np.abs(np.dot(D.T, xi)), axis=0)
 
     for _ in range(n_iter):
-        not_converged = np.equal(has_converged, False)
         DtXW[:, not_converged] = DtX[:, not_converged] / W[:, not_converged]
 
-        for i in range(alpha.shape[1]):
-            if not has_converged[i]:
+        for i in range(X.shape[1]):
+            if not_converged[i]:
                 param_alpha['lambda1'] = var_mat[i] * (X.shape[0] + gamma * np.sqrt(2 * X.shape[0]))
-                DtDW = (1. / W[..., None, i]) * DtD * (1. / W[:, i])
-                alpha[:, i:i + 1] = spams.lasso(X[:, i:i + 1], Q=np.asfortranarray(DtDW), q=DtXW[:, i:i + 1], **param_alpha)
+                DtDW[:] = (1. / W[..., None, i]) * DtD * (1. / W[:, i])
+                alpha[:, i:i + 1] = spams.lasso(X[:, i:i + 1], Q=DtDW, q=DtXW[:, i:i + 1], **param_alpha)
 
         alpha.toarray(out=arr)
-        nonzero_ind = arr != 0
+        np.not_equal(arr, 0, out=nonzero_ind)
         arr[nonzero_ind] /= W[nonzero_ind]
-        has_converged = np.max(np.abs(alpha_old - arr), axis=0) < tolerance
+        not_converged[:] = np.abs(alpha_old - arr).max(axis=0) > tolerance
 
-        if np.all(has_converged):
+        if not np.any(not_converged):
             break
 
         alpha_old[:] = arr
