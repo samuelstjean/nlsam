@@ -11,6 +11,7 @@ addons:
     packages:
       - libblas-dev
       - liblapack-dev
+     # - libopenblas-dev
       - libgsl0-dev
       - libgsl0ldbl
       - gfortran
@@ -19,45 +20,52 @@ addons:
 env:
     global:
         - DEPENDS="cython numpy scipy"
-        - DEPENDS_CONDA='dipy nibabel'
-        - DEPENDS_PIP="cythongsl"
+        - DEPENDS_PIP="cythongsl dipy nibabel"
 
 python:
   - 2.7
   - 3.4
   - 3.5
+  - 3.6
 
 matrix:
   include:
-    # To test minimum dependencies
     - python: 2.7
       env:
-        - DEPENDS="nomkl numpy==1.10.4 cython==0.21"
-        - DEPENDS_CONDA='nibabel==2.0.1 dipy==0.11"
-        - DEPENDS_PIP="cythongsl==0.2.1 scipy==0.14"
+        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
+        - DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+    - python: 3.4
+      env:
+        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
+        - DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
 
 notifications:
     email: false
 
 before_install:
-    - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
-    - bash miniconda.sh -b -p $HOME/miniconda
-    - export PATH="$HOME/miniconda/bin:$PATH"
-    - hash -r
-    - conda config --set always_yes yes --set changeps1 no
-    - conda update -q conda
-    - conda info -a
-    - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION $DEPENDS pip
-    - source activate test-environment
+    # no py36 conda build for dipy yet
+    # we also need numpy > 1.12, as it is currently broken
+    #- if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then DEPENDS='numpy>=1.12.1 cython' DEPENDS_CONDA='nibabel dipy>=1.12'; fi;
+#    - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
+#    - bash miniconda.sh -b -p $HOME/miniconda
+#    - export PATH="$HOME/miniconda/bin:$PATH"
+#    - hash -r
+#    - conda config --set always_yes yes --set changeps1 no
+#    - conda update -q conda
+#    - conda info -a
+#    - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION $DEPENDS pip
+#    - source activate test-environment
     - python --version # just to check
+    - pip install --upgrade pip # so that we can use wheels
     - pip install nose coverage coveralls
-    - source deactivate
-    - source activate test-environment
+#    - source deactivate
+#    - source activate test-environment
 
 install:
-    - conda config --add channels conda-forge
-    - conda install $DEPENDS_CONDA
-    - pip install $DEPENDS_PIP
+   # - conda config --add channels conda-forge
+   # - conda install $DEPENDS_CONDA
+    - pip install $DEPENDS --upgrade
+    - pip install $DEPENDS_PIP --upgrade
     - python setup.py build_ext -i
     - python setup.py install
 
