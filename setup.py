@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 params = {}
-params['modlist'] = ['nlsam.utils',
+params['modules'] = ['nlsam.utils',
                      'nlsam.stabilizer']
 params['scripts'] = ['scripts/nlsam_denoising']
 params['name'] = 'nlsam'
@@ -9,12 +9,15 @@ params['author'] = 'Samuel St-Jean'
 params['author_email'] = 'samuel@isi.uu.nl'
 params['url'] = 'https://github.com/samuelstjean/nlsam'
 params['version'] = '0.5.1'
-params['requires'] = ['cythongsl>=0.2.1',
-                      'numpy>=1.10.4',
-                      'cython>=0.21']
-params['deps'] = ['scipy>=0.14',
-                  'nibabel>=2.0',
-                  'spams>=2.4']
+# params['requires'] = ['cythongsl>=0.2.1',
+#                       'numpy>=1.10.4',
+#                       'cython>=0.21']
+params['dependencies'] = ['numpy>=1.10.4,<1.12'
+                          'scipy>=0.14',
+                          'cython>=0.21',
+                          'cythongsl>=0.2.1',
+                          'nibabel>=2.0',
+                          'spams>=2.4']
 params['links'] = ['https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-python-v2.5-python3.zip#egg=spams-2.5']
 
 ###############################################
@@ -72,11 +75,11 @@ if have_dipy:
         raise ValueError('Local dipy version is {}, but you need at least 0.11!'.format(dipy.__version__))
 else:
     print('Cannot find dipy, it will be installed using pip.')
-    params['deps'].append('dipy>=0.11')
+    params['dependencies'].append('dipy>=0.11')
 
 ext_modules = []
 
-for pyxfile in params['modlist']:
+for pyxfile in params['modules']:
 
     ext_name = splitext(pyxfile)[0].replace('/', '.')
     source = join(*pyxfile.split('.')) + '.pyx'
@@ -100,8 +103,8 @@ setup(
     packages=find_packages(),
     cmdclass={'build_ext': build_ext},
     ext_modules=ext_modules,
-    setup_requires=params['requires'],
-    install_requires=params['deps'] + params['requires'],
+    # setup_requires=params['requires'],
+    install_requires=params['dependencies'],
     dependency_links=params['links'],
     scripts=params['scripts']
 )
