@@ -2,7 +2,6 @@
 
 cimport cython
 
-from itertools import repeat
 from libc.math cimport sqrt, exp, fabs, M_PI
 from multiprocessing import Pool, cpu_count
 
@@ -46,8 +45,8 @@ def stabilization(data, m_hat, mask, sigma, N, n_cores=None):
               m_hat[..., idx, :],
               mask[..., idx, :],
               sigma[..., idx, :],
-              N_vox)
-             for idx, N_vox in zip(range(data.shape[-2]), repeat(N))]
+              N)
+             for idx in range(data.shape[-2])]
 
     data_out = pool.map(_multiprocess_stabilization, arglist)
     pool.close()
@@ -340,9 +339,9 @@ def corrected_sigma(eta, sigma, mask, N, n_cores=None):
         Corrected sigma value, where sigma_gaussian = sigma / sqrt(xi)
     """
     pool = Pool(processes=n_cores)
-    arglist = [(eta_vox, sigma_vox, mask_vox, N_vox)
-               for eta_vox, sigma_vox, mask_vox, N_vox
-               in zip(eta, sigma, mask, repeat(N))]
+    arglist = [(eta_vox, sigma_vox, mask_vox, N)
+               for eta_vox, sigma_vox, mask_vox
+               in zip(eta, sigma, mask, N)]
     sigma = pool.map(_corrected_sigma_parallel, arglist)
     pool.close()
     pool.join()

@@ -5,7 +5,6 @@ import warnings
 import logging
 
 from time import time
-from itertools import repeat
 from multiprocessing import Pool
 
 from nlsam.utils import im2col_nd, col2im_nd
@@ -236,20 +235,13 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     arglist = [(data[:, :, k:k + block_size[2]],
                 mask[:, :, k:k + block_size[2]],
                 variance[:, :, k:k + block_size[2]],
-                block_size_subset,
-                overlap_subset,
-                param_alpha_subset,
-                param_D_subset,
-                dtype_subset,
-                n_iter_subset)
-               for k, block_size_subset, overlap_subset, param_alpha_subset, param_D_subset, dtype_subset, n_iter_subset
-               in zip(range(data.shape[2] - block_size[2] + 1),
-                      repeat(block_size),
-                      repeat(overlap),
-                      repeat(param_alpha),
-                      repeat(param_D),
-                      repeat(dtype),
-                      repeat(n_iter))]
+                block_size,
+                overlap,
+                param_alpha,
+                param_D,
+                dtype,
+                n_iter)
+               for k in range(data.shape[2] - block_size[2] + 1)]
 
     data_denoised = pool.map(processer, arglist)
     pool.close()
