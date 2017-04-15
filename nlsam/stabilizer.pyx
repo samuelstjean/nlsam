@@ -341,7 +341,7 @@ def corrected_sigma(eta, sigma, mask, N, n_cores=None):
     pool = Pool(processes=n_cores)
     arglist = [(eta_vox, sigma_vox, mask_vox, N)
                for eta_vox, sigma_vox, mask_vox
-               in zip(eta, sigma, mask, N)]
+               in zip(eta, sigma, mask)]
     sigma = pool.map(_corrected_sigma_parallel, arglist)
     pool.close()
     pool.join()
