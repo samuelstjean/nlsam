@@ -216,8 +216,8 @@ def main():
 
     vol = nib.load(args.input)
     data = np.asarray(vol.get_data(caching='unchanged'), dtype=np.float32)
-    affine = vol.get_affine()
-    header = vol.get_header()
+    affine = vol.affine
+    header = vol.header
     header.set_data_dtype(np.float32)
     logger.info("Loading data {}".format(os.path.realpath(args.input)))
 

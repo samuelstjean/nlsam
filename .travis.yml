@@ -14,7 +14,7 @@ addons:
       - libgsl0-dev
       - libgsl0ldbl
       - gfortran
-      - gunzip
+      # - gunzip
 
 env:
     global:

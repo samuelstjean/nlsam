@@ -188,8 +188,8 @@ sh_order = 8
 # Load up the data
 vol = nib.load(input_data)
 data = np.asarray(vol.get_data(caching='unchanged'), dtype=np.float32)
-affine = vol.get_affine()
-header = vol.get_header()
+affine = vol.affine
+header = vol.header
 header.set_data_dtype(np.float32)
 
 mask = np.asarray(nib.load(mask_data).get_data(caching='unchanged'))
