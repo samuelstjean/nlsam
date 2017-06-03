@@ -3,7 +3,7 @@ sudo: false
 
 os:
   - linux
-  
+
 cache:
   pip: true
   directories:
@@ -14,17 +14,9 @@ addons:
     packages:
       - libblas-dev
       - liblapack-dev
-     # - libopenblas-dev
       - libgsl0-dev
       - libgsl0ldbl
       - gfortran
-      # - gunzip
-
-#brew_packages:
-#    - gsl
-#    - gfortran
-#    - python
-#    - python3
 
 env:
     global:
@@ -79,33 +71,14 @@ matrix:
       before_install:
         - virtualenv env -p python
         - source env/bin/activate
-      
+
 notifications:
     email: false
 
-#before_install:   
-  
-    # no py36 conda build for dipy yet
-    # we also need numpy > 1.12, as it is currently broken
-    #- if [[ $TRAVIS_PYTHON_VERSION == 3.6 ]]; then DEPENDS='numpy>=1.12.1 cython' DEPENDS_CONDA='nibabel dipy>=1.12'; fi;
-#    - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
-#    - bash miniconda.sh -b -p $HOME/miniconda
-#    - export PATH="$HOME/miniconda/bin:$PATH"
-#    - hash -r
-#    - conda config --set always_yes yes --set changeps1 no
-#    - conda update -q conda
-#    - conda info -a
-#    - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION $DEPENDS pip
-#    - source activate test-environment
-#    - source deactivate
-#    - source activate test-environment
-
 install:
-   # - conda config --add channels conda-forge
-   # - conda install $DEPENDS_CONDA
     # brew install gcc gives gfortran now
     - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install gsl; fi
-  
+
     - python --version # just to check
     - pip install --upgrade pip # so that we can use wheels
     - pip install nose coverage coveralls
