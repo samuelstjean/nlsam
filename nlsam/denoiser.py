@@ -106,7 +106,6 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         bvecs = np.insert(bvecs, b0_loc, [0., 0., 0.], axis=0)
         b0_loc = tuple([b0_loc])
         num_b0s = 1
-
     else:
         rest_of_b0s = None
 
@@ -124,9 +123,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     b0 = np.squeeze(data[..., b0_loc])
     data = np.delete(data, b0_loc, axis=-1)
 
-    indexes = []
-    for i in range(len(neighbors)):
-        indexes += [(i,) + tuple(neighbors[i])]
+    indexes = [(i,) + tuple(neighbors[i]) for i in range(len(neighbors))]
 
     if subsample:
         indexes = greedy_set_finder(indexes)

@@ -12,7 +12,7 @@ params['version'] = '0.5.1'
 # params['requires'] = ['cythongsl>=0.2.1',
 #                       'numpy>=1.10.4',
 #                       'cython>=0.21']
-params['dependencies'] = ['numpy>=1.10.4,<1.12'
+params['dependencies'] = ['numpy>=1.10.4',
                           'scipy>=0.14',
                           'cython>=0.21',
                           'cythongsl>=0.2.1',
