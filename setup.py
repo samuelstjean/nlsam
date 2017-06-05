@@ -9,10 +9,7 @@ params['author'] = 'Samuel St-Jean'
 params['author_email'] = 'samuel@isi.uu.nl'
 params['url'] = 'https://github.com/samuelstjean/nlsam'
 params['version'] = '0.5.1'
-#params['requires'] = ['cythongsl>=0.2.1',
-#                      'numpy>=1.10.4', 'numpy!=1.12.0',  # numpy 1.12 has a bug in fortran ordering
-#                      'cython>=0.21']
-params['deps'] = ['scipy>=0.14',
+params['dependencies'] = ['scipy>=0.14',
                   'nibabel>=2.0',
                   'spams>=2.4',
                   'cythongsl>=0.2.1',
@@ -103,8 +100,7 @@ setup(
     packages=find_packages(),
     cmdclass={'build_ext': build_ext},
     ext_modules=ext_modules,
-    #setup_requires=params['requires'], This stopped working in numpy 1.12
-    install_requires=params['deps'],# + params['requires'],
+    install_requires=params['dependencies'],
     dependency_links=params['links'],
     scripts=params['scripts']
 )
