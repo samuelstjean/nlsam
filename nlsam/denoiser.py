@@ -5,7 +5,13 @@ import warnings
 import logging
 
 from time import time
-from multiprocessing import Pool
+
+try:
+    from multiprocessing import get_context, get_start_method
+    has_context = True
+except ImportError:
+    from multiprocessing import Pool
+    has_context = False
 
 from nlsam.utils import im2col_nd, col2im_nd
 from nlsam.angular_tools import angular_neighbors
@@ -226,9 +232,6 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     param_alpha['numThreads'] = 1
     param_D['numThreads'] = 1
 
-    time_multi = time()
-    pool = Pool(processes=n_cores)
-
     arglist = [(data[:, :, k:k + block_size[2]],
                 mask[:, :, k:k + block_size[2]],
                 variance[:, :, k:k + block_size[2]],
@@ -240,9 +243,18 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
                 n_iter)
                for k in range(data.shape[2] - block_size[2] + 1)]
 
-    data_denoised = pool.map(processer, arglist)
-    pool.close()
-    pool.join()
+    time_multi = time()
+
+    # get_start_method can be set by the user with set_start_method() to use different things
+    # Only python 3.4, so if we don't have it go back to the old fashioned Pool
+    if has_context:
+        with get_context(method=get_start_method()).Pool(processes=n_cores) as pool:
+            data_denoised = pool.map(processer, arglist)
+    else:
+        pool = Pool(processes=n_cores)
+        data_denoised = pool.map(processer, arglist)
+        pool.close()
+        pool.join()
 
     logger.info('Multiprocessing done in {0:.2f} mins.'.format((time() - time_multi) / 60.))
 
@@ -290,8 +302,9 @@ def greedy_set_finder(sets):
 
 
 def processer(arglist):
-    data, mask, variance, block_size, overlap, param_alpha, param_D, dtype, n_iter = arglist
-    return _processer(data, mask, variance, block_size, overlap, param_alpha, param_D, dtype=dtype, n_iter=n_iter)
+    # data, mask, variance, block_size, overlap, param_alpha, param_D, dtype, n_iter = arglist
+    # return _processer(data, mask, variance, block_size, overlap, param_alpha, param_D, dtype=dtype, n_iter=n_iter)
+    return _processer(*arglist)
 
 
 def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
