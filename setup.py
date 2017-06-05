@@ -9,16 +9,13 @@ params['author'] = 'Samuel St-Jean'
 params['author_email'] = 'samuel@isi.uu.nl'
 params['url'] = 'https://github.com/samuelstjean/nlsam'
 params['version'] = '0.5.1'
-# params['requires'] = ['cythongsl>=0.2.1',
-#                       'numpy>=1.10.4',
-#                       'cython>=0.21']
-params['dependencies'] = ['numpy>=1.10.4,<1.12'
-                          'scipy>=0.14',
-                          'cython>=0.21',
-                          'cythongsl>=0.2.1',
-                          'nibabel>=2.0',
-                          'spams>=2.4']
-params['links'] = ['https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-python-v2.5-python3.zip#egg=spams-2.5']
+params['dependencies'] = ['scipy>=0.14',
+                  'nibabel>=2.0',
+                  'spams>=2.4',
+                  'cythongsl>=0.2.1',
+                  'numpy>=1.10.4',
+                  'cython>=0.21']
+params['links'] = ['https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-2.6.zip#egg=spams-2.6']
 
 ###############################################
 # Build stuff is below this line
@@ -103,7 +100,6 @@ setup(
     packages=find_packages(),
     cmdclass={'build_ext': build_ext},
     ext_modules=ext_modules,
-    # setup_requires=params['requires'],
     install_requires=params['dependencies'],
     dependency_links=params['links'],
     scripts=params['scripts']
