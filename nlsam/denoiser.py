@@ -117,7 +117,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
     # Double bvecs to find neighbors with assumed symmetry if needed
     if is_symmetric:
-        logger.info('Data is assumed to be already symmetrized.')
+        logger.info('Data is assumed to be already symmetric.')
         sym_bvecs = np.delete(bvecs, b0_loc, axis=0)
     else:
         sym_bvecs = np.vstack((np.delete(bvecs, b0_loc, axis=0), np.delete(-bvecs, b0_loc, axis=0)))
@@ -246,7 +246,7 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     time_multi = time()
 
     # get_start_method can be set by the user with set_start_method() to use different things
-    # Only python 3.4, so if we don't have it go back to the old fashioned Pool
+    # Only python >= 3.4, so if we don't have it go back to the old fashioned Pool
     if has_context:
         with get_context(method=get_start_method()).Pool(processes=n_cores) as pool:
             data_denoised = pool.map(processer, arglist)
