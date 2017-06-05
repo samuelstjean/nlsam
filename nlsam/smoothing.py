@@ -146,18 +146,11 @@ def local_standard_deviation(arr, n_cores=None):
 
     # No multiprocessing for 3D array since we smooth on each separate volume
     if arr.ndim == 3:
-        n_cores = 1
-
-    if n_cores == 1:
-        result = _local_standard_deviation(arr)
-
+        sigma = _local_standard_deviation(arr)
     else:
         list_arr = []
         for i in range(arr.shape[-1]):
             list_arr += [arr[..., i]]
-
-        if n_cores is None:
-            n_cores = cpu_count()
 
         pool = Pool(n_cores)
         result = pool.map(_local_standard_deviation, list_arr)
@@ -166,13 +159,12 @@ def local_standard_deviation(arr, n_cores=None):
 
         # Reshape the multiprocessed list as an array
         result = np.rollaxis(np.asarray(result), 0, arr.ndim)
+        sigma = np.median(result, axis=-1)
 
     # http://en.wikipedia.org/wiki/Full_width_at_half_maximum
     # This defines a normal distribution similar to specifying the variance.
     full_width_at_half_max = 10
     blur = full_width_at_half_max / np.sqrt(8 * np.log(2))
-
-    sigma = np.median(result, axis=-1)
 
     return gaussian_filter(sigma, blur, mode='reflect')
 

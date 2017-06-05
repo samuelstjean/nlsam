@@ -3,6 +3,7 @@
 ## [0.6] - Development version
 
 - PIESNO will now warn if less than 1% of noisy voxels were identified, which might indicate that something have gone wrong during the noise estimation.
+- Fixed crash in option --noise_est local_std when --cores 1 was also supplied.
 - Some deprecation fixes and other performance improvements
 
 ## [0.5.1] - 2016-09-27
