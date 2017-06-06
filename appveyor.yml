@@ -70,14 +70,14 @@ install:
   # compiled extensions and are not provided as pre-built wheel packages,
   # pip will build them from source using the MSVC compiler matching the
   # target Python version and architecture
-  - "%CMD_IN_ENV% conda config --set always_yes yes --set changeps1 no"
-  - "%CMD_IN_ENV% conda update -q conda"
-  - "%CMD_IN_ENV %conda info -a"
+  - "conda config --set always_yes yes --set changeps1 no"
+  - "conda update -q conda"
+  - "conda info -a"
   # - "%CMD_IN_ENV% pip install -r requirements.txt"
-  - "%CMD_IN_ENV% conda install numpy scipy cython"
-  - "%CMD_IN_ENV% conda install nose coverage coveralls"
-  - "%CMD_IN_ENV% pip install nibabel dipy cythongsl"
-  - "%CMD_IN_ENV% conda install -c conda-forge gsl"
+  - "conda install numpy scipy cython"
+  - "conda install nose coverage coveralls"
+  - "pip install nibabel dipy cythongsl"
+  - "conda install -c conda-forge gsl"
 
 build_script:
   # Build the compiled extension
