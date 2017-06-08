@@ -16,12 +16,15 @@ addons:
       - liblapack-dev
       - libgsl0-dev
       - libgsl0ldbl
-      - gfortran
 
 env:
-    global:
-        - DEPENDS="cython numpy scipy"
-        - DEPENDS_PIP="cythongsl dipy nibabel"
+    - DEPENDS="cython numpy scipy"
+      DEPENDS_PIP="cythongsl dipy nibabel"
+      TESTPART=test_scripts1.sh
+
+    - DEPENDS="cython numpy scipy"
+      DEPENDS_PIP="cythongsl dipy nibabel"
+      TESTPART=test_scripts2.sh
 
 python:
   - 2.7
@@ -34,54 +37,72 @@ matrix:
     - python: 2.7
       env:
         - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
-        - DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+          TESTPART=test_scripts1.sh
+    - python: 2.7
+      env:
+        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
+          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+          TESTPART=test_scripts2.sh
     - python: 3.4
       env:
         - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
-        - DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+          TESTPART=test_scripts1.sh
+    - python: 3.4
+      env:
+        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
+          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+          TESTPART=test_scripts2.sh
+    # test only on a few mac osx bots
     - os: osx
       language: generic
-      osx_image: xcode7.3
       before_install:
         - brew install python3
         - virtualenv env -p python3
         - source env/bin/activate
+      env:
+        - DEPENDS="cython numpy scipy"
+          DEPENDS_PIP="cythongsl nibabel dipy"
+          TESTPART=test_scripts1.sh
     - os: osx
       language: generic
-      osx_image: xcode8.3
       before_install:
         - brew install python3
         - virtualenv env -p python3
         - source env/bin/activate
+      env:
+        - DEPENDS="cython numpy scipy"
+          DEPENDS_PIP="cythongsl nibabel dipy"
+          TESTPART=test_scripts2.sh
     - os: osx
       language: generic
-      osx_image: xcode7.3
-      env:
-        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
-        - DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
       before_install:
         - virtualenv env -p python
         - source env/bin/activate
-    - os: osx
-      language: generic
-      osx_image: xcode8.3
       env:
         - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
-        - DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+          TESTPART=test_scripts1.sh
+    - os: osx
+      language: generic
       before_install:
         - virtualenv env -p python
         - source env/bin/activate
+      env:
+        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
+          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+          TESTPART=test_scripts2.sh
 
 notifications:
     email: false
 
 install:
-    # brew install gcc gives gfortran now
     - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install gsl; fi
 
     - python --version # just to check
     - pip install --upgrade pip # so that we can use wheels
-    - pip install nose coverage coveralls
+    - pip install pytest coverage coveralls
     - pip install $DEPENDS --upgrade
     - pip install $DEPENDS_PIP --upgrade
     - python setup.py build_ext -i
@@ -94,8 +115,10 @@ before_script:
 script:
     - mkdir tester
     - cd tester
-    - nosetests --verbose --exe --with-coverage --cover-package=nlsam ../nlsam/tests/
-    - bash ../nlsam/tests/test_scripts.sh
+    - py.test ../nlsam/tests/ --verbose
+    - echo 'Running tests $TESTPART'
+    - chmod +x ../nlsam/tests/$TESTPART
+    - ../nlsam/tests/$TESTPART
 
 #after_success:
 #    - coveralls

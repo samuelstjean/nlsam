@@ -2,41 +2,49 @@ build: false
 
 environment:
   global:
-    # SDK v7.0 MSVC Express 2008's SetEnv.cmd script will fail if the
-    # /E:ON and /V:ON options are not enabled in the batch script intepreter
-    # See: http://stackoverflow.com/a/13751649/163740
-    WITH_COMPILER: "cmd /E:ON /V:ON /C .\\appveyor\\run_with_compiler.cmd"
+      # SDK v7.0 MSVC Express 2008's SetEnv.cmd script will fail if the
+      # /E:ON and /V:ON options are not enabled in the batch script intepreter
+      # See: http://stackoverflow.com/a/13751649/163740
+      CMD_IN_ENV: "cmd /E:ON /V:ON /C .\\appveyor\\run_with_env.cmd"
   matrix:
-    - PYTHON_VERSION: 2.7
+    - PYTHON: "C:\\Python27_64"
+      PYTHON_VERSION: "2.7"
       PYTHON_ARCH: "64"
-      MINICONDA: C:\Miniconda-x64
-    - PYTHON_VERSION: 3.4
-      PYTHON_ARCH: "64"
-      MINICONDA: C:\Miniconda3
+      CONDA_PY: "27"
+      CONDA_NPY: "110"
 
+    # - PYTHON: "C:\\Python36_64"
+    #   PYTHON_VERSION: "3.6"
+    #   PYTHON_ARCH: "64"
+    #   CONDA_PY: "36"
+    #   CONDA_NPY: "110"
 init:
-  - "ECHO %PYTHON% %PYTHON_VERSION% %PYTHON_ARCH% %MINICONDA%"
+  - "ECHO %PYTHON% %PYTHON_VERSION% %PYTHON_ARCH% %MINICONDA"
 
 install:
-  - "set PATH=%MINICONDA%;%MINICONDA%\\Scripts;%PATH%"
-  - SET LIB_GSL=C:\\projects\\nlsam\\gsl_windows
-  - SET PATH=%PATH%;C:\\projects\\nlsam\\gsl_windows\\bin;
+  - powershell .\\appveyor\\install.ps1
+  - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
 
-  - conda config --set always_yes yes --set changeps1 no
-  - conda update -q conda
-  - conda info -a
-  - "conda create -q -n buildfarm python=%PYTHON_VERSION% numpy scipy cython"
-  - activate buildfarm
-  # - conda install -c pavoljuhas gsl
-  - pip install nibabel cythongsl dipy
-  - pip install coverage nose
-  # - dir
-  # - "cd C:\\projects\\pykrige"
-  - python setup.py build_ext --inplace
-  - python setup.py install
+  - "conda config --set always_yes yes --set changeps1 no"
+  - "conda update -q conda"
+  - "conda info -a"
+  - "conda create -q -n buildfarm python=%PYTHON_VERSION% numpy scipy cython pip"
+  - "activate buildfarm"
 
+  - "pip install --no-deps nibabel cythongsl dipy"
+  - "pip install pytest"
+  - 'pip install https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-2.4-cp27-none-win_amd64.whl'
 
+  - "%CMD_IN_ENV% python setup.py build_ext --inplace"
+  - "pip install -e ."
 
-# test_script:
-#   - "cd C:\\projects\\pykrige\\pykrige"
-#   - nosetests test.py --with-coverage --cover-package=pykrige
+cache:
+  - C:\Users\appveyor\AppData\Local\pip\Cache\
+
+test_script:
+  - "cd C:\\projects\\nlsam\\nlsam"
+  - pytest --pyargs nlsam --verbose
+
+# deploy:
+#   - "pip install pyinstaller"
+#   artifact: stuff.zip

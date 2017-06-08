@@ -3,7 +3,7 @@ from __future__ import division
 import numpy as np
 from numpy.lib.stride_tricks import as_strided as ast
 
-from multiprocessing import Pool, cpu_count
+from nlsam.multiprocess import multiprocesser
 
 from dipy.core.geometry import cart2sphere
 from dipy.core.ndindex import ndindex
@@ -12,6 +12,45 @@ from dipy.denoise.noise_estimate import piesno
 
 from scipy.ndimage.filters import convolve, gaussian_filter
 from scipy.ndimage.interpolation import zoom
+
+# numpy changed stuff, but it is fixed in dipy master
+from distutils.version import LooseVersion
+if LooseVersion(np.__version__) >= LooseVersion('1.12'):
+    def sph_harm_ind_list(sh_order):
+        """
+        Returns the degree (n) and order (m) of all the symmetric spherical
+        harmonics of degree less then or equal to `sh_order`. The results, `m_list`
+        and `n_list` are kx1 arrays, where k depends on sh_order. They can be
+        passed to :func:`real_sph_harm`.
+        Parameters
+        ----------
+        sh_order : int
+            even int > 0, max degree to return
+        Returns
+        -------
+        m_list : array
+            orders of even spherical harmonics
+        n_list : array
+            degrees of even spherical harmonics
+        See also
+        --------
+        real_sph_harm
+        """
+        if sh_order % 2 != 0:
+            raise ValueError('sh_order must be an even integer >= 0')
+
+        n_range = np.arange(0, sh_order + 1, 2, dtype=int)
+        n_list = np.repeat(n_range, n_range * 2 + 1)
+
+        ncoef = int((sh_order + 2) * (sh_order + 1) // 2)
+        offset = 0
+        m_list = np.empty(ncoef, 'int')
+        for ii in n_range:
+            m_list[offset:offset + 2 * ii + 1] = np.arange(-ii, ii + 1)
+            offset = offset + 2 * ii + 1
+
+        # makes the arrays ncoef by 1, allows for easy broadcasting later in code
+        return (m_list, n_list)
 
 
 def sh_smooth(data, gtab, sh_order=8, similarity_threshold=50, regul=0.006):
@@ -123,7 +162,7 @@ def _local_standard_deviation(arr):
     return np.sqrt(mean_squared_high_freq - mean_high_freq**2)
 
 
-def local_standard_deviation(arr, n_cores=None):
+def local_standard_deviation(arr, n_cores=None, mp_method=None):
     """Standard deviation estimation from local patches.
 
     The noise field is estimated by subtracting the data from it's low pass
@@ -148,14 +187,8 @@ def local_standard_deviation(arr, n_cores=None):
     if arr.ndim == 3:
         sigma = _local_standard_deviation(arr)
     else:
-        list_arr = []
-        for i in range(arr.shape[-1]):
-            list_arr += [arr[..., i]]
-
-        pool = Pool(n_cores)
-        result = pool.map(_local_standard_deviation, list_arr)
-        pool.close()
-        pool.join()
+        list_arr = [arr[..., i] for i in range(arr.shape[-1])]
+        result = multiprocesser(_local_standard_deviation, list_arr, n_cores=n_cores, mp_method=mp_method)
 
         # Reshape the multiprocessed list as an array
         result = np.rollaxis(np.asarray(result), 0, arr.ndim)
