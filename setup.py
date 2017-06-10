@@ -9,9 +9,6 @@ params['author'] = 'Samuel St-Jean'
 params['author_email'] = 'samuel@isi.uu.nl'
 params['url'] = 'https://github.com/samuelstjean/nlsam'
 params['version'] = '0.5.1'
-# params['requires'] = ['cythongsl>=0.2.1',
-#                       'numpy>=1.10.4',
-#                       'cython>=0.21']
 params['dependencies'] = ['numpy>=1.10.4',
                           'scipy>=0.14',
                           'cython>=0.21',
@@ -55,25 +52,21 @@ except ImportError:
     raise ImportError('Could not find numpy, which is required for building. \nTry running pip install numpy')
 
 try:
-    from nibabel.optpkg import optional_package
+    import cython_gsl
 except ImportError:
-    raise ImportError('Could not find nibabel, which is required for building. \nTry running pip install nibabel')
-
-cython_gsl, have_cython_gsl, _ = optional_package("cython_gsl")
-
-if not have_cython_gsl:
-    raise ImportError('cannot find gsl package (required for hyp1f1), \n'
-                      'try pip install cythongsl and sudo apt-get install libgsl0-dev libgsl0ldbl')
+    error = 'Cannot find gsl package (required for hyp1f1), \n' + \
+            'try pip install cythongsl and \nsudo apt-get install libgsl0-dev libgsl0ldbl on Ubuntu and friends' + \
+            '\nor\n brew install gsl on mac'
+    raise ImportError(error)
 
 # Check for local version of dipy if it exists, since it would replace a locally built
 # but not installed version.
-dipy, have_dipy, _ = optional_package("dipy")
-
-if have_dipy:
+try:
+    import dipy
     print('Found local version of dipy in ' + dipy.__file__)
     if LooseVersion(dipy.__version__) < LooseVersion('0.11'):
         raise ValueError('Local dipy version is {}, but you need at least 0.11!'.format(dipy.__version__))
-else:
+except ImportError:
     print('Cannot find dipy, it will be installed using pip.')
     params['dependencies'].append('dipy>=0.11')
 
@@ -103,7 +96,6 @@ setup(
     packages=find_packages(),
     cmdclass={'build_ext': build_ext},
     ext_modules=ext_modules,
-    # setup_requires=params['requires'],
     install_requires=params['dependencies'],
     dependency_links=params['links'],
     scripts=params['scripts']

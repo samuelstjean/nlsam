@@ -38,5 +38,6 @@ def fix_multiproc_windows():
         # Second override 'Popen' class with our modified version.
         forking.Popen = _Popen
 
+
 if sys.platform.startswith('win'):
     fix_multiproc_windows()

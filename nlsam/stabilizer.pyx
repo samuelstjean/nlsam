@@ -8,17 +8,16 @@ from multiprocessing import Pool, cpu_count
 import numpy as np
 cimport numpy as np
 
-from dipy.core.ndindex import ndindex
 from scipy.special import erfinv
+from dipy.core.ndindex import ndindex
 
-from nibabel.optpkg import optional_package
-cython_gsl, have_cython_gsl, _ = optional_package("cython_gsl")
-
-if not have_cython_gsl:
-    raise ValueError('Cannot find gsl package (required for hyp1f1), \n'
-        'try pip install cythongsl and sudo apt-get install libgsl0-dev libgsl0ldbl')
-
-from cython_gsl cimport gsl_sf_hyperg_1F1
+try:
+    from cython_gsl cimport gsl_sf_hyperg_1F1
+except ImportError:
+    error = 'Cannot find gsl package (required for hyp1f1), \n' + \
+            'try pip install cythongsl and \nsudo apt-get install libgsl0-dev libgsl0ldbl on Ubuntu and friends' + \
+            '\nor\n brew install gsl on mac'
+    raise ImportError(error)
 
 #libc.math isnan does not work on windows, it is called _isnan, so we use this one instead
 cdef extern from "numpy/npy_math.h" nogil:
@@ -70,9 +69,10 @@ def _multiprocess_stabilization(arglist):
     N = arglist[4]
 
     out = np.zeros(data.shape, dtype=np.float32)
+    mask = np.logical_and(sigma > 0, mask)
 
     for idx in ndindex(data.shape):
-        if sigma[idx] > 0 and mask[idx]:
+        if mask[idx]:
             eta = fixed_point_finder(m_hat[idx], sigma[idx], N)
             out[idx] = chi_to_gauss(data[idx], eta, sigma[idx], N)
 
@@ -355,9 +355,10 @@ def _corrected_sigma_parallel(arglist):
 
     eta, sigma, mask, N = arglist
     out = np.zeros(eta.shape, dtype=np.float32)
+    mask = np.logical_and(sigma > 0, mask)
 
     for idx in ndindex(out.shape):
-        if sigma[idx] > 0 and mask[idx]:
+        if mask[idx]:
             out[idx] = _corrected_sigma(eta[idx], sigma[idx], N)
 
     return out
