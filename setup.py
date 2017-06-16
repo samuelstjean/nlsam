@@ -1,26 +1,5 @@
 #!/usr/bin/env python
 
-params = {}
-params['modules'] = ['nlsam.utils',
-                     'nlsam.stabilizer']
-params['scripts'] = ['scripts/nlsam_denoising']
-params['name'] = 'nlsam'
-params['author'] = 'Samuel St-Jean'
-params['author_email'] = 'samuel@isi.uu.nl'
-params['url'] = 'https://github.com/samuelstjean/nlsam'
-params['version'] = '0.5.1'
-params['dependencies'] = ['numpy>=1.10.4',
-                          'scipy>=0.14',
-                          'cython>=0.21',
-                          'cythongsl>=0.2.1',
-                          'nibabel>=2.0',
-                          'spams>=2.4']
-params['links'] = ['https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-python-v2.5-python3.zip#egg=spams-2.5']
-
-###############################################
-# Build stuff is below this line
-###############################################
-
 import os
 from os.path import join, exists, splitext
 
@@ -58,6 +37,9 @@ except ImportError:
             'try pip install cythongsl and \nsudo apt-get install libgsl0-dev libgsl0ldbl on Ubuntu and friends' + \
             '\nor\n brew install gsl on mac'
     raise ImportError(error)
+
+from nlsam import get_setup_params
+params = get_setup_params()
 
 # Check for local version of dipy if it exists, since it would replace a locally built
 # but not installed version.
