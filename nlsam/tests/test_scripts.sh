@@ -9,6 +9,8 @@ check_return_code ()
         echo 'Something failed in python apparently'
         exit 1
     fi
+
+    echo 'stuff finished'
 }
 
 # Crop example dataset

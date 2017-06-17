@@ -55,7 +55,7 @@ def get_setup_params():
                               'cythongsl>=0.2.1',
                               'nibabel>=2.0',
                               'spams>=2.4']
-    params['links'] = ['https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-python-v2.5-python3.zip#egg=spams-2.5']
+    params['links'] = ['https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-2.6.zip#egg=spams-2.6']
 
     return params
 
