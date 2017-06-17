@@ -13,6 +13,45 @@ from dipy.denoise.noise_estimate import piesno
 from scipy.ndimage.filters import convolve, gaussian_filter
 from scipy.ndimage.interpolation import zoom
 
+# numpy changed stuff, but it is fixed in dipy master
+from distutils.version import LooseVersion
+if LooseVersion(np.__version__) >= LooseVersion('1.12'):
+    def sph_harm_ind_list(sh_order):
+        """
+        Returns the degree (n) and order (m) of all the symmetric spherical
+        harmonics of degree less then or equal to `sh_order`. The results, `m_list`
+        and `n_list` are kx1 arrays, where k depends on sh_order. They can be
+        passed to :func:`real_sph_harm`.
+        Parameters
+        ----------
+        sh_order : int
+            even int > 0, max degree to return
+        Returns
+        -------
+        m_list : array
+            orders of even spherical harmonics
+        n_list : array
+            degrees of even spherical harmonics
+        See also
+        --------
+        real_sph_harm
+        """
+        if sh_order % 2 != 0:
+            raise ValueError('sh_order must be an even integer >= 0')
+
+        n_range = np.arange(0, sh_order + 1, 2, dtype=int)
+        n_list = np.repeat(n_range, n_range * 2 + 1)
+
+        ncoef = int((sh_order + 2) * (sh_order + 1) // 2)
+        offset = 0
+        m_list = np.empty(ncoef, 'int')
+        for ii in n_range:
+            m_list[offset:offset + 2 * ii + 1] = np.arange(-ii, ii + 1)
+            offset = offset + 2 * ii + 1
+
+        # makes the arrays ncoef by 1, allows for easy broadcasting later in code
+        return (m_list, n_list)
+
 
 def sh_smooth(data, gtab, sh_order=8, similarity_threshold=50, regul=0.006):
     """Smooth the raw diffusion signal with spherical harmonics.
