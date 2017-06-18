@@ -3,7 +3,7 @@
 cimport cython
 
 from libc.math cimport sqrt, exp, fabs, M_PI
-from multiprocessing import Pool, cpu_count
+from nlsam.multiprocess import multiprocesser
 
 import numpy as np
 cimport numpy as np
@@ -25,7 +25,7 @@ cdef extern from "numpy/npy_math.h" nogil:
 
 
 @cython.wraparound(True)
-def stabilization(data, m_hat, mask, sigma, N, n_cores=None):
+def stabilization(data, m_hat, mask, sigma, N, n_cores=None, mp_method=None):
 
     # Check all dims are ok
     if (data.shape != sigma.shape):
@@ -38,8 +38,6 @@ def stabilization(data, m_hat, mask, sigma, N, n_cores=None):
       raise ValueError('data shape {} is not compatible with m_hat shape {}'.format(data.shape, m_hat.shape))
 
     mask = np.broadcast_to(mask[..., None], data.shape)
-
-    pool = Pool(processes=n_cores)
     arglist = [(data[..., idx, :],
               m_hat[..., idx, :],
               mask[..., idx, :],
@@ -47,10 +45,7 @@ def stabilization(data, m_hat, mask, sigma, N, n_cores=None):
               N)
              for idx in range(data.shape[-2])]
 
-    data_out = pool.map(_multiprocess_stabilization, arglist)
-    pool.close()
-    pool.join()
-
+    data_out = multiprocesser(_multiprocess_stabilization, arglist, n_cores=n_cores, mp_method=mp_method)
     data_stabilized = np.empty(data.shape, dtype=np.float32)
 
     for idx in range(len(data_out)):
@@ -59,17 +54,20 @@ def stabilization(data, m_hat, mask, sigma, N, n_cores=None):
     return data_stabilized
 
 
-def _multiprocess_stabilization(arglist):
+def _multiprocess_stabilization(args):
+    return multiprocess_stabilization(*args)
+
+
+def multiprocess_stabilization(data, m_hat, mask, sigma, N):
     """Helper function for multiprocessing the stabilization part."""
 
-    data = arglist[0].astype(np.float64)
-    m_hat = arglist[1].astype(np.float64)
-    mask = arglist[2].astype(np.bool)
-    sigma = arglist[3].astype(np.float64)
-    N = arglist[4]
+    data = data.astype(np.float64)
+    m_hat = m_hat.astype(np.float64)
+    sigma = sigma.astype(np.float64)
+    N = int(N)
 
     out = np.zeros(data.shape, dtype=np.float32)
-    mask = np.logical_and(sigma > 0, mask)
+    np.logical_and(sigma > 0, mask, out=mask)
 
     for idx in ndindex(data.shape):
         if mask[idx]:
@@ -316,7 +314,7 @@ cdef double _fixed_point_k(double eta, double m, double sigma, int N) nogil:
     return eta - num / denom
 
 
-def corrected_sigma(eta, sigma, mask, N, n_cores=None):
+def corrected_sigma(eta, sigma, mask, N, n_cores=None, mp_method=None):
     """Compute the local corrected standard deviation for the adaptive nonlocal
     means according to the correction factor xi.
 
@@ -338,24 +336,27 @@ def corrected_sigma(eta, sigma, mask, N, n_cores=None):
     sigma, ndarray
         Corrected sigma value, where sigma_gaussian = sigma / sqrt(xi)
     """
-    pool = Pool(processes=n_cores)
     arglist = [(eta_vox, sigma_vox, mask_vox, N)
                for eta_vox, sigma_vox, mask_vox
                in zip(eta, sigma, mask)]
-    sigma = pool.map(_corrected_sigma_parallel, arglist)
-    pool.close()
-    pool.join()
 
-    return np.asarray(sigma).reshape(eta.shape).astype(np.float32)
+    sigma = multiprocesser(_corrected_sigma_parallel, arglist, n_cores=n_cores, mp_method=mp_method)
+    return np.asarray(sigma).reshape(eta.shape)
 
 
-def _corrected_sigma_parallel(arglist):
+def _corrected_sigma_parallel(args):
+    return corrected_sigma_parallel(*args)
+
+
+def corrected_sigma_parallel(eta, sigma, mask, N):
     """Helper function for corrected_sigma to multiprocess the correction
     factor xi."""
 
-    eta, sigma, mask, N = arglist
+    eta = eta.astype(np.float64)
+    sigma = sigma.astype(np.float64)
+    N = int(N)
     out = np.zeros(eta.shape, dtype=np.float32)
-    mask = np.logical_and(sigma > 0, mask)
+    np.logical_and(sigma > 0, mask, out=mask)
 
     for idx in ndindex(out.shape):
         if mask[idx]:

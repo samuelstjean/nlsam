@@ -3,7 +3,7 @@ from __future__ import division
 import numpy as np
 from numpy.lib.stride_tricks import as_strided as ast
 
-from multiprocessing import Pool, cpu_count
+from nlsam.multiprocess import multiprocesser
 
 from dipy.core.geometry import cart2sphere
 from dipy.core.ndindex import ndindex
@@ -162,7 +162,7 @@ def _local_standard_deviation(arr):
     return np.sqrt(mean_squared_high_freq - mean_high_freq**2)
 
 
-def local_standard_deviation(arr, n_cores=None):
+def local_standard_deviation(arr, n_cores=None, mp_method=None):
     """Standard deviation estimation from local patches.
 
     The noise field is estimated by subtracting the data from it's low pass
@@ -187,14 +187,8 @@ def local_standard_deviation(arr, n_cores=None):
     if arr.ndim == 3:
         sigma = _local_standard_deviation(arr)
     else:
-        list_arr = []
-        for i in range(arr.shape[-1]):
-            list_arr += [arr[..., i]]
-
-        pool = Pool(n_cores)
-        result = pool.map(_local_standard_deviation, list_arr)
-        pool.close()
-        pool.join()
+        list_arr = [arr[..., i] for i in range(arr.shape[-1])]
+        result = multiprocesser(_local_standard_deviation, list_arr, n_cores=n_cores, mp_method=mp_method)
 
         # Reshape the multiprocessed list as an array
         result = np.rollaxis(np.asarray(result), 0, arr.ndim)
