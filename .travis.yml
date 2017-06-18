@@ -95,7 +95,8 @@ script:
     - mkdir tester
     - cd tester
     - nosetests --verbose --exe --with-coverage --cover-package=nlsam ../nlsam/tests/
-    - bash ../nlsam/tests/test_scripts.sh
+    - chmod +x ../nlsam/tests/test_scripts.sh
+    - ../nlsam/tests/test_scripts.sh
 
 #after_success:
 #    - coveralls
