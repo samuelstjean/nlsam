@@ -50,7 +50,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         (-x, -y, -z) was also acquired.
     rejection : tuple, default None
         List of indexes to discard from the training set.
-        b0s images will be completely discarded from the image and replaced with the mean b0s:
+        b0s images will be completely discarded from the image and replaced with the mean b0s.
         DWIs will still be reconstructed, so this is useful for excluding datasets
         heavily corrupted by artifacts if they affect the whole reconstructed data.
     n_cores : int, default None
