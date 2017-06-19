@@ -91,7 +91,7 @@ There are 6 required command line inputs (their order is important) which are
 
 + The input dataset (dwi.nii.gz)
 + The output dataset (dwi_nlsam.nii.gz)
-+ The effective number of coils for our acquisition (see section 1.1a)
++ The effective number of coils for our acquisition (see section 2.1a)
 + The b-values file for our input dataset (bvals)
 + The b-vectors file for our input dataset (bvecs)
 + The number of angular neighbors (N)
@@ -188,8 +188,8 @@ sh_order = 8
 # Load up the data
 vol = nib.load(input_data)
 data = np.asarray(vol.get_data(caching='unchanged'), dtype=np.float32)
-affine = vol.get_affine()
-header = vol.get_header()
+affine = vol.affine
+header = vol.header
 header.set_data_dtype(np.float32)
 
 mask = np.asarray(nib.load(mask_data).get_data(caching='unchanged'))

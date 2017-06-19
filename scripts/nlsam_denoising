@@ -124,7 +124,10 @@ def buildArgsParser():
     g.add_argument('--noise_map', action='store', dest='noise_maps',
                    metavar='file', type=str,
                    help='Path of the noise map(s) volume for local piesno.\n'
-                   'Either supply a 3D noise map or a stack of 3D maps as a 4D volume.')
+                   'Either supply a 3D noise map or a stack of 3D maps as a 4D volume.\n'
+                   'This is intended for noise maps collected by the scanner (so that there is no signal in those measurements)\n'
+                   'which are properly scaled with the rest of the data you collected.\n'
+                   'If in doubt, it is safer to use another estimation method with --noise_est')
 
     p.add_argument('--noise_mask', action='store', dest='save_piesno_mask',
                    metavar='file', type=str,
@@ -225,8 +228,8 @@ def main():
 
     vol = nib.load(args.input)
     data = np.asarray(vol.get_data(caching='unchanged'), dtype=np.float32)
-    affine = vol.get_affine()
-    header = vol.get_header()
+    affine = vol.affine
+    header = vol.header
     header.set_data_dtype(np.float32)
     logger.info("Loading data {}".format(os.path.realpath(args.input)))
 

@@ -1,6 +1,9 @@
 language: python
 sudo: false
 
+os:
+  - linux
+
 cache:
   pip: true
   directories:
@@ -14,50 +17,73 @@ addons:
       - libgsl0-dev
       - libgsl0ldbl
       - gfortran
-      - gunzip
 
 env:
     global:
         - DEPENDS="cython numpy scipy"
-        - DEPENDS_CONDA='dipy nibabel'
-        - DEPENDS_PIP="cythongsl"
+        - DEPENDS_PIP="cythongsl dipy nibabel"
 
 python:
   - 2.7
   - 3.4
   - 3.5
+  - 3.6
 
 matrix:
   include:
-    # To test minimum dependencies
     - python: 2.7
       env:
-        - DEPENDS="nomkl numpy==1.10.4 cython==0.21"
-        - DEPENDS_CONDA='nibabel==2.0.1 dipy==0.11"
-        - DEPENDS_PIP="cythongsl==0.2.1 scipy==0.14"
+        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
+        - DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+    - python: 3.4
+      env:
+        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
+        - DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+    - os: osx
+      language: generic
+      osx_image: xcode7.3
+      before_install:
+        - brew install python3
+        - virtualenv env -p python3
+        - source env/bin/activate
+    - os: osx
+      language: generic
+      osx_image: xcode8.3
+      before_install:
+        - brew install python3
+        - virtualenv env -p python3
+        - source env/bin/activate
+    - os: osx
+      language: generic
+      osx_image: xcode7.3
+      env:
+        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
+        - DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+      before_install:
+        - virtualenv env -p python
+        - source env/bin/activate
+    - os: osx
+      language: generic
+      osx_image: xcode8.3
+      env:
+        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
+        - DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+      before_install:
+        - virtualenv env -p python
+        - source env/bin/activate
 
 notifications:
     email: false
 
-before_install:
-    - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
-    - bash miniconda.sh -b -p $HOME/miniconda
-    - export PATH="$HOME/miniconda/bin:$PATH"
-    - hash -r
-    - conda config --set always_yes yes --set changeps1 no
-    - conda update -q conda
-    - conda info -a
-    - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION $DEPENDS pip
-    - source activate test-environment
-    - python --version # just to check
-    - pip install nose coverage coveralls
-    - source deactivate
-    - source activate test-environment
-
 install:
-    - conda config --add channels conda-forge
-    - conda install $DEPENDS_CONDA
-    - pip install $DEPENDS_PIP
+    # brew install gcc gives gfortran now
+    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install gsl; fi
+
+    - python --version # just to check
+    - pip install --upgrade pip # so that we can use wheels
+    - pip install nose coverage coveralls
+    - pip install $DEPENDS --upgrade
+    - pip install $DEPENDS_PIP --upgrade
     - python setup.py build_ext -i
     - python setup.py install
 
