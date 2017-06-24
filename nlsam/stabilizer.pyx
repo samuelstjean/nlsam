@@ -14,9 +14,11 @@ from dipy.core.ndindex import ndindex
 try:
     from cython_gsl cimport gsl_sf_hyperg_1F1
 except ImportError:
-    error = 'Cannot find gsl package (required for hyp1f1), \n' + \
-            'try pip install cythongsl and \nsudo apt-get install libgsl0-dev libgsl0ldbl on Ubuntu and friends' + \
-            '\nor\n brew install gsl on mac'
+    error = 'Cannot find gsl package (required for hyp1f1), try\n\n' + \
+            'pip install cythongsl\n\nand\n\n' + \
+            'sudo apt-get install libgsl0-dev libgsl0ldbl\n\n' + \
+            'on Ubuntu and friends or\n\n' + \
+            'brew install gsl\n\non mac'
     raise ImportError(error)
 
 #libc.math isnan does not work on windows, it is called _isnan, so we use this one instead
