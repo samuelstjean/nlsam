@@ -333,8 +333,7 @@ def main():
                                'parameter --sh_order in case of non '
                                'convergence.'.format(required_dwis, data.shape[-1]))
 
-            m_hat = sh_smooth(data, gtab, sh_order=sh_order)
-            m_hat[m_hat < 0] = 0
+            m_hat = sh_smooth(data, gtab, sh_order=sh_order).clip(min=0)
 
         # We may have a 3D sigma map, so broadcast to 4D for indexing
         if sigma.ndim == 3:

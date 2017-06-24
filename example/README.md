@@ -213,9 +213,7 @@ sigma = corrected_sigma(data, sigma, mask_4D, N, n_cores=n_cores)
 #  Stabilizer part
 ##################
 
-m_hat = sh_smooth(data, gtab, sh_order=sh_order)
-m_hat[m_hat < 0] = 0
-
+m_hat = sh_smooth(data, gtab, sh_order=sh_order).clip(min=0)
 data_stabilized = stabilization(data, m_hat, mask, sigma, N, n_cores=n_cores)
 
 ##################
