@@ -40,6 +40,9 @@ except ImportError:
 
 from nlsam import get_setup_params
 params = get_setup_params()
+params['include_dirs'] = [cython_gsl.get_include()]
+params['packages'] = find_packages()
+params['cmdclass'] = {'build_ext': build_ext}
 
 # Check for local version of dipy if it exists, since it would replace a locally built
 # but not installed version.
@@ -52,9 +55,13 @@ except ImportError:
     print('Cannot find dipy, it will be installed using pip.')
     params['dependencies'].append('dipy>=0.11')
 
-ext_modules = []
+# list of pyx modules to compile
+modules = ['nlsam.utils',
+           'nlsam.stabilizer']
 
-for pyxfile in params['modules']:
+params['ext_modules'] = []
+
+for pyxfile in modules:
 
     ext_name = splitext(pyxfile)[0].replace('/', '.')
     source = join(*pyxfile.split('.')) + '.pyx'
@@ -66,19 +73,6 @@ for pyxfile in params['modules']:
                     cython_include_dirs=[cython_gsl.get_cython_include_dir()],
                     include_dirs=[numpy.get_include()])
 
-    ext_modules.append(ext)
+    params['ext_modules'].append(ext)
 
-setup(
-    name=params['name'],
-    version=params['version'],
-    author=params['author'],
-    author_email=params['author_email'],
-    url=params['url'],
-    include_dirs=[cython_gsl.get_include()],
-    packages=find_packages(),
-    cmdclass={'build_ext': build_ext},
-    ext_modules=ext_modules,
-    install_requires=params['dependencies'],
-    dependency_links=params['links'],
-    scripts=params['scripts']
-)
+setup(**params)
