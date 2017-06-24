@@ -41,7 +41,7 @@ def _angle(vec):
     # Each vector is normalized to unit norm. We then replace
     # null norm vectors by 0 for sorting purposes.
     # Now each vector will have a angle of pi/2 with the null vector.
-    with np.errstate(divide='ignore'):
+    with np.errstate(divide='ignore', invalid='ignore'):
         vec = vec / np.sqrt(np.sum(vec**2, axis=1, keepdims=True))
         vec[np.isnan(vec)] = 0
 

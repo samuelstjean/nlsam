@@ -12,10 +12,9 @@ from nlsam.multiprocess import multiprocesser
 
 from scipy.sparse import lil_matrix
 
-warnings.simplefilter("ignore", category=FutureWarning)
-
 try:
     import spams
+    warnings.filterwarnings("ignore", category=FutureWarning, module=spams)
 except ImportError:
     raise ImportError("Couldn't find spams library, is the package correctly installed?")
 
