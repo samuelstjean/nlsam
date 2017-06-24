@@ -25,6 +25,30 @@ def multiprocessing_hanging_workaround():
 
 
 def multiprocesser(func, args, n_cores=None, mp_method=None):
+    '''
+    Runs func in parallel by unpacking each element of arglist.
+
+    Parameters
+    ----------
+    func : function
+        A function which accepts a single tuple (which will be unpacked) as an argument.
+    args : list
+        A list of each tuples to unpack into func.
+    n_cores : int
+        Number of processes to launch at the same time.
+    mp_method : string
+        Dispatch method for multiprocessing, see Notes for more information.
+
+    Returns
+    -------
+    output : list
+        Each element is the result of func(*args)
+
+    Notes
+    ----
+    See https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods
+    for more information on available starting methods.
+    '''
 
     # we set mkl to only use one core in multiprocessing, then restore it back afterwards
     if has_mkl:

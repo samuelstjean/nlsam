@@ -21,7 +21,7 @@ except ImportError:
             'brew install gsl\n\non mac'
     raise ImportError(error)
 
-#libc.math isnan does not work on windows, it is called _isnan, so we use this one instead
+# libc.math isnan does not work on windows, it is called _isnan, so we use this one instead
 cdef extern from "numpy/npy_math.h" nogil:
     bint npy_isnan(double x)
 

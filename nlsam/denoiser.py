@@ -14,7 +14,7 @@ from scipy.sparse import lil_matrix
 
 try:
     import spams
-    warnings.filterwarnings("ignore", category=FutureWarning, module=spams)
+    warnings.filterwarnings("ignore", category=FutureWarning, module='spams')
 except ImportError:
     raise ImportError("Couldn't find spams library, is the package correctly installed?")
 
@@ -23,7 +23,7 @@ logger = logging.getLogger('nlsam')
 
 def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                   mask=None, is_symmetric=False, n_cores=None,
-                  subsample=True, n_iter=10, b0_threshold=10, verbose=False):
+                  subsample=True, n_iter=10, b0_threshold=10, verbose=False, mp_method=None):
     """Main nlsam denoising function which sets up everything nicely for the local
     block denoising.
 
@@ -58,6 +58,10 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         Maximum number of iterations for the reweighted l1 solver.
     b0_threshold : int, default 10
         A b-value below b0_threshold will be considered as a b0 image.
+    verbose : bool, default False
+        print useful messages.
+    mp_method : string
+        Dispatch method for multiprocessing,
 
     Output
     -----------
@@ -150,7 +154,8 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                                                               mask=mask,
                                                               dtype=np.float64,
                                                               n_cores=n_cores,
-                                                              verbose=verbose)
+                                                              verbose=verbose,
+                                                              mp_method=mp_method)
 
     divider = np.bincount(np.array(indexes, dtype=np.int16).ravel())
     divider = np.insert(divider, b0_loc, len(indexes))
