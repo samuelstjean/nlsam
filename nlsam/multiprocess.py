@@ -1,4 +1,5 @@
 import os
+import sys
 
 try:
     from multiprocessing import get_context
@@ -59,7 +60,12 @@ def multiprocesser(func, args, n_cores=None, mp_method=None):
 
     # Only python >= 3.4, so if we don't have it go back to the old fashioned Pool
     if has_context:
-        with get_context(method=mp_method).Pool(processes=n_cores) as pool:
+        # calling tests from bash crash with super weird module import errors
+        # We also can't loop it since it just gets printed a lot of time for each loop
+        # if mp_method == 'forkserver' and not sys.platform.startswith('win'):
+        #     mp_method = None
+        # with get_context(method=mp_method).Pool(processes=n_cores) as pool:
+        with get_context().Pool(processes=n_cores) as pool:
             output = pool.map(func, args)
     else:
         pool = Pool(processes=n_cores)

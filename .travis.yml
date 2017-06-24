@@ -81,7 +81,7 @@ install:
 
     - python --version # just to check
     - pip install --upgrade pip # so that we can use wheels
-    - pip install nose coverage coveralls
+    - pip install pytest coverage coveralls
     - pip install $DEPENDS --upgrade
     - pip install $DEPENDS_PIP --upgrade
     - python setup.py build_ext -i
@@ -94,7 +94,7 @@ before_script:
 script:
     - mkdir tester
     - cd tester
-    - nosetests --verbose --exe --with-coverage --cover-package=nlsam ../nlsam/tests/
+    - py.test ../nlsam/tests/ --verbose
     - chmod +x ../nlsam/tests/test_scripts.sh
     - ../nlsam/tests/test_scripts.sh
 
