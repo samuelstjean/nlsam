@@ -48,7 +48,7 @@ def multiprocesser(func, args, n_cores=None, mp_method=None):
     ----
     See https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods
     for more information on available starting methods.
-    It also seems to cause issues if called form a cython function on the buildbots, but not on my computer,
+    It also seems to cause issues if called from a cython function on the buildbots, but not on my computer,
     so use with caution (or just use the old fashioned pool method directly from cython).
     '''
 
