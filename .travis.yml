@@ -22,6 +22,9 @@ env:
     global:
         - DEPENDS="cython numpy scipy"
         - DEPENDS_PIP="cythongsl dipy nibabel"
+    matrix:
+        - TESTPART=test_scripts1.sh
+        - TESTPART=test_scripts2.sh
 
 python:
   - 2.7
@@ -95,8 +98,8 @@ script:
     - mkdir tester
     - cd tester
     - py.test ../nlsam/tests/ --verbose
-    - chmod +x ../nlsam/tests/test_scripts.sh
-    - ../nlsam/tests/test_scripts.sh
+    - chmod +x ../nlsam/tests/$TESTPART
+    - ../nlsam/tests/$TESTPART
 
 #after_success:
 #    - coveralls

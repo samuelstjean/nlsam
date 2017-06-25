@@ -4,7 +4,7 @@ cimport cython
 
 from libc.math cimport sqrt, exp, fabs, M_PI
 # from nlsam.multiprocess import multiprocesser
-from multiprocess import Pool
+from multiprocessing import Pool
 
 import numpy as np
 cimport numpy as np
