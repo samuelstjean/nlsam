@@ -36,23 +36,23 @@ matrix:
   include:
     - python: 2.7
       env:
-        - DEPS="cython==0.21 numpy==1.10.4 scipy==0.14"
-          DEPS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
+          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
           TESTPART=test_scripts1.sh
     - python: 2.7
       env:
-        - DEPS="cython==0.21 numpy==1.10.4 scipy==0.14"
-          DEPS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
+          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
           TESTPART=test_scripts2.sh
     - python: 3.4
       env:
-        - DEPS="cython==0.21 numpy==1.10.4 scipy==0.14"
-          DEPS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
+          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
           TESTPART=test_scripts1.sh
     - python: 3.4
       env:
-        - DEPS="cython==0.21 numpy==1.10.4 scipy==0.14"
-          DEPS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
+          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
           TESTPART=test_scripts2.sh
     # test only on a few mac osx bots
     - os: osx
@@ -63,8 +63,8 @@ matrix:
         - virtualenv env -p python3
         - source env/bin/activate
       env:
-        - DEPS="cython==0.21 numpy==1.10.4 scipy==0.14"
-          DEPS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
+          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
           TESTPART=test_scripts1.sh
     - os: osx
       language: generic
@@ -74,8 +74,8 @@ matrix:
         - virtualenv env -p python3
         - source env/bin/activate
       env:
-          - DEPS="cython==0.21 numpy==1.10.4 scipy==0.14"
-            DEPS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+          - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
+            DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
             TESTPART=test_scripts2.sh
     - os: osx
       language: generic
@@ -84,8 +84,8 @@ matrix:
         - virtualenv env -p python
         - source env/bin/activate
       env:
-        - DEPS="cython==0.21 numpy==1.10.4 scipy==0.14"
-          DEPS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
+          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
           TESTPART=test_scripts1.sh
     - os: osx
       language: generic
@@ -94,8 +94,8 @@ matrix:
         - virtualenv env -p python
         - source env/bin/activate
       env:
-        - DEPS="cython==0.21 numpy==1.10.4 scipy==0.14"
-          DEPS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
+          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
           TESTPART=test_scripts2.sh
 
 notifications:

@@ -48,8 +48,9 @@ def multiprocesser(func, args, n_cores=None, mp_method=None):
     ----
     See https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods
     for more information on available starting methods.
-    It also seems to cause issues if called from a cython function on the buildbots, but not on my computer,
-    so use with caution (or just use the old fashioned pool method directly from cython).
+    It also seems to cause issues on the buildbots, but not on my computer,
+    so use with caution (it seems that maybe virtualenv//the way travis laucnhes jobs
+    conflict with it, not sure what is the actual problem).
     '''
 
     # we set mkl to only use one core in multiprocessing, then restore it back afterwards

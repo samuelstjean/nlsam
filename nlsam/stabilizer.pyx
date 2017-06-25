@@ -3,8 +3,7 @@
 cimport cython
 
 from libc.math cimport sqrt, exp, fabs, M_PI
-# from nlsam.multiprocess import multiprocesser
-from multiprocessing import Pool
+from nlsam.multiprocess import multiprocesser
 
 import numpy as np
 cimport numpy as np
@@ -48,12 +47,7 @@ def stabilization(data, m_hat, mask, sigma, N, n_cores=None, mp_method=None):
               N)
              for idx in range(data.shape[-2])]
 
-    # data_out = multiprocesser(_multiprocess_stabilization, arglist, n_cores=n_cores, mp_method=mp_method)
-    pool = Pool(processes=n_cores)
-    data_out = pool.map(_multiprocess_stabilization, arglist)
-    pool.close()
-    pool.join()
-
+    data_out = multiprocesser(_multiprocess_stabilization, arglist, n_cores=n_cores, mp_method=mp_method)
     data_stabilized = np.empty(data.shape, dtype=np.float32)
 
     for idx in range(len(data_out)):
@@ -348,12 +342,7 @@ def corrected_sigma(eta, sigma, mask, N, n_cores=None, mp_method=None):
                for eta_vox, sigma_vox, mask_vox
                in zip(eta, sigma, mask)]
 
-    pool = Pool(processes=n_cores)
-    sigma = pool.map(_corrected_sigma_parallel, arglist)
-    pool.close()
-    pool.join()
-
-    # sigma = multiprocesser(_corrected_sigma_parallel, arglist, n_cores=n_cores, mp_method=mp_method)
+    sigma = multiprocesser(_corrected_sigma_parallel, arglist, n_cores=n_cores, mp_method=mp_method)
     return np.asarray(sigma).reshape(eta.shape)
 
 
