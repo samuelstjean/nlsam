@@ -38,6 +38,7 @@ def multiprocesser(func, args, n_cores=None, mp_method=None):
         Number of processes to launch at the same time.
     mp_method : string
         Dispatch method for multiprocessing, see Notes for more information.
+        Has an effect only for python 3.4 and later.
 
     Returns
     -------
@@ -49,8 +50,8 @@ def multiprocesser(func, args, n_cores=None, mp_method=None):
     See https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods
     for more information on available starting methods.
     It also seems to cause issues on the buildbots, but not on my computer,
-    so use with caution (it seems that maybe virtualenv//the way travis laucnhes jobs
-    conflict with it, not sure what is the actual problem).
+    so use with caution (it seems that maybe virtualenv/the way travis launches jobs
+    conflicts with it, not sure what is the actual problem).
     '''
 
     # we set mkl to only use one core in multiprocessing, then restore it back afterwards
