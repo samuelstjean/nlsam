@@ -19,6 +19,9 @@ python -c 'import nibabel as nib; import numpy as np; d = nib.load("mask.nii.gz"
 python -c 'import nibabel as nib; import numpy as np; d = nib.load("mask.nii.gz").get_data(); nib.save(nib.Nifti1Image(np.random.rayleigh(10, d[40:50].shape),np.eye(4)), "noise.nii.gz")'
 
 # Test on example dataset
+nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --noise_est local_std --sh_order 0 --block_size 2,2,2 --save_sigma sigma.nii.gz --cores 1
+check_return_code $?
+
 nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --sh_order 0 --load_sigma sigma.nii.gz --no_subsample --fix_implausible --mp_method spawn
 check_return_code $?
 
