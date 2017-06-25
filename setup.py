@@ -73,25 +73,6 @@ for pyxfile in modules:
                     cython_include_dirs=[cython_gsl.get_cython_include_dir()],
                     include_dirs=[numpy.get_include()])
 
-<<<<<<< HEAD
     params['ext_modules'].append(ext)
 
 setup(**params)
-=======
-    ext_modules.append(ext)
-
-setup(
-    name=params['name'],
-    version=params['version'],
-    author=params['author'],
-    author_email=params['author_email'],
-    url=params['url'],
-    include_dirs=[cython_gsl.get_include()],
-    packages=find_packages(),
-    cmdclass={'build_ext': build_ext},
-    ext_modules=ext_modules,
-    install_requires=params['dependencies'],
-    dependency_links=params['links'],
-    scripts=params['scripts']
-)
->>>>>>> master
