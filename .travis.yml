@@ -18,15 +18,58 @@ addons:
       - libgsl0ldbl
       # - gfortran
 
+# env:
+#   global:
+#     - DEPS="cython numpy scipy"
+#     - DEPS_PIP="cythongsl dipy nibabel"
+#     - DEPS_MIN="cython==0.21 numpy==1.10.4 scipy==0.14"
+#     - DEPS_PIP_MIN="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+#   matrix:
+#     - DEPENDS=$DEPS
+#       DEPENDS_PIP=$DEPS_PIP
+#       TESTPART=test_scripts1.sh
+#     - DEPENDS=$DEPS_MIN
+#       DEPENDS_PIP=$DEPS_PIP_MIN
+#       TESTPART=test_scripts1.sh
+#     - DEPENDS=$DEPS
+#       DEPENDS_PIP=$DEPS_PIP
+#       TESTPART=test_scripts2.sh
+#     - DEPENDS=$DEPS_MIN
+#       DEPENDS_PIP=$DEPS_PIP_MIN
+#       TESTPART=test_scripts2.sh
+
 env:
-  global:
     - DEPENDS="cython numpy scipy"
-      DEPENDS_MIN="cython==0.21 numpy==1.10.4 scipy==0.14"
-    - DEPENDS_PIP="cythongsl dipy nibabel"
-      DEPENDS_PIP_MIN="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
-  matrix:
-    - TESTPART=test_scripts1.sh
-    - TESTPART=test_scripts2.sh
+      DEPENDS_PIP="cythongsl dipy nibabel"
+      TESTPART=test_scripts1.sh
+
+    - DEPENDS="cython numpy scipy"
+      DEPENDS_PIP="cythongsl dipy nibabel"
+      TESTPART=test_scripts2.sh
+
+    # - DEPS="cython==0.21 numpy==1.10.4 scipy==0.14"
+    #   DEPS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+    #   TESTPART=test_scripts1.sh
+
+    # - DEPS="cython==0.21 numpy==1.10.4 scipy==0.14"
+    #   DEPS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+    #   TESTPART=test_scripts2.sh
+
+  # matrix:
+  #   - DEPENDS=$DEPS
+  #     DEPENDS_PIP=$DEPS_PIP
+  #     TESTPART=test_scripts1.sh
+  #   - DEPENDS=$DEPS_MIN
+  #     DEPENDS_PIP=$DEPS_PIP_MIN
+  #     TESTPART=test_scripts1.sh
+  #   - DEPENDS=$DEPS
+  #     DEPENDS_PIP=$DEPS_PIP
+  #     TESTPART=test_scripts2.sh
+  #   - DEPENDS=$DEPS_MIN
+  #     DEPENDS_PIP=$DEPS_PIP_MIN
+  #     TESTPART=test_scripts2.sh
+
+
 
 python:
   - 2.7
@@ -35,43 +78,129 @@ python:
   - 3.6
 
 matrix:
+  # exclude:
+  # # We can't run old numpy/scipy on newer python anyway
+  #   - python: 3.5
+  #     env: DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
+  #   - python: 3.6
+  #     env: DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
   include:
     - python: 2.7
       env:
-        - DEPENDS=$DEPENDS_MIN DEPENDS_PIP=$DEPENDS_PIP_MIN
+        - DEPS="cython==0.21 numpy==1.10.4 scipy==0.14"
+          DEPS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+          TESTPART=test_scripts1.sh
+    - python: 2.7
+      env:
+        - DEPS="cython==0.21 numpy==1.10.4 scipy==0.14"
+          DEPS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+          TESTPART=test_scripts2.sh
     - python: 3.4
       env:
-        -  DEPENDS=$DEPENDS_MIN DEPENDS_PIP=$DEPENDS_PIP_MIN
+        - DEPS="cython==0.21 numpy==1.10.4 scipy==0.14"
+          DEPS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+          TESTPART=test_scripts1.sh
+    - python: 3.4
+      env:
+        - DEPS="cython==0.21 numpy==1.10.4 scipy==0.14"
+          DEPS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+          TESTPART=test_scripts2.sh
+    # - python: 3.4
+    #   env:
+    #   - DEPS="cython==0.21 numpy==1.10.4 scipy==0.14"
+    #     DEPS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+    #     TESTPART=test_scripts1.sh
+
+    #   - DEPS="cython==0.21 numpy==1.10.4 scipy==0.14"
+    #     DEPS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+    #     TESTPART=test_scripts2.sh
+    # test only on a few mac osx bots
     - os: osx
       language: generic
-      osx_image: xcode7.3
+      osx_image: xcode8.3
+        # - xcode7.3
+        # -
+          # - .3
       before_install:
         - brew install python3
         - virtualenv env -p python3
         - source env/bin/activate
+      env:
+        - DEPS="cython==0.21 numpy==1.10.4 scipy==0.14"
+          DEPS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+          TESTPART=test_scripts1.sh
     - os: osx
       language: generic
       osx_image: xcode8.3
+        # - xcode7.3
+        # - xcode8.3
+          # - .3
       before_install:
         - brew install python3
         - virtualenv env -p python3
         - source env/bin/activate
-    - os: osx
-      language: generic
-      osx_image: xcode7.3
       env:
-        -  DEPENDS=$DEPENDS_MIN DEPENDS_PIP=$DEPENDS_PIP_MIN
-      before_install:
-        - virtualenv env -p python
-        - source env/bin/activate
+          - DEPS="cython==0.21 numpy==1.10.4 scipy==0.14"
+            DEPS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+            TESTPART=test_scripts2.sh
     - os: osx
       language: generic
       osx_image: xcode8.3
-      env:
-        - DEPENDS=$DEPENDS_MIN DEPENDS_PIP=$DEPENDS_PIP_MIN
+        # - xcode7.3
+        # - xcode8.3
       before_install:
+        # - brew install python3
         - virtualenv env -p python
         - source env/bin/activate
+      env:
+        - DEPS="cython==0.21 numpy==1.10.4 scipy==0.14"
+          DEPS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+          TESTPART=test_scripts1.sh
+    - os: osx
+      language: generic
+      osx_image: xcode8.3
+        # - xcode7.3
+        # - xcode8.3
+      before_install:
+        # - brew install python3
+        - virtualenv env -p python
+        - source env/bin/activate
+      env:
+        - DEPS="cython==0.21 numpy==1.10.4 scipy==0.14"
+          DEPS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+          TESTPART=test_scripts2.sh
+    # - os: osx
+    #   language: generic
+    #   # osx_image: xcode7.3
+    #   # env:
+    #   #   -  DEPENDS=$DEPENDS_MIN DEPENDS_PIP=$DEPENDS_PIP_MIN
+    #   before_install:
+    #     - virtualenv env -p python
+    #     - source env/bin/activate
+    #   env:
+    #     - DEPS="cython numpy scipy"
+    #       DEPS_PIP="cythongsl nibabel dipy"
+    #       TESTPART=test_scripts1.sh
+
+    #     - DEPS="cython numpy scipy"
+    #       DEPS_PIP="cythongsl nibabel dipy"
+    #       TESTPART=test_scripts2.sh
+    # - os: osx
+    #   language: generic
+    #   # osx_image: xcode8.3
+    #   # env:
+    #   #   - DEPENDS=$DEPENDS_MIN DEPENDS_PIP=$DEPENDS_PIP_MIN
+    #   before_install:
+    #     - virtualenv env -p python
+    #     - source env/bin/activate
+    #   env:
+    #     - DEPS="cython==0.21 numpy==1.10.4 scipy==0.14"
+    #       DEPS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+    #       TESTPART=test_scripts1.sh
+
+    #     - DEPS="cython==0.21 numpy==1.10.4 scipy==0.14"
+    #       DEPS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+    #       TESTPART=test_scripts2.sh
 
 notifications:
     email: false
@@ -96,6 +225,7 @@ script:
     - mkdir tester
     - cd tester
     - py.test ../nlsam/tests/ --verbose
+    - echo 'Running tests $TESTPART'
     - chmod +x ../nlsam/tests/$TESTPART
     - ../nlsam/tests/$TESTPART
 
