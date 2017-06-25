@@ -57,29 +57,26 @@ matrix:
     # test only on a few mac osx bots
     - os: osx
       language: generic
-      osx_image: xcode8.3
       before_install:
         - brew install python3
         - virtualenv env -p python3
         - source env/bin/activate
       env:
-        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
-          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+        - DEPENDS="cython numpy scipy"
+          DEPENDS_PIP="cythongsl nibabel dipy"
           TESTPART=test_scripts1.sh
     - os: osx
       language: generic
-      osx_image: xcode8.3
       before_install:
         - brew install python3
         - virtualenv env -p python3
         - source env/bin/activate
       env:
-          - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
-            DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
-            TESTPART=test_scripts2.sh
+        - DEPENDS="cython numpy scipy"
+          DEPENDS_PIP="cythongsl nibabel dipy"
+          TESTPART=test_scripts2.sh
     - os: osx
       language: generic
-      osx_image: xcode8.3
       before_install:
         - virtualenv env -p python
         - source env/bin/activate
@@ -89,7 +86,6 @@ matrix:
           TESTPART=test_scripts1.sh
     - os: osx
       language: generic
-      osx_image: xcode8.3
       before_install:
         - virtualenv env -p python
         - source env/bin/activate
