@@ -7,12 +7,6 @@ except ImportError:
     from multiprocessing import Pool
     has_context = False
 
-try:
-    import mkl
-    has_mkl = True
-except ImportError:
-    has_mkl = False
-
 
 def multiprocessing_hanging_workaround():
     # Fix openblas threading bug with openmp before loading numpy
@@ -54,13 +48,6 @@ def multiprocesser(func, args, n_cores=None, mp_method=None):
     conflicts with it, not sure what is the actual problem).
     '''
 
-    # we set mkl to only use one core in multiprocessing, then restore it back afterwards
-    if has_mkl:
-        # This is only 4 on my quad core laptop, with hyper threading though :/
-        # I guess the intel guys know what is best anyway
-        mkl_threads = mkl.get_max_threads()
-        mkl.set_num_threads(1)
-
     # Only python >= 3.4, so if we don't have it go back to the old fashioned Pool
     if has_context:
         with get_context(method=mp_method).Pool(processes=n_cores) as pool:
@@ -70,8 +57,5 @@ def multiprocesser(func, args, n_cores=None, mp_method=None):
         output = pool.map(func, args)
         pool.close()
         pool.join()
-
-    if has_mkl:
-        mkl.set_num_threads(mkl_threads)
 
     return output
