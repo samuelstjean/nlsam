@@ -1,26 +1,5 @@
 #!/usr/bin/env python
 
-params = {}
-params['modules'] = ['nlsam.utils',
-                     'nlsam.stabilizer']
-params['scripts'] = ['scripts/nlsam_denoising']
-params['name'] = 'nlsam'
-params['author'] = 'Samuel St-Jean'
-params['author_email'] = 'samuel@isi.uu.nl'
-params['url'] = 'https://github.com/samuelstjean/nlsam'
-params['version'] = '0.5.1'
-params['dependencies'] = ['scipy>=0.14',
-                  'nibabel>=2.0',
-                  'spams>=2.4',
-                  'cythongsl>=0.2.1',
-                  'numpy>=1.10.4',
-                  'cython>=0.21']
-params['links'] = ['https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-2.6.zip#egg=spams-2.6']
-
-###############################################
-# Build stuff is below this line
-###############################################
-
 import os
 from os.path import join, exists, splitext
 
@@ -52,31 +31,37 @@ except ImportError:
     raise ImportError('Could not find numpy, which is required for building. \nTry running pip install numpy')
 
 try:
-    from nibabel.optpkg import optional_package
+    import cython_gsl
 except ImportError:
-    raise ImportError('Could not find nibabel, which is required for building. \nTry running pip install nibabel')
+    error = 'Cannot find gsl package (required for hyp1f1), \n' + \
+            'try pip install cythongsl and \nsudo apt-get install libgsl0-dev libgsl0ldbl on Ubuntu and friends' + \
+            '\nor\n brew install gsl on mac'
+    raise ImportError(error)
 
-cython_gsl, have_cython_gsl, _ = optional_package("cython_gsl")
-
-if not have_cython_gsl:
-    raise ImportError('cannot find gsl package (required for hyp1f1), \n'
-                      'try pip install cythongsl and sudo apt-get install libgsl0-dev libgsl0ldbl')
+from nlsam import get_setup_params
+params = get_setup_params()
+params['include_dirs'] = [cython_gsl.get_include()]
+params['packages'] = find_packages()
+params['cmdclass'] = {'build_ext': build_ext}
 
 # Check for local version of dipy if it exists, since it would replace a locally built
 # but not installed version.
-dipy, have_dipy, _ = optional_package("dipy")
-
-if have_dipy:
+try:
+    import dipy
     print('Found local version of dipy in ' + dipy.__file__)
     if LooseVersion(dipy.__version__) < LooseVersion('0.11'):
         raise ValueError('Local dipy version is {}, but you need at least 0.11!'.format(dipy.__version__))
-else:
+except ImportError:
     print('Cannot find dipy, it will be installed using pip.')
     params['dependencies'].append('dipy>=0.11')
 
-ext_modules = []
+# list of pyx modules to compile
+modules = ['nlsam.utils',
+           'nlsam.stabilizer']
 
-for pyxfile in params['modules']:
+params['ext_modules'] = []
+
+for pyxfile in modules:
 
     ext_name = splitext(pyxfile)[0].replace('/', '.')
     source = join(*pyxfile.split('.')) + '.pyx'
@@ -88,19 +73,6 @@ for pyxfile in params['modules']:
                     cython_include_dirs=[cython_gsl.get_cython_include_dir()],
                     include_dirs=[numpy.get_include()])
 
-    ext_modules.append(ext)
+    params['ext_modules'].append(ext)
 
-setup(
-    name=params['name'],
-    version=params['version'],
-    author=params['author'],
-    author_email=params['author_email'],
-    url=params['url'],
-    include_dirs=[cython_gsl.get_include()],
-    packages=find_packages(),
-    cmdclass={'build_ext': build_ext},
-    ext_modules=ext_modules,
-    install_requires=params['dependencies'],
-    dependency_links=params['links'],
-    scripts=params['scripts']
-)
+setup(**params)

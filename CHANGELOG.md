@@ -3,6 +3,7 @@
 ## [0.6] - Development version
 
 - PIESNO will now warn if less than 1% of noisy voxels were identified, which might indicate that something have gone wrong during the noise estimation.
+- On python >= 3.4, --mp_method [a_valid_start_method](https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods) can now be used to control behavior in the multiprocessing loop.
 - Fixed crash in option --noise_est local_std when --cores 1 was also supplied.
 - setup.py and requirements.txt will now fetch spams v2.6, with patches for numpy 1.12 support.
 - Some deprecation fixes and other performance improvements.

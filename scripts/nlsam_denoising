@@ -2,16 +2,11 @@
 
 from __future__ import division, print_function
 
+# Has to be called before importing numpy
+from nlsam.multiprocess import multiprocessing_hanging_workaround
+multiprocessing_hanging_workaround()
+
 import os
-
-# Fix openblas threading bug with openmp before loading numpy
-# Spams has openmp support already, and openblas conflicts with python multiprocessing.
-os.environ['OPENBLAS_NUM_THREADS'] = '1'
-
-# Mac OSX has it's own blas/lapack, but like openblas it causes conflict for
-# python 2.7 and before python 3.4 in multiprocessing, so disable it.
-os.environ['VECLIB_MAXIMUM_THREADS'] = '1'
-
 import argparse
 import logging
 from multiprocessing import cpu_count, freeze_support
@@ -152,6 +147,13 @@ def buildArgsParser():
                    metavar='int', type=int,
                    help='Number of cores to use for multithreading.')
 
+    p.add_argument('--mp_method', action='store', dest='mp_method',
+                   metavar='string', type=str, default=None,
+                   help='Dispatch method for multiprocessing, see\n'
+                        'https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods for more information.\n'
+                        'Default : None, use the default, platform dependent method to run multiprocessing.\n'
+                        'Only available in python 3.4 and later.')
+
     p.add_argument('-m', '--mask', action='store', dest='mask', metavar='file', type=str,
                    help='Path to a binary mask. Only the data inside the mask will be reconstructed.')
 
@@ -180,6 +182,7 @@ def main():
     is_symmetric = args.is_symmetric
     n_iter = args.iterations
     b0_threshold = args.b0_threshold
+    mp_method = args.mp_method
     block_size = np.array(args.spatial_block_size + (args.angular_block_size,))
 
     logger = logging.getLogger('nlsam')
@@ -303,13 +306,13 @@ def main():
 
     elif noise_method == 'local_std':
         logger.info("Estimating noise with method {}".format(noise_method))
-        sigma = local_standard_deviation(data, n_cores=n_cores)
+        sigma = local_standard_deviation(data, n_cores=n_cores, mp_method=mp_method)
 
         # Compute the corrected value for each 3D volume
         if N > 0:
             sigma = np.broadcast_to(sigma[..., None], data.shape)
             mask_4D = np.broadcast_to(mask[..., None], data.shape)
-            sigma = corrected_sigma(data, sigma, mask_4D, N, n_cores=n_cores)
+            sigma = corrected_sigma(data, sigma, mask_4D, N, n_cores=n_cores, mp_method=mp_method)
 
     if args.save_sigma is not None:
         nib.save(nib.Nifti1Image(sigma, affine), args.save_sigma)
@@ -330,22 +333,21 @@ def main():
             logger.info("Estimating m_hat with sh order {}".format(sh_order))
 
             # Raise warning for sh order if there is not enough DWIs
-            required_dwis = (sh_order + 1) * (sh_order + 2) / 2
-
-            if data.shape[-1] < required_dwis:
+            required_dwis = int((sh_order + 1) * (sh_order + 2) / 2)
+            number_of_dwis = data.shape[-1] - np.sum(gtab.b0s_mask)
+            if number_of_dwis < required_dwis:
                 logger.warning('We recommend having at least {} unique DWIs volumes, '
                                'but you currently have {} volumes. Try lowering the '
                                'parameter --sh_order in case of non '
-                               'convergence.'.format(required_dwis, data.shape[-1]))
+                               'convergence.'.format(required_dwis, number_of_dwis))
 
-            m_hat = sh_smooth(data, gtab, sh_order=sh_order)
-            m_hat[m_hat < 0] = 0
+            m_hat = sh_smooth(data, gtab, sh_order=sh_order).clip(min=0)
 
         # We may have a 3D sigma map, so broadcast to 4D for indexing
         if sigma.ndim == 3:
             sigma = np.broadcast_to(sigma[..., None], data.shape)
 
-        data_stabilized = stabilization(data, m_hat, mask, sigma, N, n_cores=n_cores)
+        data_stabilized = stabilization(data, m_hat, mask, sigma, N, n_cores=n_cores, mp_method=mp_method)
 
         if args.save_stab is not None:
             nib.save(nib.Nifti1Image(data_stabilized, affine), args.save_stab)
@@ -368,7 +370,8 @@ def main():
                                       n_cores=n_cores,
                                       subsample=subsample,
                                       n_iter=n_iter,
-                                      b0_threshold=b0_threshold)
+                                      b0_threshold=b0_threshold,
+                                      mp_method=mp_method)
 
         nib.save(nib.Nifti1Image(data_denoised.astype(np.float32), affine, header), args.output)
         logger.info("Denoised data saved as {}".format(os.path.realpath(args.output)))
