@@ -6,24 +6,23 @@ import logging
 
 from time import time
 from itertools import product
-from multiprocessing import Pool
 
 from nlsam.utils import im2col_nd, col2im_nd
 from nlsam.angular_tools import angular_neighbors
+from nlsam.multiprocess import multiprocesser
 
 from scipy.sparse import lil_matrix
 
-warnings.simplefilter("ignore", category=FutureWarning)
-
 try:
     import spams
+    warnings.filterwarnings("ignore", category=FutureWarning, module='spams')
 except ImportError:
     raise ImportError("Couldn't find spams library, is the package correctly installed?")
 
 
 def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                   mask=None, is_symmetric=False, rejection=None, n_cores=None,
-                  subsample=True, n_iter=10, b0_threshold=10, verbose=False):
+                  subsample=True, n_iter=10, b0_threshold=10, verbose=False, mp_method=None):
     """Main nlsam denoising function which sets up everything nicely for the local
     block denoising.
 
@@ -63,6 +62,10 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         Maximum number of iterations for the reweighted l1 solver.
     b0_threshold : int, default 10
         A b-value below b0_threshold will be considered as a b0 image.
+    verbose : bool, default False
+        print useful messages.
+    mp_method : string
+        Dispatch method for multiprocessing,
 
     Output
     -----------
@@ -147,7 +150,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
     # Double bvecs to find neighbors with assumed symmetry if needed
     if is_symmetric:
-        logger.info('Data is assumed to be already symmetrized.')
+        logger.info('Data is assumed to be already symmetric.')
         sym_bvecs = np.delete(bvecs, b0_loc, axis=0)
     else:
         sym_bvecs = np.vstack((np.delete(bvecs, b0_loc, axis=0), np.delete(-bvecs, b0_loc, axis=0)))
@@ -159,9 +162,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     b0 = np.squeeze(data[..., b0_loc])
     data = np.delete(data, b0_loc, axis=-1)
 
-    indexes = []
-    for i in range(len(neighbors)):
-        indexes += [(i,) + tuple(neighbors[i])]
+    indexes = [(i,) + tuple(neighbors[i]) for i in range(len(neighbors))]
 
     if subsample:
         indexes = greedy_set_finder(indexes)
@@ -218,7 +219,8 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                                                               mask=mask,
                                                               dtype=np.float64,
                                                               n_cores=n_cores,
-                                                              verbose=verbose)
+                                                              verbose=verbose,
+                                                              mp_method=mp_method)
 
     divider = np.bincount(np.array(indexes, dtype=np.int16).ravel())
     divider = np.insert(divider, b0_loc, len(indexes))
@@ -249,7 +251,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
 def local_denoise(data, block_size, overlap, variance, param_alpha, param_D,
                   n_iter=10, reject=False, mask=None, dtype=np.float64,
-                  n_cores=None, verbose=False):
+                  n_cores=None, verbose=False, mp_method=None):
 
     logger = logging.getLogger('nlsam')
 
@@ -289,9 +291,6 @@ def local_denoise(data, block_size, overlap, variance, param_alpha, param_D,
 
         del train_data, X
 
-    time_multi = time()
-    pool = Pool(processes=n_cores)
-
     arglist = [(data[:, :, k:k + block_size[2]],
                 mask[:, :, k:k + block_size[2]],
                 variance[:, :, k:k + block_size[2]],
@@ -303,10 +302,8 @@ def local_denoise(data, block_size, overlap, variance, param_alpha, param_D,
                 n_iter)
                for k in range(data.shape[2] - block_size[2] + 1)]
 
-    data_denoised = pool.map(processer, arglist)
-    pool.close()
-    pool.join()
-
+    time_multi = time()
+    data_denoised = multiprocesser(_processer, arglist, n_cores=n_cores, mp_method=mp_method)
     logger.info('Multiprocessing done in {0:.2f} mins.'.format((time() - time_multi) / 60.))
 
     # Put together the multiprocessed results
@@ -366,13 +363,12 @@ def reject_from_training(indexes, rejection):
     return indexes[sorted_args], to_reject[sorted_args]
 
 
-def processer(arglist):
-    data, mask, variance, block_size, overlap, param_alpha, param_D, dtype, n_iter = arglist
-    return _processer(data, mask, variance, block_size, overlap, param_alpha, param_D, dtype=dtype, n_iter=n_iter)
+def _processer(args):
+    return processer(*args)
 
 
-def _processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
-               dtype=np.float64, n_iter=10, gamma=3., tau=1., tolerance=1e-5):
+def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
+              dtype=np.float64, n_iter=10, gamma=3., tau=1., tolerance=1e-5):
 
     orig_shape = data.shape
     mask_array = im2col_nd(mask, block_size[:-1], overlap[:-1])
