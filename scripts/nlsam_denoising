@@ -149,7 +149,8 @@ def buildArgsParser():
 
     p.add_argument('--mp_method', action='store', dest='mp_method',
                    metavar='string', type=str, default=None,
-                   help='Dispatch method for multiprocessing, see https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods for more information.\n'
+                   help='Dispatch method for multiprocessing, see\n'
+                        'https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods for more information.\n'
                         'Default : None, use the default, platform dependent method to run multiprocessing.\n'
                         'Only available in python 3.4 and later.')
 
