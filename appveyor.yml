@@ -38,12 +38,29 @@ install:
   - "%CMD_IN_ENV% python setup.py build_ext --inplace"
   - "pip install -e ."
 
+# build_script:
+#   - pip install cibuildwheel
+#   - "%CMD_IN_ENV% cibuildwheel --output-dir wheelhouse"
+
 cache:
   - C:\Users\appveyor\AppData\Local\pip\Cache\
 
 test_script:
   - "cd C:\\projects\\nlsam\\nlsam"
   - pytest --pyargs nlsam --verbose
+
+after_test:
+  - "cd C:\\projects\\nlsam"
+  - python setup.py sdist --formats=gztar
+  - "pip install pyinstaller"
+  - pyinstaller nlsam_denoising.spec --onefile
+  - 7z a nlsam_windows_x64.zip ./dist/nlsam_denoising.exe LICENSE README.md CHANGELOG.md example/
+
+artifacts:
+  - path: dist/*.tar.gz
+  - path: nlsam_windows_x64.zip
+  # - path: "wheelhouse\\*.whl"
+  #   name: Wheels
 
 # deploy:
 #   - "pip install pyinstaller"
