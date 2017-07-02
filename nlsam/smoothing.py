@@ -188,7 +188,8 @@ def local_standard_deviation(arr, n_cores=None, mp_method=None):
         sigma = _local_standard_deviation(arr)
     else:
         list_arr = [arr[..., i] for i in range(arr.shape[-1])]
-        result = multiprocesser(_local_standard_deviation, list_arr, n_cores=n_cores, mp_method=mp_method)
+        parallel_local_standard_deviation = multiprocesser(_local_standard_deviation, n_cores=n_cores, mp_method=mp_method)
+        result = parallel_local_standard_deviation(list_arr)
 
         # Reshape the multiprocessed list as an array
         result = np.rollaxis(np.asarray(result), 0, arr.ndim)
