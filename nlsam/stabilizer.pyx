@@ -343,8 +343,8 @@ def corrected_sigma(eta, sigma, mask, N, n_cores=None, mp_method=None):
                for eta_vox, sigma_vox, mask_vox
                in zip(eta, sigma, mask)]
 
-    parallel_corrected_sigma_ = multiprocesser(_corrected_sigma_parallel, n_cores=n_cores, mp_method=mp_method)
-    sigma = parallel_corrected_sigma_(arglist)
+    parallel_corrected_sigma = multiprocesser(_corrected_sigma_parallel, n_cores=n_cores, mp_method=mp_method)
+    sigma = parallel_corrected_sigma(arglist)
     return np.asarray(sigma).reshape(eta.shape)
 
 
