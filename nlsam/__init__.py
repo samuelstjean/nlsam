@@ -1,6 +1,5 @@
 import sys
 import os
-# import ctypes
 
 
 def fix_multiproc_windows():

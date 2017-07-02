@@ -13,6 +13,7 @@ from dipy.core.ndindex import ndindex
 
 try:
     from cython_gsl cimport gsl_sf_hyperg_1F1
+except ImportError:
     error = 'Cannot find gsl package (required for hyp1f1), try\n\n' + \
             'pip install cythongsl\n\nand\n\n' + \
             'sudo apt-get install libgsl0-dev libgsl0ldbl\n\n' + \
@@ -81,9 +82,6 @@ def multiprocess_stabilization(data, m_hat, mask, sigma, N):
 cdef double hyp1f1(double a, int b, double x) nogil:
     """Wrapper for 1F1 hypergeometric series function
     http://en.wikipedia.org/wiki/Confluent_hypergeometric_function"""
-    # with gil:
-    #     if use_windows_gsl:
-    #             return gsl_1f1(a, b, x)
     return gsl_sf_hyperg_1F1(a, b, x)
 
 

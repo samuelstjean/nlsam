@@ -2,7 +2,6 @@
 
 import os
 import sys
-from os.path import join as pjoin
 
 # BEFORE importing distutils, remove MANIFEST. distutils doesn't properly
 # update it when the contents of directories change.
@@ -41,7 +40,7 @@ except ImportError:
 
 if sys.platform.startswith('win'):
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    gsl_path = pjoin(dir_path, 'nlsam', 'gsl_windows')
+    gsl_path = os.path.join(dir_path, 'nlsam', 'gsl_windows')
     os.environ["LIB_GSL"] = gsl_path
     sys.path.append(gsl_path)
 
@@ -70,7 +69,7 @@ params['ext_modules'] = []
 for pyxfile in modules:
 
     ext_name = os.path.splitext(pyxfile)[0].replace('/', '.')
-    source = pjoin(*pyxfile.split('.')) + '.pyx'
+    source = os.path.join(*pyxfile.split('.')) + '.pyx'
 
     ext = Extension(pyxfile,
                     [source],
