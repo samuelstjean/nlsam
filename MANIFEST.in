@@ -5,4 +5,6 @@ include CHANGELOG.md
 include requirements.txt
 include example/*
 include nlsam/tests/test*.sh
-global-exclude *pyc
+include nlsam/gsl_windows/lib/*
+include nlsam/gsl_windows/include/gsl/*
+include nlsam/gsl.dll

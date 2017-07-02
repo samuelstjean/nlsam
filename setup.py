@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
 import os
-from os.path import join, exists, splitext
+import sys
 
 # BEFORE importing distutils, remove MANIFEST. distutils doesn't properly
 # update it when the contents of directories change.
-if exists('MANIFEST'):
+if os.path.exists('MANIFEST'):
     os.remove('MANIFEST')
 
 # Download setuptools if not present
@@ -38,6 +38,12 @@ except ImportError:
             '\nor\n brew install gsl on mac'
     raise ImportError(error)
 
+if sys.platform.startswith('win'):
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    gsl_path = os.path.join(dir_path, 'nlsam', 'gsl_windows')
+    os.environ["LIB_GSL"] = gsl_path
+    sys.path.append(gsl_path)
+
 from nlsam import get_setup_params
 params = get_setup_params()
 params['include_dirs'] = [cython_gsl.get_include()]
@@ -58,13 +64,12 @@ except ImportError:
 # list of pyx modules to compile
 modules = ['nlsam.utils',
            'nlsam.stabilizer']
-
 params['ext_modules'] = []
 
 for pyxfile in modules:
 
-    ext_name = splitext(pyxfile)[0].replace('/', '.')
-    source = join(*pyxfile.split('.')) + '.pyx'
+    ext_name = os.path.splitext(pyxfile)[0].replace('/', '.')
+    source = os.path.join(*pyxfile.split('.')) + '.pyx'
 
     ext = Extension(pyxfile,
                     [source],
