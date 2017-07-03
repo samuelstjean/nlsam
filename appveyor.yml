@@ -28,10 +28,10 @@ install:
   - "conda config --set always_yes yes --set changeps1 no"
   - "conda update -q conda"
   - "conda info -a"
-  - "conda create -q -n buildfarm python=%PYTHON_VERSION% numpy scipy cython pip"
+  - "conda create -q -n buildfarm python=%PYTHON_VERSION% numpy==1.11.3 scipy==0.17.1 cython==0.23 pip"
   - "activate buildfarm"
 
-  - "pip install --no-deps nibabel cythongsl dipy"
+  - "pip install --no-deps nibabel==2.1 cythongsl==0.2.2 dipy==0.11"
   - "pip install pytest"
   - 'pip install https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-2.4-cp27-none-win_amd64.whl'
 
