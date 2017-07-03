@@ -29,7 +29,7 @@ install:
   - "conda update -q conda"
   - "conda info -a"
   - "conda create -q -n buildfarm python=%PYTHON_VERSION%"
-  - "conda install numpy==1.11.3 scipy==0.17.1 cython==0.23 mkl==11.3.3 pip"
+  - "conda install numpy==1.11.3 scipy==0.18.1 cython==0.23 pip"
   - "activate buildfarm"
 
   - "pip install --no-deps nibabel==2.1 cythongsl==0.2.2 dipy==0.11"
