@@ -28,8 +28,7 @@ install:
   - "conda config --set always_yes yes --set changeps1 no"
   - "conda update -q conda"
   - "conda info -a"
-  - "conda create -q -n buildfarm python=%PYTHON_VERSION%"
-  - "conda install numpy==1.11.3 scipy==0.18.1 cython==0.23 pip"
+  - "conda create -q -n buildfarm python=%PYTHON_VERSION% numpy==1.11.3 scipy==0.18.1 cython==0.23 pip"
   - "activate buildfarm"
 
   - "pip install --no-deps nibabel==2.1 cythongsl==0.2.2 dipy==0.11"
