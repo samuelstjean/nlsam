@@ -77,6 +77,18 @@ St-Jean, S., Coupé, P., & Descoteaux, M. (2016).
 "[Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising.][paper]"
 Medical Image Analysis, 32(2016), 115–130. [DOI] [URL]
 
+And here is a premade bibtex entry.
+
+    @article{St-Jean2016a,
+      author = {St-Jean, Samuel and Coup{\'{e}}, Pierrick and Descoteaux, Maxime},
+      doi = {10.1016/j.media.2016.02.010},
+      journal = {Medical Image Analysis},
+      pages = {115--130},
+      title = {{Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising}},
+      volume = {32},
+      year = {2016}
+      }
+
 ## License
 
 As the main solver I use [spams][] is GPL licensed and the stabilization script
