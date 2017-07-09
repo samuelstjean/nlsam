@@ -303,7 +303,8 @@ def local_denoise(data, block_size, overlap, variance, param_alpha, param_D,
                for k in range(data.shape[2] - block_size[2] + 1)]
 
     time_multi = time()
-    data_denoised = multiprocesser(_processer, arglist, n_cores=n_cores, mp_method=mp_method)
+    parallel_processer = multiprocesser(_processer, n_cores=n_cores, mp_method=mp_method)
+    data_denoised = parallel_processer(arglist)
     logger.info('Multiprocessing done in {0:.2f} mins.'.format((time() - time_multi) / 60.))
 
     # Put together the multiprocessed results

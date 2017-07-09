@@ -6,6 +6,7 @@
 - On python >= 3.4, --mp_method [a_valid_start_method](https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods) can now be used to control behavior in the multiprocessing loop.
 - Fixed crash in option --noise_est local_std when --cores 1 was also supplied.
 - setup.py and requirements.txt will now fetch spams v2.6, with patches for numpy 1.12 support.
+- The GSL library and associated headers are now bundled for windows.
 - Some deprecation fixes and other performance improvements.
 
 ## [0.5.1] - 2016-09-27

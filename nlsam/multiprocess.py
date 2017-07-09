@@ -18,7 +18,7 @@ def multiprocessing_hanging_workaround():
     os.environ['VECLIB_MAXIMUM_THREADS'] = '1'
 
 
-def multiprocesser(func, args, n_cores=None, mp_method=None):
+def multiprocesser(func, n_cores=None, mp_method=None):
     '''
     Runs func in parallel by unpacking each element of arglist.
 
@@ -50,12 +50,16 @@ def multiprocesser(func, args, n_cores=None, mp_method=None):
 
     # Only python >= 3.4, so if we don't have it go back to the old fashioned Pool
     if has_context:
-        with get_context(method=mp_method).Pool(processes=n_cores) as pool:
-            output = pool.map(func, args)
+        def parfunc(args):
+            with get_context(method=mp_method).Pool(processes=n_cores) as pool:
+                output = pool.map(func, args)
+            return output
     else:
-        pool = Pool(processes=n_cores)
-        output = pool.map(func, args)
-        pool.close()
-        pool.join()
+        def parfunc(args):
+            pool = Pool(processes=n_cores)
+            output = pool.map(func, args)
+            pool.close()
+            pool.join()
+            return output
 
-    return output
+    return parfunc

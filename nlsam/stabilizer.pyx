@@ -47,7 +47,8 @@ def stabilization(data, m_hat, mask, sigma, N, n_cores=None, mp_method=None):
               N)
              for idx in range(data.shape[-2])]
 
-    data_out = multiprocesser(_multiprocess_stabilization, arglist, n_cores=n_cores, mp_method=mp_method)
+    parallel_stabilization = multiprocesser(_multiprocess_stabilization, n_cores=n_cores, mp_method=mp_method)
+    data_out = parallel_stabilization(arglist)
     data_stabilized = np.empty(data.shape, dtype=np.float32)
 
     for idx in range(len(data_out)):
@@ -342,7 +343,8 @@ def corrected_sigma(eta, sigma, mask, N, n_cores=None, mp_method=None):
                for eta_vox, sigma_vox, mask_vox
                in zip(eta, sigma, mask)]
 
-    sigma = multiprocesser(_corrected_sigma_parallel, arglist, n_cores=n_cores, mp_method=mp_method)
+    parallel_corrected_sigma = multiprocesser(_corrected_sigma_parallel, n_cores=n_cores, mp_method=mp_method)
+    sigma = parallel_corrected_sigma(arglist)
     return np.asarray(sigma).reshape(eta.shape)
 
 
