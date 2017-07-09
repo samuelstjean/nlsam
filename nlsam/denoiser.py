@@ -266,8 +266,7 @@ def local_denoise(data, block_size, overlap, variance, param_alpha, param_D,
         if 'D' not in param_alpha:
             raise ValueError('D is in not in param_alpha, but we are supposed to '
                              'skip training for this set.')
-        # param_D['D'] = param_alpha['D']
-        print('currently rejecting stuff')
+        logger.info('This block has some rejected indices and is not currently used for training.')
 
     else:
         # no overlapping blocks for training
@@ -428,5 +427,6 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
 
     X = np.zeros(X_full_shape, dtype=dtype, order='F')
     X[:, train_idx] = np.dot(D, arr)
+    output = col2im_nd(X, block_size, orig_shape, overlap, weigths)
 
-    return col2im_nd(X, block_size, orig_shape, overlap, weigths)
+    return output
