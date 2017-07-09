@@ -21,7 +21,7 @@ except ImportError:
 
 
 def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
-                  mask=None, is_symmetric=False, rejection=None, n_cores=None,
+                  mask=None, is_symmetric=False, rejection=None, warm_restart=False, n_cores=None,
                   subsample=True, n_iter=10, b0_threshold=10, verbose=False, mp_method=None):
     """Main nlsam denoising function which sets up everything nicely for the local
     block denoising.
@@ -52,6 +52,9 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         b0s images will be completely discarded from the image and replaced with the mean b0s.
         DWIs will still be reconstructed, so this is useful for excluding datasets
         heavily corrupted by artifacts if they affect the whole reconstructed data.
+    warm_restart : bool, default False
+        If True, reuse the dictionary D from previous iterations as a starting point.
+        if False, D is initialized with random patches from the data itself instead.
     n_cores : int, default None
         Number of processes to use for the denoising. Default is to use
         all available cores.
@@ -148,6 +151,10 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
             for loc in rest_of_b0s:
                 rejection = np.where(loc < rejection, rejection - 1, rejection)
 
+        # Using the rejection option also requires warm restart
+        warm_restart = True
+        logger.info('Rejection option is activated, so warm restart is also now activated.')
+
     # Double bvecs to find neighbors with assumed symmetry if needed
     if is_symmetric:
         logger.info('Data is assumed to be already symmetric.')
@@ -216,6 +223,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                                                               param_D,
                                                               n_iter=n_iter,
                                                               reject=to_reject[i],
+                                                              warm_restart=warm_restart,
                                                               mask=mask,
                                                               dtype=np.float64,
                                                               n_cores=n_cores,
@@ -250,7 +258,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
 
 def local_denoise(data, block_size, overlap, variance, param_alpha, param_D,
-                  n_iter=10, reject=False, mask=None, dtype=np.float64,
+                  n_iter=10, reject=False, warm_restart=False, mask=None, dtype=np.float64,
                   n_cores=None, verbose=False, mp_method=None):
 
     logger = logging.getLogger('nlsam')
@@ -273,9 +281,11 @@ def local_denoise(data, block_size, overlap, variance, param_alpha, param_D,
         no_over = (0, 0, 0, 0)
         X = im2col_nd(data, block_size, no_over)
 
-        # Warm start from previous iteration
-        if 'D' in param_alpha:
-            param_D['D'] = param_alpha['D']
+        # Warm restart from previous iterations, but only if we stored D previously,
+        # so we can't do that for the very first block.
+        if warm_restart:
+            if 'D' in param_alpha:
+                param_D['D'] = param_alpha['D']
 
         mask_col = im2col_nd(np.broadcast_to(mask[..., None], data.shape), block_size, no_over)
         train_idx = np.sum(mask_col, axis=0) > (mask_col.shape[0] / 2.)
@@ -286,7 +296,10 @@ def local_denoise(data, block_size, overlap, variance, param_alpha, param_D,
 
         param_alpha['D'] = spams.trainDL(train_data, **param_D)
         param_alpha['D'] /= np.sqrt(np.sum(param_alpha['D']**2, axis=0, keepdims=True, dtype=dtype))
-        param_D['D'] = param_alpha['D']
+
+        # Stash D for next iterations if warm_restart is selected or if we need to reject some blocks
+        if warm_restart:
+            param_D['D'] = param_alpha['D']
 
         del train_data, X
 
