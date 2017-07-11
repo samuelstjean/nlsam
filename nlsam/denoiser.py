@@ -5,7 +5,7 @@ import warnings
 import logging
 
 from time import time
-from itertools import cycle, permutations
+from itertools import cycle
 
 from nlsam.utils import im2col_nd, col2im_nd
 from nlsam.angular_tools import angular_neighbors
@@ -96,29 +96,14 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
     logger.info("Found {} b0s at position {}".format(str(num_b0s), str(b0_loc)))
 
-    if num_b0s > 1:
-        # Split the b0s in a cyclic fashion along the training data
-        if split_b0s:
-            split_b0s_idx = cycle(b0_loc)
-        else:
-            # Average multiple b0s, and just use the average for the rest of the script
-            # patching them in at the end
-            mean_b0 = np.mean(data[..., b0_loc], axis=-1)
-            dwis = tuple(np.where(bvals > b0_threshold)[0])
-            data = data[..., dwis]
-            bvals = np.take(bvals, dwis, axis=0)
-            bvecs = np.take(bvecs, dwis, axis=0)
+    # Average all b0s if we don't split them in the training set
+    if num_b0s > 1 and not split_b0s:
+        data[..., b0_loc] = np.mean(data[..., b0_loc], axis=-1)
 
-            rest_of_b0s = b0_loc[1:]
-            b0_loc = b0_loc[0]
-
-            data = np.insert(data, b0_loc, mean_b0, axis=-1)
-            bvals = np.insert(bvals, b0_loc, [0.], axis=0)
-            bvecs = np.insert(bvecs, b0_loc, [0., 0., 0.], axis=0)
-            b0_loc = tuple([b0_loc])
-            num_b0s = 1
-    else:
-        rest_of_b0s = None
+    # Split the b0s in a cyclic fashion along the training data
+    # If we only had one, cycle just return b0_loc indefinitely,
+    # else we go trough all indexes
+    split_b0s_idx = cycle(b0_loc)
 
     # Double bvecs to find neighbors with assumed symmetry if needed
     if is_symmetric:
@@ -131,17 +116,12 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
     # Full overlap for dictionary learning
     overlap = np.array(block_size, dtype=np.int16) - 1
-    # b0 = np.squeeze(data[..., b0_loc])
-    # data = np.delete(data, b0_loc, axis=-1)
-
     indexes = [(i,) + tuple(neighbors[i]) for i in range(len(neighbors))]
 
     if subsample:
         indexes = greedy_set_finder(indexes)
 
     b0_block_size = tuple(block_size[:-1]) + ((block_size[-1] + 1,))
-
-    # denoised_shape = data.shape[:-1] + (data.shape[-1] + num_b0s,)
     data_denoised = np.zeros(data.shape, np.float32)
 
     # Put all idx + b0 in this array in each iteration
@@ -149,50 +129,28 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     divider = np.zeros(data.shape[-1])
 
     for i, idx in enumerate(indexes):
-        dwi_idx = tuple(np.where(idx <= b0_loc, idx, np.array(idx) + 1))
         logger.info('Now denoising volumes {} / block {} out of {}.'.format(idx, i + 1, len(indexes)))
 
-        if split_b0s:
-            # this list of index cycle over all the b0s
-            b0_loc = tuple(split_b0s_idx[i],)
-
+        b0_loc = tuple(next(split_b0s_idx),)
         to_denoise[..., 0] = data[b0_loc]
         to_denoise[..., 1:] = data[..., idx]
 
-        data_denoised[..., b0_loc + dwi_idx] += local_denoise(to_denoise,
-                                                              b0_block_size,
-                                                              overlap,
-                                                              variance,
-                                                              n_iter=n_iter,
-                                                              mask=mask,
-                                                              dtype=np.float64,
-                                                              n_cores=n_cores,
-                                                              verbose=verbose,
-                                                              mp_method=mp_method)
-        divider[b0_loc + dwi_idx] += 1
-    # divider = np.bincount(np.array(indexes, dtype=np.int16).ravel())
-    # divider = np.insert(divider, b0_loc, len(indexes))
+        data_denoised[..., b0_loc + idx] += local_denoise(to_denoise,
+                                                          b0_block_size,
+                                                          overlap,
+                                                          variance,
+                                                          n_iter=n_iter,
+                                                          mask=mask,
+                                                          dtype=np.float64,
+                                                          n_cores=n_cores,
+                                                          verbose=verbose,
+                                                          mp_method=mp_method)
+        divider[b0_loc + idx] += 1
 
     data_denoised = data_denoised[:orig_shape[0],
                                   :orig_shape[1],
                                   :orig_shape[2],
                                   :orig_shape[3]] / divider
-
-    # Put back the original number of b0s if we averaged them
-    if rest_of_b0s is not None:
-
-        b0_denoised = np.squeeze(data_denoised[..., b0_loc])
-        data_denoised_insert = np.empty(orig_shape, dtype=np.float32)
-        n = 0
-
-        for i in range(orig_shape[-1]):
-            if i in rest_of_b0s:
-                data_denoised_insert[..., i] = b0_denoised
-                n += 1
-            else:
-                data_denoised_insert[..., i] = data_denoised[..., i - n]
-
-        data_denoised = data_denoised_insert
 
     return data_denoised
 

@@ -31,6 +31,7 @@ def _angle(vec):
     Inner function that finds the angle between all vectors of the input.
     The diagonal is the angle between each vector and itself, thus 0 everytime.
     It should not be called as is, since it serves mainly as a shortcut for other functions.
+    arccos(0) = pi/2, so b0s are always far from everyone in this formulation.
     """
 
     vec = np.array(vec)
