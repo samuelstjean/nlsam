@@ -105,7 +105,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     # else we go through all indexes.
     np.random.shuffle(b0_loc)
     split_b0s_idx = cycle(b0_loc)
-    # print(b0_loc, next(split_b0s_idx))
+
     # Double bvecs to find neighbors with assumed symmetry if needed
     if is_symmetric:
         logger.info('Data is assumed to be already symmetric.')
@@ -113,13 +113,16 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     else:
         sym_bvecs = np.vstack((bvecs, -bvecs))
 
-    neighbors = angular_neighbors(sym_bvecs, block_size[-1] - 1)
-    print(neighbors.shape)
+    neighbors = angular_neighbors(sym_bvecs, block_size[-1] - 1) % data.shape[-1]
+    neighbors = neighbors[:data.shape[-1]]  # everything was doubled for symmetry
 
     # Full overlap for dictionary learning
     overlap = np.array(block_size, dtype=np.int16) - 1
-    indexes = [(dwi,) + tuple(neighbors[dwi]) for dwi in range(data.shape[-1]) if dwi in dwis]
-    print(len(indexes))
+
+    indexes = []
+    for dwi in range(data.shape[-1]):
+        if dwi in dwis:
+            indexes += [(dwi,) + tuple(neighbors[dwi])]
 
     if subsample:
         indexes = greedy_set_finder(indexes)
@@ -135,23 +138,23 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         logger.info('Now denoising volumes {} / block {} out of {}.'.format(idx, i + 1, len(indexes)))
 
         b0_loc = tuple((next(split_b0s_idx),))
-        to_denoise[..., :1] = data[..., b0_loc]
+        to_denoise[..., 0] = data[..., b0_loc].squeeze()
         to_denoise[..., 1:] = data[..., idx]
-        print(to_denoise.shape, data_denoised.shape, divider.shape, b0_loc + idx, len(indexes), len(dwis))
         divider[list(b0_loc + idx)] += 1
-        data_denoised[..., b0_loc + idx] += to_denoise
-        # data_denoised[..., b0_loc + idx] += local_denoise(to_denoise,
-        #                                                   b0_block_size,
-        #                                                   overlap,
-        #                                                   variance,
-        #                                                   n_iter=n_iter,
-        #                                                   mask=mask,
-        #                                                   dtype=np.float64,
-        #                                                   n_cores=n_cores,
-        #                                                   verbose=verbose,
-        #                                                   mp_method=mp_method)
 
-    return data_denoised / divider
+        data_denoised[..., b0_loc + idx] += local_denoise(to_denoise,
+                                                          b0_block_size,
+                                                          overlap,
+                                                          variance,
+                                                          n_iter=n_iter,
+                                                          mask=mask,
+                                                          dtype=np.float64,
+                                                          n_cores=n_cores,
+                                                          verbose=verbose,
+                                                          mp_method=mp_method)
+
+    data_denoised /= divider
+    return data_denoised
 
 
 def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,

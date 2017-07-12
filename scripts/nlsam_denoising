@@ -71,6 +71,10 @@ def buildArgsParser():
                    metavar='int', default=10, type=int,
                    help='Lowest b-value to be considered as a b0. Default 10.')
 
+    p.add_argument('--split_b0s', action='store_true', dest='split_b0s',
+                   help='If set and multiple b0s are present, they are split amongst the '
+                   'training data.')
+
     p.add_argument('--block_size', action='store', dest='spatial_block_size',
                    metavar='tuple', type=literal_eval, default=(3, 3, 3),
                    help='Size of the 3D spatial patch to be denoised. Default : 3, 3, 3')
@@ -182,6 +186,7 @@ def main():
     is_symmetric = args.is_symmetric
     n_iter = args.iterations
     b0_threshold = args.b0_threshold
+    split_b0s = args.split_b0s
     mp_method = args.mp_method
     block_size = np.array(args.spatial_block_size + (args.angular_block_size,))
 
@@ -368,6 +373,7 @@ def main():
                                       mask=mask,
                                       is_symmetric=is_symmetric,
                                       n_cores=n_cores,
+                                      split_b0s=split_b0s,
                                       subsample=subsample,
                                       n_iter=n_iter,
                                       b0_threshold=b0_threshold,
