@@ -119,20 +119,17 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     # Full overlap for dictionary learning
     overlap = np.array(block_size, dtype=np.int16) - 1
 
-    indexes = []
-    for dwi in range(data.shape[-1]):
-        if dwi in dwis:
-            indexes += [(dwi,) + tuple(neighbors[dwi])]
+    indexes = [(dwi,) + tuple(neighbors[dwi]) for dwi in range(data.shape[-1]) if dwi in dwis]
 
     if subsample:
         indexes = greedy_set_finder(indexes)
 
     b0_block_size = tuple(block_size[:-1]) + ((block_size[-1] + 1,))
     data_denoised = np.zeros(data.shape, np.float32)
+    divider = np.zeros(data.shape[-1])
 
     # Put all idx + b0 in this array in each iteration
     to_denoise = np.empty(data.shape[:-1] + (block_size[-1] + 1,), dtype=np.float64)
-    divider = np.zeros(data.shape[-1])
 
     for i, idx in enumerate(indexes):
         logger.info('Now denoising volumes {} / block {} out of {}.'.format(idx, i + 1, len(indexes)))

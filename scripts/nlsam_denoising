@@ -216,7 +216,10 @@ def main():
     #  Load up data and do some sanity checks
     ##########################################
 
-    overwritable_files = [args.output, args.save_sigma, args.save_piesno_mask]
+    overwritable_files = [args.output,
+                          args.save_sigma,
+                          args.save_piesno_mask,
+                          args.save_stab]
 
     for f in overwritable_files:
         if f is not None and os.path.isfile(f):
