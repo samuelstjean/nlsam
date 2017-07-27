@@ -132,12 +132,12 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     to_denoise = np.empty(data.shape[:-1] + (block_size[-1] + 1,), dtype=np.float64)
 
     for i, idx in enumerate(indexes):
-        logger.info('Now denoising volumes {} / block {} out of {}.'.format(idx, i + 1, len(indexes)))
-
         b0_loc = tuple((next(split_b0s_idx),))
         to_denoise[..., 0] = data[..., b0_loc].squeeze()
         to_denoise[..., 1:] = data[..., idx]
         divider[list(b0_loc + idx)] += 1
+
+        logger.info('Now denoising volumes {} / block {} out of {}.'.format(b0_loc + idx, i + 1, len(indexes)))
 
         data_denoised[..., b0_loc + idx] += local_denoise(to_denoise,
                                                           b0_block_size,
