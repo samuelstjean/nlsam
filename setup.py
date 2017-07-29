@@ -8,13 +8,6 @@ import sys
 if os.path.exists('MANIFEST'):
     os.remove('MANIFEST')
 
-# Download setuptools if not present
-try:
-    import setuptools
-except ImportError:
-    import ez_setup
-    ez_setup.use_setuptools()
-
 try:
     import cython
 except ImportError:
