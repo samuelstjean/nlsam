@@ -94,6 +94,10 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     num_b0s = len(b0_loc)
     variance = sigma**2
 
+    # We also convert bvecs associated with b0s to exactly (0,0,0), which
+    # is not always the case when we hack around with the scanner.
+    bvecs = np.where(bvals[:, None] <= b0_threshold, 0, bvecs)
+
     logger.info("Found {} b0s at position {}".format(str(num_b0s), str(b0_loc)))
 
     # Average all b0s if we don't split them in the training set
