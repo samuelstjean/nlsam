@@ -102,6 +102,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
     # Average all b0s if we don't split them in the training set
     if num_b0s > 1 and not split_b0s:
+        num_b0s = 1
         data[..., b0_loc] = np.mean(data[..., b0_loc], axis=-1, keepdims=True)
 
     # Split the b0s in a cyclic fashion along the training data
@@ -123,10 +124,23 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     # Full overlap for dictionary learning
     overlap = np.array(block_size, dtype=np.int16) - 1
 
-    indexes = [(dwi,) + tuple(neighbors[dwi]) for dwi in range(data.shape[-1]) if dwi in dwis]
+    full_indexes = [(dwi,) + tuple(neighbors[dwi]) for dwi in range(data.shape[-1]) if dwi in dwis]
 
     if subsample:
-        indexes = greedy_set_finder(indexes)
+        indexes = greedy_set_finder(full_indexes)
+    else:
+        indexes = full_indexes
+
+    # If we have more b0s than indexes, then we have to add a few more blocks since
+    # we won't do a full cycle. If we have more b0s than indexes after that, then it breaks.
+    if num_b0s > len(indexes):
+        the_rest = [rest for rest in full_indexes if rest not in indexes]
+        indexes += the_rest[:(num_b0s - indexes)]
+
+    if num_b0s > len(indexes):
+        error = ('Seems like you still have more b0s {} than available blocks {},'
+                 ' either average them or deactivate subsampling.'.format(num_b0s, len(indexes)))
+        raise ValueError(error)
 
     b0_block_size = tuple(block_size[:-1]) + ((block_size[-1] + 1,))
     data_denoised = np.zeros(data.shape, np.float32)
@@ -135,13 +149,13 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     # Put all idx + b0 in this array in each iteration
     to_denoise = np.empty(data.shape[:-1] + (block_size[-1] + 1,), dtype=np.float64)
 
-    for i, idx in enumerate(indexes):
+    for i, idx in enumerate(indexes, start=1):
         b0_loc = tuple((next(split_b0s_idx),))
         to_denoise[..., 0] = data[..., b0_loc].squeeze()
         to_denoise[..., 1:] = data[..., idx]
         divider[list(b0_loc + idx)] += 1
 
-        logger.info('Now denoising volumes {} / block {} out of {}.'.format(b0_loc + idx, i + 1, len(indexes)))
+        logger.info('Now denoising volumes {} / block {} out of {}.'.format(b0_loc + idx, i, len(indexes)))
 
         data_denoised[..., b0_loc + idx] += local_denoise(to_denoise,
                                                           b0_block_size,
