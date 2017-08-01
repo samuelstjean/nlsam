@@ -135,7 +135,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     # we won't do a full cycle. If we have more b0s than indexes after that, then it breaks.
     if num_b0s > len(indexes):
         the_rest = [rest for rest in full_indexes if rest not in indexes]
-        indexes += the_rest[:(num_b0s - indexes)]
+        indexes += the_rest[:(num_b0s - len(indexes))]
 
     if num_b0s > len(indexes):
         error = ('Seems like you still have more b0s {} than available blocks {},'
