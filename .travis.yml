@@ -17,15 +17,20 @@ addons:
       - liblapack-dev
       - libgsl0-dev
       - libgsl0ldbl
+      - libopenblas-dev
+      - libopenblas-base
 
 env:
+  global:
     - DEPENDS="cython numpy scipy"
-      DEPENDS_PIP="cythongsl dipy nibabel"
-      TESTPART=test_scripts1.sh
-
-    - DEPENDS="cython numpy scipy"
-      DEPENDS_PIP="cythongsl dipy nibabel"
-      TESTPART=test_scripts2.sh
+    - DEPENDS_PIP="cythongsl dipy nibabel"
+    - DEPENDS_MIN="cython==0.21 numpy==1.10.4 scipy==0.14"
+    - DEPENDS_PIP_MIN="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+    - DEPENDS_BUILD="cython==0.23 numpy==1.11.3 scipy==0.18.1"
+    - DEPENDS_PIP_BUILD="cythongsl==0.2.2 nibabel==2.1 dipy==0.11"
+  matrix:
+    - TESTPART=test_scripts1.sh
+    - TESTPART=test_scripts2.sh
 
 python:
   - 2.7
@@ -37,23 +42,23 @@ matrix:
   include:
     - python: 2.7
       env:
-        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
-          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+        - DEPENDS=$DEPENDS_MIN
+          DEPENDS_PIP=$DEPENDS_PIP_MIN
           TESTPART=test_scripts1.sh
     - python: 2.7
       env:
-        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
-          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+        - DEPENDS=$DEPENDS_MIN
+          DEPENDS_PIP=$DEPENDS_PIP_MIN
           TESTPART=test_scripts2.sh
     - python: 3.4
       env:
-        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
-          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+        - DEPENDS=$DEPENDS_MIN
+          DEPENDS_PIP=$DEPENDS_PIP_MIN
           TESTPART=test_scripts1.sh
     - python: 3.4
       env:
-        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
-          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+        - DEPENDS=$DEPENDS_MIN
+          DEPENDS_PIP=$DEPENDS_PIP_MIN
           TESTPART=test_scripts2.sh
 
     # test only on a few mac osx bots
@@ -64,8 +69,8 @@ matrix:
         - virtualenv env -p python3
         - source env/bin/activate
       env:
-        - DEPENDS="cython numpy scipy"
-          DEPENDS_PIP="cythongsl nibabel dipy"
+        - DEPENDS=$DEPENDS
+          DEPENDS_PIP=$DEPENDS_PIP
           TESTPART=test_scripts1.sh
     - os: osx
       language: generic
@@ -74,8 +79,8 @@ matrix:
         - virtualenv env -p python3
         - source env/bin/activate
       env:
-        - DEPENDS="cython numpy scipy"
-          DEPENDS_PIP="cythongsl nibabel dipy"
+        - DEPENDS=$DEPENDS
+          DEPENDS_PIP=$DEPENDS_PIP
           TESTPART=test_scripts2.sh
     - os: osx
       language: generic
@@ -83,8 +88,8 @@ matrix:
         - virtualenv env -p python
         - source env/bin/activate
       env:
-        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
-          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+        - DEPENDS=$DEPENDS_MIN
+          DEPENDS_PIP=$DEPENDS_PIP_MIN
           TESTPART=test_scripts1.sh
     - os: osx
       language: generic
@@ -92,15 +97,15 @@ matrix:
         - virtualenv env -p python
         - source env/bin/activate
       env:
-        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
-          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+        - DEPENDS=$DEPENDS_MIN
+          DEPENDS_PIP=$DEPENDS_PIP_MIN
           TESTPART=test_scripts2.sh
 
     # pyinstaller builds
     - python: 3.5
       env:
-        - DEPENDS="cython==0.23 numpy==1.11.3 scipy==0.18.1"
-          DEPENDS_PIP="cythongsl==0.2.2 nibabel==2.1 dipy==0.11"
+        - DEPENDS=$DEPENDS_BUILD
+          DEPENDS_PIP=$DEPENDS_PIP_BUILD
           BUILD_PYINSTALLER=true
     - os: osx
       language: generic
@@ -115,8 +120,8 @@ matrix:
         # - pyenv virtualenv 3.5.2 buildfarm
         # - pyenv activate buildfarm
       env:
-        - DEPENDS="cython==0.23 numpy==1.11.3 scipy==0.18.1"
-          DEPENDS_PIP="cythongsl==0.2.2 nibabel==2.1 dipy==0.11"
+        - DEPENDS=$DEPENDS_BUILD
+          DEPENDS_PIP=$DEPENDS_PIP_BUILD
           BUILD_PYINSTALLER=true
 
 notifications:
@@ -128,8 +133,8 @@ install:
     - python --version # just to check
     - pip install --upgrade pip # so that we can use wheels
     - pip install pytest coverage coveralls
-    - pip install $DEPENDS --upgrade
-    - pip install $DEPENDS_PIP --upgrade
+    - pip install $DEPENDS --upgrade --upgrade-strategy only-if-needed
+    - pip install $DEPENDS_PIP --upgrade --upgrade-strategy only-if-needed
     - python setup.py build_ext -i
     - python setup.py install
 
