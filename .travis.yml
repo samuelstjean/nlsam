@@ -15,19 +15,17 @@ addons:
     packages:
       - libblas-dev
       - liblapack-dev
-      - libgsl0-dev
-      - libgsl0ldbl
       - libopenblas-dev
       - libopenblas-base
 
 env:
   global:
     - DEPENDS="cython numpy scipy"
-    - DEPENDS_PIP="cythongsl dipy nibabel"
+    - DEPENDS_PIP="dipy nibabel"
     - DEPENDS_MIN="cython==0.21 numpy==1.10.4 scipy==0.14"
-    - DEPENDS_PIP_MIN="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+    - DEPENDS_PIP_MIN="nibabel==2.0.1 dipy==0.11"
     - DEPENDS_BUILD="cython==0.23 numpy==1.11.3 scipy==0.18.1"
-    - DEPENDS_PIP_BUILD="cythongsl==0.2.2 nibabel==2.1 dipy==0.11"
+    - DEPENDS_PIP_BUILD="nibabel==2.1 dipy==0.11"
   matrix:
     - TESTPART=test_scripts1.sh
     - TESTPART=test_scripts2.sh
@@ -128,8 +126,6 @@ notifications:
     email: false
 
 install:
-    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install gsl; fi
-
     - python --version # just to check
     - pip install --upgrade pip # so that we can use wheels
     - pip install pytest coverage coveralls

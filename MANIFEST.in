@@ -5,6 +5,4 @@ include CHANGELOG.md
 include requirements.txt
 include example/*
 include nlsam/tests/test*.sh
-include nlsam/gsl_windows/lib/*
-include nlsam/gsl_windows/include/gsl/*
-include nlsam/gsl.dll
+recursive-include nlsam/gsl_libs *
