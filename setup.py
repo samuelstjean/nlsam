@@ -36,18 +36,22 @@ elif sys.platform.startswith('linux'):
 else:
     gsl_path = None
 
+dir_path = os.path.dirname(os.path.realpath(__file__))
+gsl_include = os.path.join(dir_path, 'nlsam', 'gsl_libs')
+libs = ['libgsl', 'libgslcblas']
+
 if gsl_path is not None:
-    dir_path = os.path.dirname(os.path.realpath(__file__))
     gsl_path = os.path.join(dir_path, 'nlsam', 'gsl_libs', gsl_path)
-    gsl_include = os.path.join(dir_path, 'nlsam', 'gsl_libs')
-    libs = ['libgsl', 'libgslcblas']
-    gsl_libraries_ext = [os.path.join(gsl_path, lib + libext) for lib in libs]
     gsl_libraries = [os.path.join(gsl_path, lib) for lib in libs]
 else:
+    # this part hardcodes the .a libs and their name, so it might need to be changed
+    # on some system. Also, it requires the static libs version to be available.
     print('Cannot guess current OS, using system GSL libs')
-    gsl_include = subprocess.check_output('gsl-config --cflags', shell=True).decode('utf-8')[2:-1]
-    gsl_libraries = subprocess.check_output('gsl-config --libs', shell=True).decode('utf-8').split()[0][2:]
+    gsl_path = subprocess.check_output('gsl-config --libs', shell=True).decode('utf-8').split()[0][2:]
+    gsl_libraries = [gsl_path]
+    libext = '.a'
 
+gsl_libraries_ext = [os.path.join(gsl_path, lib + libext) for lib in libs]
 
 from nlsam import get_setup_params
 params = get_setup_params()
