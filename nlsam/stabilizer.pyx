@@ -30,7 +30,7 @@ def stabilization(data, m_hat, mask, sigma, N, n_cores=None, mp_method=None):
     if (data.shape != m_hat.shape):
       raise ValueError('data shape {} is not compatible with m_hat shape {}'.format(data.shape, m_hat.shape))
 
-    size = data.shape[last_dim]
+    size = data.shape[last_dim - 1]
     mask = np.broadcast_to(mask[..., None], data.shape)
     arglist = [(data[..., idx, :],
               m_hat[..., idx, :],
