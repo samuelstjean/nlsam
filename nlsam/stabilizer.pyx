@@ -1,51 +1,43 @@
 #cython: wraparound=False, cdivision=True, boundscheck=False
 
 cimport cython
-
-from libc.math cimport sqrt, exp, fabs, M_PI
-from nlsam.multiprocess import multiprocesser
-
-import numpy as np
 cimport numpy as np
 
-from scipy.special import erfinv
-from dipy.core.ndindex import ndindex
+from libc.math cimport sqrt, exp, fabs, M_PI
+# from hyp_1f1 cimport gsl_sf_hyperg_1F1
 
-try:
-    from cython_gsl cimport gsl_sf_hyperg_1F1
-except ImportError:
-    error = 'Cannot find gsl package (required for hyp1f1), try\n\n' + \
-            'pip install cythongsl\n\nand\n\n' + \
-            'sudo apt-get install libgsl0-dev libgsl0ldbl\n\n' + \
-            'on Ubuntu and friends or\n\n' + \
-            'brew install gsl\n\non mac'
-    raise ImportError(error)
+import numpy as np
+from nlsam.multiprocess import multiprocesser
+from scipy.special import erfinv
 
 # libc.math isnan does not work on windows, it is called _isnan, so we use this one instead
 cdef extern from "numpy/npy_math.h" nogil:
     bint npy_isnan(double x)
 
+cdef extern from "hyp_1f1.h" nogil:
+    double gsl_sf_hyperg_1F1(double a, double b, double x)
 
-@cython.wraparound(True)
+
 def stabilization(data, m_hat, mask, sigma, N, n_cores=None, mp_method=None):
-
+    last_dim = len(data.shape) - 1
     # Check all dims are ok
     if (data.shape != sigma.shape):
       raise ValueError('data shape {} is not compatible with sigma shape {}'.format(data.shape, sigma.shape))
 
-    if (data.shape[:-1] != mask.shape):
+    if (data.shape[:last_dim] != mask.shape):
       raise ValueError('data shape {} is not compatible with mask shape {}'.format(data.shape, mask.shape))
 
     if (data.shape != m_hat.shape):
       raise ValueError('data shape {} is not compatible with m_hat shape {}'.format(data.shape, m_hat.shape))
 
+    size = data.shape[last_dim]
     mask = np.broadcast_to(mask[..., None], data.shape)
     arglist = [(data[..., idx, :],
               m_hat[..., idx, :],
               mask[..., idx, :],
               sigma[..., idx, :],
               N)
-             for idx in range(data.shape[-2])]
+             for idx in range(size)]
 
     parallel_stabilization = multiprocesser(_multiprocess_stabilization, n_cores=n_cores, mp_method=mp_method)
     data_out = parallel_stabilization(arglist)
@@ -72,7 +64,7 @@ def multiprocess_stabilization(data, m_hat, mask, sigma, N):
     out = np.zeros(data.shape, dtype=np.float32)
     np.logical_and(sigma > 0, mask, out=mask)
 
-    for idx in ndindex(data.shape):
+    for idx in np.ndindex(data.shape):
         if mask[idx]:
             eta = fixed_point_finder(m_hat[idx], sigma[idx], N)
             out[idx] = chi_to_gauss(data[idx], eta, sigma[idx], N)
@@ -362,7 +354,7 @@ def corrected_sigma_parallel(eta, sigma, mask, N):
     out = np.zeros(eta.shape, dtype=np.float32)
     np.logical_and(sigma > 0, mask, out=mask)
 
-    for idx in ndindex(out.shape):
+    for idx in np.ndindex(out.shape):
         if mask[idx]:
             out[idx] = _corrected_sigma(eta[idx], sigma[idx], N)
 
