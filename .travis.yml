@@ -15,8 +15,6 @@ addons:
     packages:
       - libblas-dev
       - liblapack-dev
-      - libgsl0-dev
-      - libgsl0ldbl
       - libopenblas-dev
       - libopenblas-base
 
@@ -128,8 +126,6 @@ notifications:
     email: false
 
 install:
-    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install gsl; fi
-
     - python --version # just to check
     - pip install --upgrade pip # so that we can use wheels
     - pip install pytest coverage coveralls
