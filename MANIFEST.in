@@ -4,5 +4,6 @@ include README.md
 include CHANGELOG.md
 include requirements.txt
 include example/*
+include nlsam/gsl.dll
 include nlsam/tests/test*.sh
 recursive-include nlsam/gsl_libs *
