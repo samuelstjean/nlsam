@@ -24,9 +24,26 @@ try:
 except ImportError:
     raise ImportError('Could not find numpy, which is required for building. \nTry running pip install numpy')
 
+from nlsam import get_setup_params
+params = get_setup_params()
+params['packages'] = find_packages()
+params['cmdclass'] = {'build_ext': build_ext}
+
+# Check for local version of dipy if it exists, since it would replace a locally built
+# but not installed version.
+try:
+    import dipy
+    print('Found local version of dipy in ' + dipy.__file__)
+    if LooseVersion(dipy.__version__) < LooseVersion('0.11'):
+        raise ValueError('Local dipy version is {}, but you need at least 0.11!'.format(dipy.__version__))
+except ImportError:
+    print('Cannot find dipy, it will be installed using pip.')
+    params['dependencies'].append('dipy>=0.11')
+
 if sys.platform.startswith('win'):
     gsl_path = 'gsl_windows'
     libext = '.lib'
+    params['package_data'] = {"nlsam": ['gsl.dll']}
 elif sys.platform.startswith('darwin'):
     gsl_path = 'gsl_mac'
     libext = '.a'
@@ -52,23 +69,7 @@ else:
     libext = '.a'
 
 gsl_libraries_ext = [os.path.join(gsl_path, lib + libext) for lib in libs]
-
-from nlsam import get_setup_params
-params = get_setup_params()
 params['include_dirs'] = [gsl_path]
-params['packages'] = find_packages()
-params['cmdclass'] = {'build_ext': build_ext}
-
-# Check for local version of dipy if it exists, since it would replace a locally built
-# but not installed version.
-try:
-    import dipy
-    print('Found local version of dipy in ' + dipy.__file__)
-    if LooseVersion(dipy.__version__) < LooseVersion('0.11'):
-        raise ValueError('Local dipy version is {}, but you need at least 0.11!'.format(dipy.__version__))
-except ImportError:
-    print('Cannot find dipy, it will be installed using pip.')
-    params['dependencies'].append('dipy>=0.11')
 
 # list of pyx modules to compile
 modules = ['nlsam.utils',
