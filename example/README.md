@@ -50,7 +50,7 @@ but it is recommended to also have a brain mask (mask.nii.gz) to greatly reduce 
 
 For this example dataset, we used a SENSE reconstruction (Philips, GE), which leads to spatially varying Rician noise, so we set N = 1.
 If your scanner instead implements a GRAPPA reconstruction (Siemens), you would need to specify N as the number of coils in the acquisition.
-While this value can be difficult to estimate, asking help from your friendly MR physicist is advised (or check subsection 1.1a).
+While this value can be difficult to estimate, asking help from your friendly MR physicist is advised (or check subsection 2.1a).
 
 In the meantime, you can still run the algorithm with N = 1 to use a Rician correction and check the result, in which case there would be a slight intensity
 bias left in the image, but which would be lower than not correcting it in the first place.

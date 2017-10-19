@@ -8,23 +8,27 @@ cache:
   pip: true
   directories:
     - $HOME/.cache/pip
+    - $HOME/.pyenv_cache
 
 addons:
   apt:
     packages:
       - libblas-dev
       - liblapack-dev
-      - libgsl0-dev
-      - libgsl0ldbl
+      - libopenblas-dev
+      - libopenblas-base
 
 env:
+  global:
     - DEPENDS="cython numpy scipy"
-      DEPENDS_PIP="cythongsl dipy nibabel"
-      TESTPART=test_scripts1.sh
-
-    - DEPENDS="cython numpy scipy"
-      DEPENDS_PIP="cythongsl dipy nibabel"
-      TESTPART=test_scripts2.sh
+    - DEPENDS_PIP="dipy nibabel"
+    - DEPENDS_MIN="cython==0.21 numpy==1.10.4 scipy==0.14"
+    - DEPENDS_PIP_MIN="nibabel==2.0.1 dipy==0.11"
+    - DEPENDS_BUILD="cython==0.23 numpy==1.11.3 scipy==0.18.1"
+    - DEPENDS_PIP_BUILD="nibabel==2.1 dipy==0.11"
+  matrix:
+    - TESTPART=test_scripts1.sh
+    - TESTPART=test_scripts2.sh
 
 python:
   - 2.7
@@ -36,24 +40,25 @@ matrix:
   include:
     - python: 2.7
       env:
-        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
-          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+        - DEPENDS=$DEPENDS_MIN
+          DEPENDS_PIP=$DEPENDS_PIP_MIN
           TESTPART=test_scripts1.sh
     - python: 2.7
       env:
-        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
-          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+        - DEPENDS=$DEPENDS_MIN
+          DEPENDS_PIP=$DEPENDS_PIP_MIN
           TESTPART=test_scripts2.sh
     - python: 3.4
       env:
-        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
-          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+        - DEPENDS=$DEPENDS_MIN
+          DEPENDS_PIP=$DEPENDS_PIP_MIN
           TESTPART=test_scripts1.sh
     - python: 3.4
       env:
-        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
-          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+        - DEPENDS=$DEPENDS_MIN
+          DEPENDS_PIP=$DEPENDS_PIP_MIN
           TESTPART=test_scripts2.sh
+
     # test only on a few mac osx bots
     - os: osx
       language: generic
@@ -62,8 +67,8 @@ matrix:
         - virtualenv env -p python3
         - source env/bin/activate
       env:
-        - DEPENDS="cython numpy scipy"
-          DEPENDS_PIP="cythongsl nibabel dipy"
+        - DEPENDS=$DEPENDS
+          DEPENDS_PIP=$DEPENDS_PIP
           TESTPART=test_scripts1.sh
     - os: osx
       language: generic
@@ -72,8 +77,8 @@ matrix:
         - virtualenv env -p python3
         - source env/bin/activate
       env:
-        - DEPENDS="cython numpy scipy"
-          DEPENDS_PIP="cythongsl nibabel dipy"
+        - DEPENDS=$DEPENDS
+          DEPENDS_PIP=$DEPENDS_PIP
           TESTPART=test_scripts2.sh
     - os: osx
       language: generic
@@ -81,8 +86,8 @@ matrix:
         - virtualenv env -p python
         - source env/bin/activate
       env:
-        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
-          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+        - DEPENDS=$DEPENDS_MIN
+          DEPENDS_PIP=$DEPENDS_PIP_MIN
           TESTPART=test_scripts1.sh
     - os: osx
       language: generic
@@ -90,23 +95,51 @@ matrix:
         - virtualenv env -p python
         - source env/bin/activate
       env:
-        - DEPENDS="cython==0.21 numpy==1.10.4 scipy==0.14"
-          DEPENDS_PIP="cythongsl==0.2.1 nibabel==2.0.1 dipy==0.11"
+        - DEPENDS=$DEPENDS_MIN
+          DEPENDS_PIP=$DEPENDS_PIP_MIN
           TESTPART=test_scripts2.sh
+
+    # pyinstaller builds
+    - python: 3.5
+      env:
+        - DEPENDS=$DEPENDS_BUILD
+          DEPENDS_PIP=$DEPENDS_PIP_BUILD
+          BUILD_PYINSTALLER=true
+    - os: osx
+      language: generic
+      before_install:
+        - PYENV_VERSION='3.5.2' PYENV_VERSION_STRING='Python 3.5.2'
+        - if [[ -n "$PYENV_VERSION" ]]; then
+            wget https://raw.githubusercontent.com/praekeltfoundation/travis-pyenv/master/setup-pyenv.sh;
+            PYTHON_CONFIGURE_OPTS='--enable-framework' source setup-pyenv.sh;
+          fi
+        # - pyenv install 3.5.2
+        # - pyenv local 3.5.2
+        # - pyenv virtualenv 3.5.2 buildfarm
+        # - pyenv activate buildfarm
+      env:
+        - DEPENDS=$DEPENDS_BUILD
+          DEPENDS_PIP=$DEPENDS_PIP_BUILD
+          BUILD_PYINSTALLER=true
 
 notifications:
     email: false
 
 install:
-    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install gsl; fi
-
     - python --version # just to check
     - pip install --upgrade pip # so that we can use wheels
     - pip install pytest coverage coveralls
-    - pip install $DEPENDS --upgrade
-    - pip install $DEPENDS_PIP --upgrade
+    - pip install $DEPENDS --upgrade --upgrade-strategy only-if-needed
+    - pip install $DEPENDS_PIP --upgrade --upgrade-strategy only-if-needed
     - python setup.py build_ext -i
     - python setup.py install
+
+    - if [[ "$BUILD_PYINSTALLER" ]];
+        then pip install pyinstaller;
+        pyinstaller nlsam_denoising.spec --onefile;
+        zip -j nlsam_$TRAVIS_OS_NAME_x64.zip dist/nlsam_denoising LICENSE README.md CHANGELOG.md;
+        zip -r nlsam_$TRAVIS_OS_NAME_x64.zip example/*;
+      fi
 
 before_script:
     - mkdir $HOME/.python-eggs
@@ -116,9 +149,11 @@ script:
     - mkdir tester
     - cd tester
     - py.test ../nlsam/tests/ --verbose
-    - echo 'Running tests $TESTPART'
-    - chmod +x ../nlsam/tests/$TESTPART
-    - ../nlsam/tests/$TESTPART
+    - if [[ "$TESTPART" ]];
+        then echo 'Running tests $TESTPART';
+        chmod +x ../nlsam/tests/$TESTPART;
+        ../nlsam/tests/$TESTPART;
+      fi
 
 #after_success:
 #    - coveralls

@@ -4,8 +4,8 @@
 [wiki]: https://github.com/samuelstjean/nlsam/wiki
 [DOI]: http://dx.doi.org/doi:10.1016/j.media.2016.02.010
 [URL]: http://www.sciencedirect.com/science/article/pii/S1361841516000335
-[paper]: http://scil.dinf.usherbrooke.ca/wp-content/papers/stjean-etal-media16.pdf
-[nlsam_data]:https://github.com/samuelstjean/nlsam_data
+[paper]: https://arxiv.org/pdf/1606.07239.pdf
+[nlsam_data]: https://github.com/samuelstjean/nlsam_data
 [spams]: http://spams-devel.gforge.inria.fr/
 
 The reference implementation for the Non Local Spatial and Angular Matching (NLSAM) denoising algorithm for diffusion MRI.
