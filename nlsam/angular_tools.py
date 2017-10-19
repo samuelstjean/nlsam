@@ -31,7 +31,8 @@ def angular_neighbors(vec, n):
     # or we don't and only return the n first indexes.
     output = np.zeros((arr.shape[0], n), dtype=np.int32)
     for i in range(arr.shape[0]):
-        output[i, :n] = np.extract(i != arr[i], arr[i])[:n]
+        cond = i != arr[i]
+        output[i] = arr[i][cond]
 
     return output
 
