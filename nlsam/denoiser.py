@@ -5,6 +5,7 @@ import warnings
 import logging
 
 from time import time
+from itertools import product
 
 from nlsam.utils import im2col_nd, col2im_nd
 from nlsam.angular_tools import angular_neighbors
@@ -18,11 +19,9 @@ try:
 except ImportError:
     raise ImportError("Couldn't find spams library, is the package correctly installed?")
 
-logger = logging.getLogger('nlsam')
-
 
 def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
-                  mask=None, is_symmetric=False, n_cores=None,
+                  mask=None, is_symmetric=False, rejection=None, warm_restart=False, n_cores=None,
                   subsample=True, n_iter=10, b0_threshold=10, verbose=False, mp_method=None):
     """Main nlsam denoising function which sets up everything nicely for the local
     block denoising.
@@ -48,6 +47,14 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     is_symmetric : bool, default False
         If True, assumes that for each coordinate (x, y, z) in bvecs,
         (-x, -y, -z) was also acquired.
+    rejection : tuple, default None
+        List of indexes to discard from the training set.
+        b0s images will be completely discarded from the image and replaced with the mean b0s.
+        DWIs will still be reconstructed, so this is useful for excluding datasets
+        heavily corrupted by artifacts if they affect the whole reconstructed data.
+    warm_restart : bool, default False
+        If True, reuse the dictionary D from previous iterations as a starting point.
+        if False, D is initialized with random patches from the data itself instead.
     n_cores : int, default None
         Number of processes to use for the denoising. Default is to use
         all available cores.
@@ -68,6 +75,8 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     data_denoised : ndarray
         The denoised dataset
     """
+
+    logger = logging.getLogger('nlsam')
 
     if verbose:
         logger.setLevel(logging.INFO)
@@ -92,10 +101,31 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
     logger.info("Found {} b0s at position {}".format(str(num_b0s), str(b0_loc)))
 
+    if rejection is not None:
+        # Rejection happens later, but the indices are converted without b0s, so this is the actual user input
+        logger.info("Volumes {} will be excluded from the training set.".format(str(rejection)))
+
+        bad_b0s = tuple()
+
+        for r in rejection:
+            if r in b0_loc:
+                logger.info("b0 {} will be excluded as a whole".format(str(r)))
+                bad_b0s += (r,)
+                num_b0s -= 1
+
+        if num_b0s == 0:
+            raise ValueError('It seems like all b0s {} have been excluded from the rejection set {}'.format(str(b0_loc), str(rejection)))
+
     # Average multiple b0s, and just use the average for the rest of the script
     # patching them in at the end
     if num_b0s > 1:
-        mean_b0 = np.mean(data[..., b0_loc], axis=-1)
+
+        if any(bad_b0s):
+            good_b0s = tuple(x for x in b0_loc if x not in bad_b0s)
+        else:
+            good_b0s = b0_loc
+
+        mean_b0 = np.mean(data[..., good_b0s], axis=-1)
         dwis = tuple(np.where(bvals > b0_threshold)[0])
         data = data[..., dwis]
         bvals = np.take(bvals, dwis, axis=0)
@@ -111,6 +141,19 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         num_b0s = 1
     else:
         rest_of_b0s = None
+
+    # We need to shift the indexes for rejection by 1 for each b0s we removed which are located afterwards
+    if rejection is not None:
+        rejection = np.array(rejection)
+        rejection = np.where(b0_loc < rejection, rejection - 1, rejection)
+
+        if rest_of_b0s is not None:
+            for loc in rest_of_b0s:
+                rejection = np.where(loc < rejection, rejection - 1, rejection)
+
+        # Using the rejection option also requires warm restart
+        warm_restart = True
+        logger.info('Rejection option is activated, so warm restart is also now activated.')
 
     # Double bvecs to find neighbors with assumed symmetry if needed
     if is_symmetric:
@@ -131,6 +174,11 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     if subsample:
         indexes = greedy_set_finder(indexes)
 
+    if rejection is not None:
+        indexes, to_reject = reject_from_training(indexes, rejection)
+    else:
+        to_reject = np.zeros(len(indexes), dtype=np.bool)
+
     b0_block_size = tuple(block_size[:-1]) + ((block_size[-1] + num_b0s,))
 
     denoised_shape = data.shape[:-1] + (data.shape[-1] + num_b0s,)
@@ -139,18 +187,43 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     # Put all idx + b0 in this array in each iteration
     to_denoise = np.empty(data.shape[:-1] + (block_size[-1] + 1,), dtype=np.float64)
 
-    for i, idx in enumerate(indexes):
-        dwi_idx = tuple(np.where(idx <= b0_loc, idx, np.array(idx) + num_b0s))
-        logger.info('Now denoising volumes {} / block {} out of {}.'.format(idx, i + 1, len(indexes)))
+    # Solving parameters for D
+    param_alpha = {}
+    param_alpha['numThreads'] = 1  # This one is in the multiprocess loop, so we always use 1 core only
+    param_alpha['pos'] = True
+    param_alpha['mode'] = 1
 
-        to_denoise[..., 0] = np.copy(b0)
+    param_D = {}
+    param_D['verbose'] = False
+    param_D['posAlpha'] = True
+    param_D['posD'] = True
+    param_D['mode'] = 2
+    param_D['lambda1'] = 1.2 / np.sqrt(np.prod(b0_block_size))
+    param_D['K'] = int(2 * np.prod(b0_block_size))
+    param_D['iter'] = 150
+    param_D['batchsize'] = 500
+
+    if n_cores is not None:
+        param_D['numThreads'] = n_cores
+    else:
+        param_D['numThreads'] = -1
+
+    for i, idx in enumerate(indexes):
+        dwi_idx = tuple(np.where(tuple(idx) <= b0_loc, idx, np.array(idx) + num_b0s))
+        to_denoise[..., 0] = b0
         to_denoise[..., 1:] = data[..., idx]
+
+        logger.info('Now denoising volumes {} / block {} out of {}.'.format(dwi_idx, i + 1, len(indexes)))
 
         data_denoised[..., b0_loc + dwi_idx] += local_denoise(to_denoise,
                                                               b0_block_size,
                                                               overlap,
                                                               variance,
+                                                              param_alpha,
+                                                              param_D,
                                                               n_iter=n_iter,
+                                                              reject=to_reject[i],
+                                                              warm_restart=warm_restart,
                                                               mask=mask,
                                                               dtype=np.float64,
                                                               n_cores=n_cores,
@@ -184,51 +257,51 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     return data_denoised
 
 
-def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
-                  dtype=np.float64, n_cores=None, verbose=False, mp_method=None):
+def local_denoise(data, block_size, overlap, variance, param_alpha, param_D,
+                  n_iter=10, reject=False, warm_restart=False, mask=None, dtype=np.float64,
+                  n_cores=None, verbose=False, mp_method=None):
+
+    logger = logging.getLogger('nlsam')
+
     if verbose:
         logger.setLevel(logging.INFO)
 
     if mask is None:
         mask = np.ones(data.shape[:-1], dtype=np.bool)
 
-    # no overlapping blocks for training
-    no_over = (0, 0, 0, 0)
-    X = im2col_nd(data, block_size, no_over)
+    # Do we train on this set or use D from the previous one?
+    if reject:
+        if 'D' not in param_alpha:
+            raise ValueError('D is in not in param_alpha, but we are supposed to '
+                             'skip training for this set.')
+        logger.info('This block has some rejected indices and is not currently used for training.')
 
-    # Solving for D
-    param_alpha = {}
-    param_alpha['pos'] = True
-    param_alpha['mode'] = 1
+    else:
+        # no overlapping blocks for training
+        no_over = (0, 0, 0, 0)
+        X = im2col_nd(data, block_size, no_over)
 
-    param_D = {}
-    param_D['verbose'] = False
-    param_D['posAlpha'] = True
-    param_D['posD'] = True
-    param_D['mode'] = 2
-    param_D['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
-    param_D['K'] = int(2 * np.prod(block_size))
-    param_D['iter'] = 150
-    param_D['batchsize'] = 500
+        # Warm restart from previous iterations, but only if we stored D previously,
+        # so we can't do that for the very first block.
+        if warm_restart:
+            if 'D' in param_alpha:
+                param_D['D'] = param_alpha['D']
 
-    if 'D' in param_alpha:
-        param_D['D'] = param_alpha['D']
+        mask_col = im2col_nd(np.broadcast_to(mask[..., None], data.shape), block_size, no_over)
+        train_idx = np.sum(mask_col, axis=0) > (mask_col.shape[0] / 2.)
 
-    mask_col = im2col_nd(np.broadcast_to(mask[..., None], data.shape), block_size, no_over)
-    train_idx = np.sum(mask_col, axis=0) > (mask_col.shape[0] / 2.)
+        train_data = X[:, train_idx]
+        train_data = np.asfortranarray(train_data[:, np.any(train_data != 0, axis=0)], dtype=dtype)
+        train_data /= np.sqrt(np.sum(train_data**2, axis=0, keepdims=True), dtype=dtype)
 
-    train_data = X[:, train_idx]
-    train_data = np.asfortranarray(train_data[:, np.any(train_data != 0, axis=0)], dtype=dtype)
-    train_data /= np.sqrt(np.sum(train_data**2, axis=0, keepdims=True), dtype=dtype)
+        param_alpha['D'] = spams.trainDL(train_data, **param_D)
+        param_alpha['D'] /= np.sqrt(np.sum(param_alpha['D']**2, axis=0, keepdims=True, dtype=dtype))
 
-    param_alpha['D'] = spams.trainDL(train_data, **param_D)
-    param_alpha['D'] /= np.sqrt(np.sum(param_alpha['D']**2, axis=0, keepdims=True, dtype=dtype))
-    param_D['D'] = param_alpha['D']
+        # Stash D for next iterations if warm_restart is selected or if we need to reject some blocks
+        if warm_restart:
+            param_D['D'] = param_alpha['D']
 
-    del train_data, X
-
-    param_alpha['numThreads'] = 1
-    param_D['numThreads'] = 1
+        del train_data, X
 
     arglist = [(data[:, :, k:k + block_size[2]],
                 mask[:, :, k:k + block_size[2]],
@@ -289,6 +362,20 @@ def greedy_set_finder(sets):
     return output
 
 
+def reject_from_training(indexes, rejection):
+    """Puts the subsets from indexes specified in rejection at the end of indexes"""
+
+    indexes = np.array(indexes)
+    to_reject = np.zeros(len(indexes), dtype=np.bool)
+
+    for r, i in product(rejection, range(len(indexes))):
+        if r in indexes[i]:
+            to_reject[i] = True
+
+    sorted_args = np.argsort(to_reject)
+    return indexes[sorted_args], to_reject[sorted_args]
+
+
 def _processer(args):
     return processer(*args)
 
@@ -312,37 +399,37 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
     param_alpha['L'] = int(0.5 * X.shape[0])
 
     D = param_alpha['D']
-
     alpha = lil_matrix((D.shape[1], X.shape[1]))
-    W = np.ones(alpha.shape, dtype=dtype, order='F')
+    W = np.ones(alpha.shape, dtype=dtype)
 
     DtD = np.dot(D.T, D)
     DtX = np.dot(D.T, X)
-    DtXW = np.empty_like(DtX, order='F')
+    DtXW = np.zeros_like(DtX, order='F')
+    DtDW = np.zeros_like(DtD, order='F')
 
-    alpha_old = np.ones(alpha.shape, dtype=dtype)
-    has_converged = np.zeros(alpha.shape[1], dtype=np.bool)
-    arr = np.empty(alpha.shape)
+    alpha_old = np.zeros(alpha.shape, dtype=dtype)
+    not_converged = np.ones(alpha.shape[1], dtype=np.bool)
+    arr = np.zeros(alpha.shape, dtype=dtype)
+    nonzero_ind = np.zeros(alpha.shape, dtype=np.bool)
 
     xi = np.random.randn(X.shape[0], X.shape[1]) * var_mat
     eps = np.max(np.abs(np.dot(D.T, xi)), axis=0)
 
     for _ in range(n_iter):
-        not_converged = np.equal(has_converged, False)
         DtXW[:, not_converged] = DtX[:, not_converged] / W[:, not_converged]
 
-        for i in range(alpha.shape[1]):
-            if not has_converged[i]:
+        for i in range(X.shape[1]):
+            if not_converged[i]:
                 param_alpha['lambda1'] = var_mat[i] * (X.shape[0] + gamma * np.sqrt(2 * X.shape[0]))
-                DtDW = (1. / W[..., None, i]) * DtD * (1. / W[:, i])
-                alpha[:, i:i + 1] = spams.lasso(X[:, i:i + 1], Q=np.asfortranarray(DtDW), q=DtXW[:, i:i + 1], **param_alpha)
+                DtDW[:] = (1. / W[..., None, i]) * DtD * (1. / W[:, i])
+                alpha[:, i:i + 1] = spams.lasso(X[:, i:i + 1], Q=DtDW, q=DtXW[:, i:i + 1], **param_alpha)
 
         alpha.toarray(out=arr)
-        nonzero_ind = arr != 0
+        np.not_equal(arr, 0, out=nonzero_ind)
         arr[nonzero_ind] /= W[nonzero_ind]
-        has_converged = np.max(np.abs(alpha_old - arr), axis=0) < tolerance
+        not_converged[:] = np.abs(alpha_old - arr).max(axis=0) > tolerance
 
-        if np.all(has_converged):
+        if not np.any(not_converged):
             break
 
         alpha_old[:] = arr
@@ -353,5 +440,6 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
 
     X = np.zeros(X_full_shape, dtype=dtype, order='F')
     X[:, train_idx] = np.dot(D, arr)
+    output = col2im_nd(X, block_size, orig_shape, overlap, weigths)
 
-    return col2im_nd(X, block_size, orig_shape, overlap, weigths)
+    return output

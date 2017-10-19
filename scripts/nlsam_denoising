@@ -75,6 +75,14 @@ def buildArgsParser():
                    metavar='tuple', type=literal_eval, default=(3, 3, 3),
                    help='Size of the 3D spatial patch to be denoised. Default : 3, 3, 3')
 
+    p.add_argument('--reject_volume', action='store', dest='rejection',
+                   metavar='tuple', type=literal_eval, default='None',
+                   help='Indexes of volumes to remove from the training set, preventing then from '
+                   'contaminating the reconstructed data. They will still be denoised, '
+                   'so use this for volumes heavily corrupted by artifacts.'
+                   'Do note that 0 is the index for the first volume up to n-1 for the last volume.'
+                   ' Default : None')
+
     p.add_argument('--fix_implausible', action='store_true', dest='implausible_signal_fix',
                    help='If set, remove physically implausible signals from the input data by setting '
                    'the b0 signal as the highest value along volumes.\nUseful if your data '
@@ -184,6 +192,7 @@ def main():
     b0_threshold = args.b0_threshold
     mp_method = args.mp_method
     block_size = np.array(args.spatial_block_size + (args.angular_block_size,))
+    rejection = args.rejection
 
     logger = logging.getLogger('nlsam')
 
@@ -229,6 +238,18 @@ def main():
     header = vol.header
     header.set_data_dtype(np.float32)
     logger.info("Loading data {}".format(os.path.realpath(args.input)))
+
+    if rejection is not None:
+        # A single volume will give an int, we want a tuple
+        if isinstance(rejection, int):
+            rejection = tuple((rejection,))
+
+        if len(rejection) > len(set(rejection)):
+            raise ValueError('Some indices to reject where specified twice {}'.format(str(rejection)))
+
+        if any(np.logical_or(np.greater(0, np.array(rejection)), np.less(data.shape[-1] - 1, np.array(rejection)))):
+            raise ValueError('Some indices to reject where negative or larger than the number '
+                             'of volumes {}'.format(str(rejection)))
 
     if args.mask is not None:
         mask = np.asarray(nib.load(args.mask).get_data(caching='unchanged'), dtype=np.bool)
@@ -370,6 +391,7 @@ def main():
         data_denoised = nlsam_denoise(data_stabilized, sigma, bvals, bvecs, block_size,
                                       mask=mask,
                                       is_symmetric=is_symmetric,
+                                      rejection=rejection,
                                       n_cores=n_cores,
                                       subsample=subsample,
                                       n_iter=n_iter,
