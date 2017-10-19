@@ -32,7 +32,7 @@ def angular_neighbors(vec, n):
     output = np.zeros((arr.shape[0], n), dtype=np.int32)
     for i in range(arr.shape[0]):
         cond = i != arr[i]
-        output[i] = arr[i][cond]
+        output[i] = arr[i, cond][:n]
 
     return output
 
