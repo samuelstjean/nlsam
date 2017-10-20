@@ -5,6 +5,7 @@ import warnings
 import logging
 
 from time import time
+from itertools import cycle
 
 from nlsam.utils import im2col_nd, col2im_nd
 from nlsam.angular_tools import angular_neighbors
@@ -22,7 +23,7 @@ logger = logging.getLogger('nlsam')
 
 
 def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
-                  mask=None, is_symmetric=False, n_cores=None,
+                  mask=None, is_symmetric=False, n_cores=None, split_b0s=False,
                   subsample=True, n_iter=10, b0_threshold=10, verbose=False, mp_method=None):
     """Main nlsam denoising function which sets up everything nicely for the local
     block denoising.
@@ -51,6 +52,9 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     n_cores : int, default None
         Number of processes to use for the denoising. Default is to use
         all available cores.
+    split_b0s : bool, default False
+        If True and the dataset contains multiple b0s, a different b0 will be used for
+        each run of the denoising. If False, the b0s are averaged and the average b0 is used instead.
     subsample : bool, default True
         If True, find the smallest subset of indices required to process each
         dwi at least once.
@@ -85,102 +89,86 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         raise ValueError('Block shape {} and data shape {} are not of the same '
                          'length'.format(data.shape, block_size.shape))
 
-    b0_loc = tuple(np.where(bvals <= b0_threshold)[0])
+    b0_loc = np.where(bvals <= b0_threshold)[0]
+    dwis = np.where(bvals > b0_threshold)[0]
     num_b0s = len(b0_loc)
     variance = sigma**2
-    orig_shape = data.shape
+
+    # We also convert bvecs associated with b0s to exactly (0,0,0), which
+    # is not always the case when we hack around with the scanner.
+    bvecs = np.where(bvals[:, None] <= b0_threshold, 0, bvecs)
 
     logger.info("Found {} b0s at position {}".format(str(num_b0s), str(b0_loc)))
 
-    # Average multiple b0s, and just use the average for the rest of the script
-    # patching them in at the end
-    if num_b0s > 1:
-        mean_b0 = np.mean(data[..., b0_loc], axis=-1)
-        dwis = tuple(np.where(bvals > b0_threshold)[0])
-        data = data[..., dwis]
-        bvals = np.take(bvals, dwis, axis=0)
-        bvecs = np.take(bvecs, dwis, axis=0)
-
-        rest_of_b0s = b0_loc[1:]
-        b0_loc = b0_loc[0]
-
-        data = np.insert(data, b0_loc, mean_b0, axis=-1)
-        bvals = np.insert(bvals, b0_loc, [0.], axis=0)
-        bvecs = np.insert(bvecs, b0_loc, [0., 0., 0.], axis=0)
-        b0_loc = tuple([b0_loc])
+    # Average all b0s if we don't split them in the training set
+    if num_b0s > 1 and not split_b0s:
         num_b0s = 1
-    else:
-        rest_of_b0s = None
+        data[..., b0_loc] = np.mean(data[..., b0_loc], axis=-1, keepdims=True)
+
+    # Split the b0s in a cyclic fashion along the training data
+    # If we only had one, cycle just return b0_loc indefinitely,
+    # else we go through all indexes.
+    np.random.shuffle(b0_loc)
+    split_b0s_idx = cycle(b0_loc)
 
     # Double bvecs to find neighbors with assumed symmetry if needed
     if is_symmetric:
         logger.info('Data is assumed to be already symmetric.')
-        sym_bvecs = np.delete(bvecs, b0_loc, axis=0)
+        sym_bvecs = bvecs
     else:
-        sym_bvecs = np.vstack((np.delete(bvecs, b0_loc, axis=0), np.delete(-bvecs, b0_loc, axis=0)))
+        sym_bvecs = np.vstack((bvecs, -bvecs))
 
-    neighbors = (angular_neighbors(sym_bvecs, block_size[-1] - num_b0s) % (data.shape[-1] - num_b0s))[:data.shape[-1] - num_b0s]
+    neighbors = angular_neighbors(sym_bvecs, block_size[-1] - 1) % data.shape[-1]
+    neighbors = neighbors[:data.shape[-1]]  # everything was doubled for symmetry
 
     # Full overlap for dictionary learning
     overlap = np.array(block_size, dtype=np.int16) - 1
-    b0 = np.squeeze(data[..., b0_loc])
-    data = np.delete(data, b0_loc, axis=-1)
 
-    indexes = [(i,) + tuple(neighbors[i]) for i in range(len(neighbors))]
+    full_indexes = [(dwi,) + tuple(neighbors[dwi]) for dwi in range(data.shape[-1]) if dwi in dwis]
 
     if subsample:
-        indexes = greedy_set_finder(indexes)
+        indexes = greedy_set_finder(full_indexes)
+    else:
+        indexes = full_indexes
 
-    b0_block_size = tuple(block_size[:-1]) + ((block_size[-1] + num_b0s,))
+    # If we have more b0s than indexes, then we have to add a few more blocks since
+    # we won't do a full cycle. If we have more b0s than indexes after that, then it breaks.
+    if num_b0s > len(indexes):
+        the_rest = [rest for rest in full_indexes if rest not in indexes]
+        indexes += the_rest[:(num_b0s - len(indexes))]
 
-    denoised_shape = data.shape[:-1] + (data.shape[-1] + num_b0s,)
-    data_denoised = np.zeros(denoised_shape, np.float32)
+    if num_b0s > len(indexes):
+        error = ('Seems like you still have more b0s {} than available blocks {},'
+                 ' either average them or deactivate subsampling.'.format(num_b0s, len(indexes)))
+        raise ValueError(error)
+
+    b0_block_size = tuple(block_size[:-1]) + ((block_size[-1] + 1,))
+    data_denoised = np.zeros(data.shape, np.float32)
+    divider = np.zeros(data.shape[-1])
 
     # Put all idx + b0 in this array in each iteration
     to_denoise = np.empty(data.shape[:-1] + (block_size[-1] + 1,), dtype=np.float64)
 
-    for i, idx in enumerate(indexes):
-        dwi_idx = tuple(np.where(idx <= b0_loc, idx, np.array(idx) + num_b0s))
-        logger.info('Now denoising volumes {} / block {} out of {}.'.format(idx, i + 1, len(indexes)))
-
-        to_denoise[..., 0] = np.copy(b0)
+    for i, idx in enumerate(indexes, start=1):
+        b0_loc = tuple((next(split_b0s_idx),))
+        to_denoise[..., 0] = data[..., b0_loc].squeeze()
         to_denoise[..., 1:] = data[..., idx]
+        divider[list(b0_loc + idx)] += 1
 
-        data_denoised[..., b0_loc + dwi_idx] += local_denoise(to_denoise,
-                                                              b0_block_size,
-                                                              overlap,
-                                                              variance,
-                                                              n_iter=n_iter,
-                                                              mask=mask,
-                                                              dtype=np.float64,
-                                                              n_cores=n_cores,
-                                                              verbose=verbose,
-                                                              mp_method=mp_method)
+        logger.info('Now denoising volumes {} / block {} out of {}.'.format(b0_loc + idx, i, len(indexes)))
 
-    divider = np.bincount(np.array(indexes, dtype=np.int16).ravel())
-    divider = np.insert(divider, b0_loc, len(indexes))
+        data_denoised[..., b0_loc + idx] += local_denoise(to_denoise,
+                                                          b0_block_size,
+                                                          overlap,
+                                                          variance,
+                                                          n_iter=n_iter,
+                                                          mask=mask,
+                                                          dtype=np.float64,
+                                                          n_cores=n_cores,
+                                                          verbose=verbose,
+                                                          mp_method=mp_method)
 
-    data_denoised = data_denoised[:orig_shape[0],
-                                  :orig_shape[1],
-                                  :orig_shape[2],
-                                  :orig_shape[3]] / divider
-
-    # Put back the original number of b0s
-    if rest_of_b0s is not None:
-
-        b0_denoised = np.squeeze(data_denoised[..., b0_loc])
-        data_denoised_insert = np.empty(orig_shape, dtype=np.float32)
-        n = 0
-
-        for i in range(orig_shape[-1]):
-            if i in rest_of_b0s:
-                data_denoised_insert[..., i] = b0_denoised
-                n += 1
-            else:
-                data_denoised_insert[..., i] = data_denoised[..., i - n]
-
-        data_denoised = data_denoised_insert
-
+    data_denoised /= divider
     return data_denoised
 
 

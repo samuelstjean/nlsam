@@ -22,8 +22,19 @@ def angular_neighbors(vec, n):
     # Sort the values and only keep the n closest neighbors.
     # The first angle is always 0, since _angle always
     # computes the angle between the vector and itself.
-    # Therefore we pick the rest of n+1 vectors excluding the first one.
-    return np.argsort(_angle(vec))[:, 1:n + 1]
+    # Therefore we pick the rest of n+1 vectors and exclude the index
+    # itself if it was picked, which can happen if we have N repetition of dwis
+    # but want n < N angular neighbors
+    arr = np.argsort(_angle(vec))[:, :n+1]
+
+    # We only want n elements - either we remove an index and return the remainder
+    # or we don't and only return the n first indexes.
+    output = np.zeros((arr.shape[0], n), dtype=np.int32)
+    for i in range(arr.shape[0]):
+        cond = i != arr[i]
+        output[i] = arr[i, cond][:n]
+
+    return output
 
 
 def _angle(vec):
@@ -31,6 +42,8 @@ def _angle(vec):
     Inner function that finds the angle between all vectors of the input.
     The diagonal is the angle between each vector and itself, thus 0 everytime.
     It should not be called as is, since it serves mainly as a shortcut for other functions.
+
+    arccos(0) = pi/2, so b0s are always far from everyone in this formulation.
     """
 
     vec = np.array(vec)
