@@ -184,6 +184,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                                                           mask=mask,
                                                           dtype=dtype,
                                                           n_cores=n_cores,
+                                                          use_threading=use_threading,
                                                           verbose=verbose,
                                                           mp_method=mp_method)
 
@@ -320,7 +321,7 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
     X = im2col_nd(data, block_size, overlap)
     var_mat = np.median(im2col_nd(variance, block_size[:-1], overlap[:-1])[:, train_idx], axis=0)
     X_full_shape = X.shape
-    X = X[:, train_idx]
+    X = X[:, train_idx].astype(dtype)
 
     param_alpha['L'] = int(0.5 * X.shape[0])
 
