@@ -55,7 +55,7 @@ def buildArgsParser():
 
     p.add_argument('N', action='store', metavar='N', type=int,
                    help='Number of receiver coils of the scanner. \n'
-                   'Use N=1 in the case of a SENSE (GE, Phillips) reconstruction and '
+                   'Use N=1 in the case of a SENSE (GE, Philips) reconstruction and '
                    'N >= 1 for GRAPPA reconstruction (Siemens).')
 
     p.add_argument('bvals', action='store', metavar='bvals',
@@ -151,8 +151,13 @@ def buildArgsParser():
                    metavar='int', type=int,
                    help='Number of cores to use for multithreading.')
 
+    p.add_argument('--use_threading', action='store_true', dest='use_threading',
+                   help='If set, rely on your blas/lapack/spams multithreading capabilities instead of python multiprocessing.\n'
+                   'This mode uses less ram, but is slower than multiprocessing and should only be used for very large datasets\n'
+                   'or in cases where the amount of available ram is limited.')
+
     p.add_argument('--use_f32', action='store_true', dest='dtype',
-                   help='If supplied, use float32 for iner computation. This option lowers ram usage, but\n'
+                   help='If supplied, use float32 for inner computation. This option lowers ram usage, but\n'
                    'could lead to numerical precision issues, so use carefully and inspect the final output.')
 
     p.add_argument('--mp_method', action='store', dest='mp_method',
@@ -192,6 +197,7 @@ def main():
     b0_threshold = args.b0_threshold
     split_b0s = args.split_b0s
     mp_method = args.mp_method
+    use_threading = args.use_threading
     block_size = np.array(args.spatial_block_size + (args.angular_block_size,))
 
     logger = logging.getLogger('nlsam')
@@ -221,6 +227,10 @@ def main():
         dtype = np.float32
     else:
         dtype = np.float64
+
+    if args.use_threading:
+        logger.info('Using multithreading instead of multiprocessing, please make sure your blas/lapack/spams\n'
+                    'libraries are built with multithreading support!')
 
     ##########################################
     #  Load up data and do some sanity checks
@@ -391,6 +401,7 @@ def main():
                                       n_iter=n_iter,
                                       b0_threshold=b0_threshold,
                                       dtype=dtype,
+                                      use_threading=use_threading,
                                       mp_method=mp_method)
 
         nib.save(nib.Nifti1Image(data_denoised.astype(np.float32), affine, header), args.output)
