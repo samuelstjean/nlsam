@@ -151,6 +151,10 @@ def buildArgsParser():
                    metavar='int', type=int,
                    help='Number of cores to use for multithreading.')
 
+    p.add_argument('--use_f32', action='store_true', dest='dtype',
+                   help='If supplied, use float32 for iner computation. This option lowers ram usage, but\n'
+                   'could lead to numerical precision issues, so use carefully and inspect the final output.')
+
     p.add_argument('--mp_method', action='store', dest='mp_method',
                    metavar='string', type=str, default=None,
                    help='Dispatch method for multiprocessing, see\n'
@@ -211,6 +215,12 @@ def main():
 
     if args.no_denoising:
         logger.info('Denoising disabled!')
+
+    if args.use_f32:
+        logger.info('Computations will be made using float32!')
+        dtype = np.float32
+    else:
+        dtype = np.float64
 
     ##########################################
     #  Load up data and do some sanity checks
@@ -380,6 +390,7 @@ def main():
                                       subsample=subsample,
                                       n_iter=n_iter,
                                       b0_threshold=b0_threshold,
+                                      dtype=dtype,
                                       mp_method=mp_method)
 
         nib.save(nib.Nifti1Image(data_denoised.astype(np.float32), affine, header), args.output)

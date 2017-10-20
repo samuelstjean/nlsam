@@ -24,7 +24,8 @@ logger = logging.getLogger('nlsam')
 
 def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                   mask=None, is_symmetric=False, n_cores=None, split_b0s=False,
-                  subsample=True, n_iter=10, b0_threshold=10, verbose=False, mp_method=None):
+                  subsample=True, n_iter=10, b0_threshold=10, dtype=np.float64,
+                  verbose=False, mp_method=None):
     """Main nlsam denoising function which sets up everything nicely for the local
     block denoising.
 
@@ -62,6 +63,9 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         Maximum number of iterations for the reweighted l1 solver.
     b0_threshold : int, default 10
         A b-value below b0_threshold will be considered as a b0 image.
+    dtype : np.float32 or np.float64, default np.float64
+        Precision to use for inner computation. Note that np.float32 should only be used for
+        very, very large datasets (that is, you ram starts swappping) as it can lead to numerical precision errors.
     verbose : bool, default False
         print useful messages.
     mp_method : string
@@ -88,6 +92,9 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     if len(block_size) != len(data.shape):
         raise ValueError('Block shape {} and data shape {} are not of the same '
                          'length'.format(data.shape, block_size.shape))
+
+    if not ((dtype == np.float32) or (dtype == np.float64)):
+        raise ValueError('dtype should be either np.float32 or np.float64, but is {}'.format(dtype))
 
     b0_loc = np.where(bvals <= b0_threshold)[0]
     dwis = np.where(bvals > b0_threshold)[0]
@@ -147,7 +154,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     divider = np.zeros(data.shape[-1])
 
     # Put all idx + b0 in this array in each iteration
-    to_denoise = np.empty(data.shape[:-1] + (block_size[-1] + 1,), dtype=np.float64)
+    to_denoise = np.empty(data.shape[:-1] + (block_size[-1] + 1,), dtype=dtype)
 
     for i, idx in enumerate(indexes, start=1):
         b0_loc = tuple((next(split_b0s_idx),))
@@ -163,7 +170,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                                                           variance,
                                                           n_iter=n_iter,
                                                           mask=mask,
-                                                          dtype=np.float64,
+                                                          dtype=dtype,
                                                           n_cores=n_cores,
                                                           verbose=verbose,
                                                           mp_method=mp_method)
