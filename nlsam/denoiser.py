@@ -235,7 +235,7 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
 
     del train_data, X
 
-    if use_threading:
+    if use_threading or (n_cores == 1):
         param_alpha['numThreads'] = n_cores
         param_D['numThreads'] = n_cores
     else:
