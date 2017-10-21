@@ -349,7 +349,7 @@ def main():
         logger.info("Now performing stabilization")
 
         if sh_order <= 0:
-            m_hat = np.array(data, copy=True, dtype=np.float32)
+            m_hat = data
         else:
             logger.info("Estimating m_hat with sh order {}".format(sh_order))
 
@@ -369,6 +369,7 @@ def main():
             sigma = np.broadcast_to(sigma[..., None], data.shape)
 
         data_stabilized = stabilization(data, m_hat, mask, sigma, N, n_cores=n_cores, mp_method=mp_method)
+        del m_hat
 
         if args.save_stab is not None:
             nib.save(nib.Nifti1Image(data_stabilized, affine), args.save_stab)
@@ -384,6 +385,7 @@ def main():
         # If we have a bunch of 4D views, we only want a 3D array
         if sigma.ndim == data.ndim:
             sigma = np.median(sigma, axis=-1)
+        del data
 
         data_denoised = nlsam_denoise(data_stabilized, sigma, bvals, bvecs, block_size,
                                       mask=mask,

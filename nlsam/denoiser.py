@@ -233,7 +233,7 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     param_alpha['D'] /= np.sqrt(np.sum(param_alpha['D']**2, axis=0, keepdims=True, dtype=dtype))
     param_D['D'] = param_alpha['D']
 
-    del train_data, X
+    del train_data, X, mask_col
 
     if use_threading or (n_cores == 1):
         param_alpha['numThreads'] = n_cores
