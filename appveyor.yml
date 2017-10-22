@@ -65,9 +65,7 @@ deploy:
   provider: GitHub
   auth_token:
     secure: CQNO3VUc9HHSetiBExiUYsL7xZDr3x+/GnlEQtPfDpkXafs0Ghui10pks7GTIyyD
-  artifact: 
-    - path: dist/*.tar.gz
-    - path: nlsam_windows_x64.zip
+  artifact: nlsam_windows_x64.zip, dist/*.tar.gz
   on:
     branch: master                 # release from master branch only
     appveyor_repo_tag: true        # deploy on tag push only
