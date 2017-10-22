@@ -14,6 +14,13 @@ from nlsam.multiprocess import multiprocesser
 from scipy.sparse import lil_matrix
 
 try:
+    # python 2
+    from itertools import imap
+except ImportError:
+    # python 3
+    imap = map
+
+try:
     import spams
     warnings.filterwarnings("ignore", category=FutureWarning, module='spams')
 except ImportError:
@@ -24,7 +31,8 @@ logger = logging.getLogger('nlsam')
 
 def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                   mask=None, is_symmetric=False, n_cores=None, split_b0s=False,
-                  subsample=True, n_iter=10, b0_threshold=10, verbose=False, mp_method=None):
+                  subsample=True, n_iter=10, b0_threshold=10, dtype=np.float64,
+                  use_threading=False, verbose=False, mp_method=None):
     """Main nlsam denoising function which sets up everything nicely for the local
     block denoising.
 
@@ -62,6 +70,14 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         Maximum number of iterations for the reweighted l1 solver.
     b0_threshold : int, default 10
         A b-value below b0_threshold will be considered as a b0 image.
+    dtype : np.float32 or np.float64, default np.float64
+        Precision to use for inner computations. Note that np.float32 should only be used for
+        very, very large datasets (that is, your ram starts swappping) as it can lead to numerical precision errors.
+    use_threading : bool, default False
+        Do not use multiprocessing, but rather rely on the multithreading capabilities of your numerical solvers.
+        While this mode is more memory friendly, it is also slower than using the multiprocessing mode (the default).
+        Moreover, it also assumes that your blas/lapack/spams library are built with multithreading, so be sure to check
+        that your computer is using multiple cores or the algorithm will just take much longer to complete.
     verbose : bool, default False
         print useful messages.
     mp_method : string
@@ -88,6 +104,9 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     if len(block_size) != len(data.shape):
         raise ValueError('Block shape {} and data shape {} are not of the same '
                          'length'.format(data.shape, block_size.shape))
+
+    if not ((dtype == np.float32) or (dtype == np.float64)):
+        raise ValueError('dtype should be either np.float32 or np.float64, but is {}'.format(dtype))
 
     b0_loc = np.where(bvals <= b0_threshold)[0]
     dwis = np.where(bvals > b0_threshold)[0]
@@ -147,7 +166,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     divider = np.zeros(data.shape[-1])
 
     # Put all idx + b0 in this array in each iteration
-    to_denoise = np.empty(data.shape[:-1] + (block_size[-1] + 1,), dtype=np.float64)
+    to_denoise = np.empty(data.shape[:-1] + (block_size[-1] + 1,), dtype=dtype)
 
     for i, idx in enumerate(indexes, start=1):
         b0_loc = tuple((next(split_b0s_idx),))
@@ -163,8 +182,9 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                                                           variance,
                                                           n_iter=n_iter,
                                                           mask=mask,
-                                                          dtype=np.float64,
+                                                          dtype=dtype,
                                                           n_cores=n_cores,
+                                                          use_threading=use_threading,
                                                           verbose=verbose,
                                                           mp_method=mp_method)
 
@@ -173,7 +193,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
 
 def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
-                  dtype=np.float64, n_cores=None, verbose=False, mp_method=None):
+                  dtype=np.float64, n_cores=None, use_threading=False, verbose=False, mp_method=None):
     if verbose:
         logger.setLevel(logging.INFO)
 
@@ -213,12 +233,16 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     param_alpha['D'] /= np.sqrt(np.sum(param_alpha['D']**2, axis=0, keepdims=True, dtype=dtype))
     param_D['D'] = param_alpha['D']
 
-    del train_data, X
+    del train_data, X, mask_col
 
-    param_alpha['numThreads'] = 1
-    param_D['numThreads'] = 1
+    if use_threading or (n_cores == 1):
+        param_alpha['numThreads'] = n_cores
+        param_D['numThreads'] = n_cores
+    else:
+        param_alpha['numThreads'] = 1
+        param_D['numThreads'] = 1
 
-    arglist = [(data[:, :, k:k + block_size[2]],
+    arglist = ((data[:, :, k:k + block_size[2]],
                 mask[:, :, k:k + block_size[2]],
                 variance[:, :, k:k + block_size[2]],
                 block_size,
@@ -227,21 +251,23 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
                 param_D,
                 dtype,
                 n_iter)
-               for k in range(data.shape[2] - block_size[2] + 1)]
+               for k in range(data.shape[2] - block_size[2] + 1))
 
-    time_multi = time()
-    parallel_processer = multiprocesser(_processer, n_cores=n_cores, mp_method=mp_method)
-    data_denoised = parallel_processer(arglist)
-    logger.info('Multiprocessing done in {0:.2f} mins.'.format((time() - time_multi) / 60.))
+    if use_threading:
+        data_denoised = imap(_processer, arglist)
+    else:
+        time_multi = time()
+        parallel_processer = multiprocesser(_processer, n_cores=n_cores, mp_method=mp_method)
+        data_denoised = parallel_processer(arglist)
+        logger.info('Multiprocessing done in {0:.2f} mins.'.format((time() - time_multi) / 60.))
 
     # Put together the multiprocessed results
     data_subset = np.zeros_like(data, dtype=np.float32)
     divider = np.zeros_like(data, dtype=np.int16)
-    ones = np.ones_like(data_denoised[0], dtype=np.int16)
 
-    for k in range(len(data_denoised)):
-        data_subset[:, :, k:k + block_size[2]] += data_denoised[k]
-        divider[:, :, k:k + block_size[2]] += ones
+    for k, content in enumerate(data_denoised):
+        data_subset[:, :, k:k + block_size[2]] += content
+        divider[:, :, k:k + block_size[2]] += 1
 
     data_subset /= divider
     return data_subset
@@ -295,7 +321,7 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
     X = im2col_nd(data, block_size, overlap)
     var_mat = np.median(im2col_nd(variance, block_size[:-1], overlap[:-1])[:, train_idx], axis=0)
     X_full_shape = X.shape
-    X = X[:, train_idx]
+    X = X[:, train_idx].astype(dtype)
 
     param_alpha['L'] = int(0.5 * X.shape[0])
 

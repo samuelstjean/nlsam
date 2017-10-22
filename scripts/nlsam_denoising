@@ -47,35 +47,34 @@ def buildArgsParser():
                                 epilog=EPILOG,
                                 formatter_class=argparse.RawTextHelpFormatter)
 
-    p.add_argument('input', action='store', metavar='input',
+    p.add_argument('input', metavar='input',
                    help='Path of the image file to denoise.')
 
-    p.add_argument('output', action='store', metavar='output',
+    p.add_argument('output', metavar='output',
                    help='Path for the saved denoised file.')
 
-    p.add_argument('N', action='store', metavar='N', type=int,
+    p.add_argument('N', metavar='N', type=int,
                    help='Number of receiver coils of the scanner. \n'
-                   'Use N=1 in the case of a SENSE (GE, Phillips) reconstruction and '
+                   'Use N=1 in the case of a SENSE (GE, Philips) reconstruction and '
                    'N >= 1 for GRAPPA reconstruction (Siemens).')
 
-    p.add_argument('bvals', action='store', metavar='bvals',
+    p.add_argument('bvals', metavar='bvals',
                    help='Path of the bvals file, in FSL format.')
 
-    p.add_argument('bvecs', action='store', metavar='bvecs',
+    p.add_argument('bvecs', metavar='bvecs',
                    help='Path of the bvecs file, in FSL format.')
 
-    p.add_argument('angular_block_size', action='store', metavar='n_angular_neighbors',
+    p.add_argument('angular_block_size', metavar='n_angular_neighbors',
                    type=int, help='Number of angular neighbors used for denoising.')
 
-    p.add_argument('--b0_threshold', action='store', dest='b0_threshold',
-                   metavar='int', default=10, type=int,
+    p.add_argument('--b0_threshold', metavar='int', default=10, type=int,
                    help='Lowest b-value to be considered as a b0. Default 10.')
 
-    p.add_argument('--split_b0s', action='store_true', dest='split_b0s',
+    p.add_argument('--split_b0s', action='store_true',
                    help='If set and multiple b0s are present, they are split amongst the '
                    'training data.')
 
-    p.add_argument('--block_size', action='store', dest='spatial_block_size',
+    p.add_argument('--block_size', dest='spatial_block_size',
                    metavar='tuple', type=literal_eval, default=(3, 3, 3),
                    help='Size of the 3D spatial patch to be denoised. Default : 3, 3, 3')
 
@@ -84,23 +83,21 @@ def buildArgsParser():
                    'the b0 signal as the highest value along volumes.\nUseful if your data '
                    'is highly noisy and the S0 signal is low.')
 
-    p.add_argument('--is_symmetric', dest='is_symmetric', action='store_true',
-                   default=False, help='If supplied, assumes the set of bvals/bvecs to be already symmetrized,\n'
+    p.add_argument('--is_symmetric', action='store_true',
+                   help='If supplied, assumes the set of bvals/bvecs to be already symmetrized,\n'
                    'i.e. All points (x,y,z) on the sphere and (-x,-y,-z) were acquired, such as in full grid DSI.')
 
-    p.add_argument('--iterations', action='store', dest='iterations',
-                   metavar='int', default=10, type=int,
-                   help='Number of iterations for the l1 reweighting. Default 10.')
+    p.add_argument('--iterations', metavar='int', default=10, type=int,
+                   help='Maximum number of iterations for the l1 reweighting. Default 10.')
 
-    p.add_argument('--sh_order', action='store', dest='sh_order',
-                   metavar='int', default=8, type=int, choices=[0, 2, 4, 6, 8],
+    p.add_argument('--sh_order', metavar='int', default=8, type=int, choices=[0, 2, 4, 6, 8],
                    help='Spherical harmonics order used for sh_smooth.\n'
                    'Use 0 to disable the spherical harmonics fitting. Default 8')
 
     g = p.add_mutually_exclusive_group()
 
-    g.add_argument('--noise_est', action='store', dest='noise_method',
-                   metavar='string', default='piesno', type=str,
+    g.add_argument('--noise_est', dest='noise_method',
+                   metavar='string', default='piesno',
                    choices=['local_std', 'piesno'],
                    help='Noise estimation method used for estimating sigma.\n'
                    'local_std : Compute local noise standard deviation '
@@ -108,67 +105,72 @@ def buildArgsParser():
                    'piesno (default): Use PIESNO estimation, assumes the presence of '
                    'background in the data.')
 
-    g.add_argument('--load_sigma', action='store', metavar='file', dest='load_sigma',
+    g.add_argument('--load_sigma', metavar='file',
                    help='Load this file as the standard deviation volume.\n'
                    'Will be squared internally to turn into variance.')
 
-    g.add_argument('--noise_map', action='store', dest='noise_maps',
-                   metavar='file', type=str,
+    g.add_argument('--noise_maps', metavar='file',
                    help='Path of the noise map(s) volume for local piesno.\n'
                    'Either supply a 3D noise map or a stack of 3D maps as a 4D volume.\n'
                    'This is intended for noise maps collected by the scanner (so that there is no signal in those measurements)\n'
                    'which are properly scaled with the rest of the data you collected.\n'
                    'If in doubt, it is safer to use another estimation method with --noise_est')
 
-    p.add_argument('--noise_mask', action='store', dest='save_piesno_mask',
-                   metavar='file', type=str,
+    p.add_argument('--noise_mask', dest='save_piesno_mask', metavar='file',
                    help='If supplied, output filename for saving the mask of noisy voxels '
                    'found by PIESNO.')
 
-    p.add_argument('--save_stab', action='store', metavar='file',
+    p.add_argument('--save_stab', metavar='file',
                    help='Path to save the intermediate noisy bias corrected volume. '
                    'Useful for debugging purposes.')
 
-    p.add_argument('--save_sigma', action='store', metavar='file',
+    p.add_argument('--save_sigma', metavar='file',
                    help='Path to save the intermediate standard deviation volume. '
                    'Useful for debugging purposes.')
 
-    p.add_argument('--no_subsample', action='store_false', dest='no_subsample',
+    p.add_argument('--no_subsample', action='store_false',
                    help='If set, process all the dwis multiple times, '
                    'but note that this option lengthen the total time.\n'
                    'The default is to find the smallest subset so that each dwi is '
                    'processed at least once.')
 
-    p.add_argument('--no_stabilization', action='store_true', dest='no_stabilization',
+    p.add_argument('--no_stabilization', action='store_true',
                    help='If set, does not correct the data for the noise non gaussian bias.\n'
                    'Useful if your data is already bias corrected or you would like to do it afterwards.')
 
-    p.add_argument('--no_denoising', action='store_true', dest='no_denoising',
+    p.add_argument('--no_denoising', action='store_true',
                    help='If set, does not run the nlsam denoising.\n'
                    'Useful if you only want to bias correct your data or get the noise estimation maps only.')
 
-    p.add_argument('--cores', action='store', dest='cores',
-                   metavar='int', type=int,
+    p.add_argument('--cores', metavar='int', type=int,
                    help='Number of cores to use for multithreading.')
 
-    p.add_argument('--mp_method', action='store', dest='mp_method',
-                   metavar='string', type=str, default=None,
+    p.add_argument('--use_threading', action='store_true',
+                   help='If set, rely on your blas/lapack/spams multithreading capabilities instead of python multiprocessing.\n'
+                   'This mode uses less ram, but is slower than multiprocessing and should only be used for very large datasets\n'
+                   'or in cases where the amount of available ram is limited.')
+
+    p.add_argument('--use_f32', action='store_true',
+                   help='If supplied, use float32 for inner computations. This option lowers ram usage, but\n'
+                   'could lead to numerical precision issues, so use carefully and inspect the final output.')
+
+    p.add_argument('--mp_method', metavar='string',
                    help='Dispatch method for multiprocessing, see\n'
                         'https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods for more information.\n'
                         'Default : None, use the default, platform dependent method to run multiprocessing.\n'
                         'Only available in python 3.4 and later.')
 
-    p.add_argument('-m', '--mask', action='store', dest='mask', metavar='file', type=str,
+    p.add_argument('-m', '--mask', metavar='file',
                    help='Path to a binary mask. Only the data inside the mask will be reconstructed.')
 
     p.add_argument('-f', '--force', action='store_true', dest='overwrite',
                    help='If set, the output denoised volume will be overwritten '
                    'if it already exists.')
 
-    p.add_argument('-v', '--verbose', action='store_true', dest='verbose',
+    p.add_argument('-v', '--verbose', action='store_true',
                    help='If set, print useful information message during processing.')
 
-    p.add_argument('-l', '--log', action='store', dest='logfile', type=str, metavar='file',
+    p.add_argument('-l', '--log', dest='logfile', metavar='file',
                    help='Save the logging output to this file. Implies verbose output.')
 
     return p
@@ -188,6 +190,7 @@ def main():
     b0_threshold = args.b0_threshold
     split_b0s = args.split_b0s
     mp_method = args.mp_method
+    use_threading = args.use_threading
     block_size = np.array(args.spatial_block_size + (args.angular_block_size,))
 
     logger = logging.getLogger('nlsam')
@@ -211,6 +214,16 @@ def main():
 
     if args.no_denoising:
         logger.info('Denoising disabled!')
+
+    if args.use_f32:
+        logger.info('Computations will be made using float32!')
+        dtype = np.float32
+    else:
+        dtype = np.float64
+
+    if args.use_threading:
+        logger.info('Using multithreading instead of multiprocessing, please make sure your blas/lapack/spams '
+                    'libraries are built with multithreading support!')
 
     ##########################################
     #  Load up data and do some sanity checks
@@ -336,7 +349,7 @@ def main():
         logger.info("Now performing stabilization")
 
         if sh_order <= 0:
-            m_hat = np.array(data, copy=True, dtype=np.float32)
+            m_hat = data
         else:
             logger.info("Estimating m_hat with sh order {}".format(sh_order))
 
@@ -356,6 +369,7 @@ def main():
             sigma = np.broadcast_to(sigma[..., None], data.shape)
 
         data_stabilized = stabilization(data, m_hat, mask, sigma, N, n_cores=n_cores, mp_method=mp_method)
+        del m_hat
 
         if args.save_stab is not None:
             nib.save(nib.Nifti1Image(data_stabilized, affine), args.save_stab)
@@ -371,6 +385,7 @@ def main():
         # If we have a bunch of 4D views, we only want a 3D array
         if sigma.ndim == data.ndim:
             sigma = np.median(sigma, axis=-1)
+        del data
 
         data_denoised = nlsam_denoise(data_stabilized, sigma, bvals, bvecs, block_size,
                                       mask=mask,
@@ -380,6 +395,8 @@ def main():
                                       subsample=subsample,
                                       n_iter=n_iter,
                                       b0_threshold=b0_threshold,
+                                      dtype=dtype,
+                                      use_threading=use_threading,
                                       mp_method=mp_method)
 
         nib.save(nib.Nifti1Image(data_denoised.astype(np.float32), affine, header), args.output)
