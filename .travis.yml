@@ -113,10 +113,6 @@ matrix:
             wget https://raw.githubusercontent.com/praekeltfoundation/travis-pyenv/master/setup-pyenv.sh;
             PYTHON_CONFIGURE_OPTS='--enable-framework' source setup-pyenv.sh;
           fi
-        # - pyenv install 3.5.2
-        # - pyenv local 3.5.2
-        # - pyenv virtualenv 3.5.2 buildfarm
-        # - pyenv activate buildfarm
       env:
         - DEPENDS=$DEPENDS_BUILD
           DEPENDS_PIP=$DEPENDS_PIP_BUILD
