@@ -71,13 +71,13 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     b0_threshold : int, default 10
         A b-value below b0_threshold will be considered as a b0 image.
     dtype : np.float32 or np.float64, default np.float64
-        Precision to use for inner computation. Note that np.float32 should only be used for
-        very, very large datasets (that is, you ram starts swappping) as it can lead to numerical precision errors.
+        Precision to use for inner computations. Note that np.float32 should only be used for
+        very, very large datasets (that is, your ram starts swappping) as it can lead to numerical precision errors.
     use_threading : bool, default False
         Do not use multiprocessing, but rather rely on the multithreading capabilities of your numerical solvers.
-        While this mode is more memory friendly, it is undoubtedly slower than using the multiprocessing mode (the default).
+        While this mode is more memory friendly, it is also slower than using the multiprocessing mode (the default).
         Moreover, it also assumes that your blas/lapack/spams library are built with multithreading, so be sure to check
-        the resources usage of your computer to make sure it is the case or the algorithm will just take much longer to complete.
+        that your computer is using multiple cores or the algorithm will just take much longer to complete.
     verbose : bool, default False
         print useful messages.
     mp_method : string
