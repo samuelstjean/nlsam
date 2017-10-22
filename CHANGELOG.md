@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.6] - Development version
+## [0.6] - 2017-10-22
 
 - PIESNO will now warn if less than 1% of noisy voxels were identified, which might indicate that something has gone wrong during the noise estimation.
 - On python >= 3.4, --mp_method [a_valid_start_method](https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods) can now be used to control behavior in the multiprocessing loop.

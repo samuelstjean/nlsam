@@ -113,10 +113,6 @@ matrix:
             wget https://raw.githubusercontent.com/praekeltfoundation/travis-pyenv/master/setup-pyenv.sh;
             PYTHON_CONFIGURE_OPTS='--enable-framework' source setup-pyenv.sh;
           fi
-        # - pyenv install 3.5.2
-        # - pyenv local 3.5.2
-        # - pyenv virtualenv 3.5.2 buildfarm
-        # - pyenv activate buildfarm
       env:
         - DEPENDS=$DEPENDS_BUILD
           DEPENDS_PIP=$DEPENDS_PIP_BUILD
@@ -157,3 +153,13 @@ script:
 
 #after_success:
 #    - coveralls
+
+deploy:
+  provider: releases
+  api_key:
+    - secure: "HgpgpOHK38IV2ctAAEkvEWmCvLcL3hClZOuqz+JQ+vaHL7G3DtRiig0xGKc3ggkd3wP+ic9FaueFJBIrw/QAsNrCwjwT1cd5X4XZIccpXAh81mLUtk147Y5XUGes5uQB8krejj9mIb7G8n2KrpDURi8p9tDr/jmyFk/E76Hrg+JsxqruXfHvMqyc4qZ/T+bO3nczkP25PXPkeKUtuTxhlVEN31L6WYPvNM/kdev3QU0584saraD2Ex6K+eua4BoKuBA7dUPjLd0n+HEIXeAVxhPU0LoNSj6pM2+WAKRJj+7FWWgKml2vIkttcy2G2DIfQWnZjD/Z9K+owG1le0fROrvMttfd5bmSBxun3AB4CSfs6wjIeB8pNQ4D1Y5tqPydy9rkKSBZ4C5HIT8a23nZYnXmSAL440WtFPtDfSco0xW23Wmyx9NmKN8X/bFCFdd5KRV+w/rq0wBOz5grYkkffix3N7cxAwPZKc3tkJb+mTkTeMAJpEQ2SHPakjvH0kB4TkpDvAE06BJZm3DRGLeCOpV5SF/Bb06TvrOSNmgyHZ35STyAXuUjX0iFQKc2717BXnMNL+u+5FGlGIlyjsngPcGBWj7dI8Dv+Ci9+s7Qw6zmwV+eMUyjyCBggk05PZTcXHSv7pFyMFKpjXtNrRN2nylHDDUwTMx2vu0ai0ecKpU="
+  file_glob: true
+  file: nlsam_*_x64.zip
+  skip_cleanup: true
+  on:
+    tags: true

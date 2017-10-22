@@ -46,7 +46,7 @@ def get_setup_params():
     params['author'] = 'Samuel St-Jean'
     params['author_email'] = 'samuel@isi.uu.nl'
     params['url'] = 'https://github.com/samuelstjean/nlsam'
-    params['version'] = '0.5.1'
+    params['version'] = '0.6'
     params['install_requires'] = ['numpy>=1.10.4',
                                   'scipy>=0.14',
                                   'cython>=0.21',
