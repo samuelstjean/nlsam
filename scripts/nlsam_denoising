@@ -90,9 +90,15 @@ def buildArgsParser():
     p.add_argument('--iterations', metavar='int', default=10, type=int,
                    help='Maximum number of iterations for the l1 reweighting. Default 10.')
 
-    p.add_argument('--sh_order', metavar='int', default=8, type=int, choices=[0, 2, 4, 6, 8],
-                   help='Spherical harmonics order used for sh_smooth.\n'
-                   'Use 0 to disable the spherical harmonics fitting. Default 8')
+    g1 = p.add_mutually_exclusive_group()
+
+    g1.add_argument('--sh_order', metavar='int', default=8, type=int, choices=[0, 2, 4, 6, 8],
+                    help='Spherical harmonics order used for sh_smooth.\n'
+                    'Use 0 to disable the spherical harmonics fitting. Default 8')
+
+    g1.add_argument('--load_mhat', metavar='file',
+                    help='Load this volume as a m_hat value estimation for the stabilization.\n'
+                    'This is used to replace the argument --sh_order with another initialisation for the algorithm.')
 
     g = p.add_mutually_exclusive_group()
 
@@ -254,6 +260,12 @@ def main():
     else:
         mask = np.ones(data.shape[:-1], dtype=np.bool)
 
+    if args.load_mhat is not None:
+        mask = np.asarray(nib.load(args.mask).get_data(caching='unchanged'), dtype=np.bool)
+        logger.info("Loading mask {}".format(os.path.realpath(args.mask)))
+    else:
+        mask = np.ones(data.shape[:-1], dtype=np.bool)
+
     bvals, bvecs = read_bvals_bvecs(args.bvals, args.bvecs)
     gtab = gradient_table(bvals, bvecs, b0_threshold=b0_threshold)
 
@@ -348,21 +360,27 @@ def main():
     else:
         logger.info("Now performing stabilization")
 
-        if sh_order <= 0:
-            m_hat = data
+        if args.load_mhat is not None:
+            m_hat = np.asarray(nib.load(args.load_mhat).get_data(caching='unchanged'), dtype=np.float32)
+            logger.info("Loading m_hat {}".format(os.path.realpath(args.load_mhat)))
+            if m_hat.shape != data.shape:
+                raise ValueError('m_hat shape {} is different from data shape {}!'.format(m_hat.shape, data.shape))
         else:
-            logger.info("Estimating m_hat with sh order {}".format(sh_order))
+          if sh_order <= 0:
+              m_hat = data
+          else:
+              logger.info("Estimating m_hat with sh order {}".format(sh_order))
 
-            # Raise warning for sh order if there is not enough DWIs
-            required_dwis = int((sh_order + 1) * (sh_order + 2) / 2)
-            number_of_dwis = data.shape[-1] - np.sum(gtab.b0s_mask)
-            if number_of_dwis < required_dwis:
-                logger.warning('We recommend having at least {} unique DWIs volumes, '
-                               'but you currently have {} volumes. Try lowering the '
-                               'parameter --sh_order in case of non '
-                               'convergence.'.format(required_dwis, number_of_dwis))
+              # Raise warning for sh order if there is not enough DWIs
+              required_dwis = int((sh_order + 1) * (sh_order + 2) / 2)
+              number_of_dwis = data.shape[-1] - np.sum(gtab.b0s_mask)
+              if number_of_dwis < required_dwis:
+                  logger.warning('We recommend having at least {} unique DWIs volumes, '
+                                 'but you currently have {} volumes. Try lowering the '
+                                 'parameter --sh_order in case of non '
+                                 'convergence.'.format(required_dwis, number_of_dwis))
 
-            m_hat = sh_smooth(data, gtab, sh_order=sh_order).clip(min=0)
+              m_hat = sh_smooth(data, gtab, sh_order=sh_order).clip(min=0)
 
         # We may have a 3D sigma map, so broadcast to 4D for indexing
         if sigma.ndim == 3:
