@@ -360,27 +360,29 @@ def main():
     else:
         logger.info("Now performing stabilization")
 
+        # load m_hat if we supplied the argument
         if args.load_mhat is not None:
             m_hat = np.asarray(nib.load(args.load_mhat).get_data(caching='unchanged'), dtype=np.float32)
             logger.info("Loading m_hat {}".format(os.path.realpath(args.load_mhat)))
             if m_hat.shape != data.shape:
                 raise ValueError('m_hat shape {} is different from data shape {}!'.format(m_hat.shape, data.shape))
         else:
-          if sh_order <= 0:
-              m_hat = data
-          else:
-              logger.info("Estimating m_hat with sh order {}".format(sh_order))
+            # sh_order 0 or negative just feeds the data as is without a sh fit smoothing
+            if sh_order <= 0:
+                m_hat = data
+            else:
+                logger.info("Estimating m_hat with sh order {}".format(sh_order))
 
-              # Raise warning for sh order if there is not enough DWIs
-              required_dwis = int((sh_order + 1) * (sh_order + 2) / 2)
-              number_of_dwis = data.shape[-1] - np.sum(gtab.b0s_mask)
-              if number_of_dwis < required_dwis:
-                  logger.warning('We recommend having at least {} unique DWIs volumes, '
-                                 'but you currently have {} volumes. Try lowering the '
-                                 'parameter --sh_order in case of non '
-                                 'convergence.'.format(required_dwis, number_of_dwis))
+                # Raise warning for sh order if there is not enough DWIs
+                required_dwis = int((sh_order + 1) * (sh_order + 2) / 2)
+                number_of_dwis = data.shape[-1] - np.sum(gtab.b0s_mask)
+                if number_of_dwis < required_dwis:
+                    logger.warning('We recommend having at least {} unique DWIs volumes, '
+                                   'but you currently have {} volumes. Try lowering the '
+                                   'parameter --sh_order in case of non '
+                                   'convergence.'.format(required_dwis, number_of_dwis))
 
-              m_hat = sh_smooth(data, gtab, sh_order=sh_order).clip(min=0)
+                m_hat = sh_smooth(data, gtab, sh_order=sh_order).clip(min=0)
 
         # We may have a 3D sigma map, so broadcast to 4D for indexing
         if sigma.ndim == 3:

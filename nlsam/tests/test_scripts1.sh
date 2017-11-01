@@ -34,5 +34,5 @@ gunzip dwi_crop.nii.gz mask_crop.nii.gz sigma.nii.gz
 nlsam_denoising dwi_crop.nii dwi_nlsam.nii 1 bvals bvecs 5 -m mask_crop.nii -f --verbose --sh_order 0 --no_stabilization --load_sigma sigma.nii --is_symmetric --use_threading
 check_return_code $?
 
-nlsam_denoising dwi_crop.nii dwi_nlsam.nii 1 bvals bvecs 5 -m mask_crop.nii -f --verbose --sh_order 0 --no_denoising --save_sigma sigma.nii --save_stab stab.nii
+nlsam_denoising dwi_crop.nii dwi_nlsam.nii 1 bvals bvecs 5 -m mask_crop.nii -f --verbose --sh_order 0 --no_denoising --save_sigma sigma.nii --save_stab stab.nii --load_mhat dwi_crop.nii
 check_return_code $?
