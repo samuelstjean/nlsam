@@ -260,12 +260,6 @@ def main():
     else:
         mask = np.ones(data.shape[:-1], dtype=np.bool)
 
-    if args.load_mhat is not None:
-        mask = np.asarray(nib.load(args.mask).get_data(caching='unchanged'), dtype=np.bool)
-        logger.info("Loading mask {}".format(os.path.realpath(args.mask)))
-    else:
-        mask = np.ones(data.shape[:-1], dtype=np.bool)
-
     bvals, bvecs = read_bvals_bvecs(args.bvals, args.bvecs)
     gtab = gradient_table(bvals, bvecs, b0_threshold=b0_threshold)
 
