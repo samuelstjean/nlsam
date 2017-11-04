@@ -123,9 +123,7 @@ notifications:
 
 install:
     - python --version # just to check
-    # - pip install --upgrade pip # so that we can use wheels
     - pip install pytest coverage coveralls
-    - pip uninstall mock -y # these breaks the pyinstaller builds
     - pip install $DEPENDS --upgrade --upgrade-strategy only-if-needed
     - pip install $DEPENDS_PIP --upgrade --upgrade-strategy only-if-needed
     - python setup.py build_ext -i
