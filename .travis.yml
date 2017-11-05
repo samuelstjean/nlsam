@@ -123,18 +123,18 @@ notifications:
 
 install:
     - python --version # just to check
-    - pip install --upgrade pip # so that we can use wheels
     - pip install pytest coverage coveralls
     - pip install $DEPENDS --upgrade --upgrade-strategy only-if-needed
     - pip install $DEPENDS_PIP --upgrade --upgrade-strategy only-if-needed
     - python setup.py build_ext -i
     - python setup.py install
-
+    # this breaks the pyinstaller builds on linux
+    - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then pip uninstall mock -y; fi
     - if [[ "$BUILD_PYINSTALLER" ]];
         then pip install pyinstaller;
         pyinstaller nlsam_denoising.spec --onefile;
-        zip -j nlsam_$TRAVIS_OS_NAME_x64.zip dist/nlsam_denoising LICENSE README.md CHANGELOG.md;
-        zip -r nlsam_$TRAVIS_OS_NAME_x64.zip example/*;
+        zip -j nlsam_${TRAVIS_OS_NAME}_x64.zip dist/nlsam_denoising LICENSE README.md CHANGELOG.md;
+        zip -r nlsam_${TRAVIS_OS_NAME}_x64.zip example/*;
       fi
 
 before_script:
@@ -150,6 +150,7 @@ script:
         chmod +x ../nlsam/tests/$TESTPART;
         ../nlsam/tests/$TESTPART;
       fi
+    - cd ..
 
 #after_success:
 #    - coveralls
