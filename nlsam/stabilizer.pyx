@@ -8,8 +8,8 @@ from libc.math cimport sqrt, exp, fabs, M_PI
 
 import numpy as np
 from nlsam.multiprocess import multiprocesser
-from scipy.special import erfinv
-
+# from scipy.special import
+from scipy.special.cython_special cimport ndtri, ive
 # libc.math isnan does not work on windows, it is called _isnan, so we use this one instead
 cdef extern from "numpy/npy_math.h" nogil:
     bint npy_isnan(double x)
@@ -79,6 +79,12 @@ cdef double hyp1f1(double a, int b, double x) nogil:
     return gsl_sf_hyperg_1F1(a, b, x)
 
 
+cdef double erfinv(double y) nogil:
+    """Inverse function for erf.
+    """
+    return ndtri((y+1)/2.0)/sqrt(2)
+
+
 cdef double _inv_cdf_gauss(double y, double eta, double sigma) nogil:
     """Helper function for chi_to_gauss. Returns the gaussian distributed value
     associated to a given probability. See p. 4 of [1] eq. 13.
@@ -135,7 +141,8 @@ cdef double chi_to_gauss(double m, double eta, double sigma, int N,
 
     with nogil:
         cdf = 1. - _marcumq_cython(eta/sigma, m/sigma, N)
-
+        with gil:
+            print(cdf, eta/sigma, m/sigma, N)
         # clip cdf between alpha/2 and 1-alpha/2
         if cdf < alpha/2:
             cdf = alpha/2
@@ -167,8 +174,8 @@ cdef double multifactorial(int N, int k=1) nogil:
     return N * multifactorial(N - k, k)
 
 
-cdef double _marcumq_cython(double a, double b, int M, double eps=1e-8,
-                            int max_iter=10000) nogil:
+# Stolen from octave signal marcumq
+cdef double _marcumq_cython(double a, double b, int M, double eps=1e-10) nogil:
     """Computes the generalized Marcum Q function of order M.
     http://en.wikipedia.org/wiki/Marcum_Q-function
 
@@ -180,45 +187,105 @@ cdef double _marcumq_cython(double a, double b, int M, double eps=1e-8,
         Value of the function, always between 0 and 1 since it's a pdf.
     """
     cdef:
-        double a2 = 0.5 * a**2
-        double b2 = 0.5 * b**2
-        double d = exp(-a2)
-        double h = exp(-a2)
-        double f = (b2**M) * exp(-b2) / multifactorial(M)
-        double f_err = exp(-b2)
-        double errbnd = 1. - f_err
-        double  S = f * h
+        bint cond = True
+        int s, c, k
+        double S, x, d, t
         double temp = 0.
-        int k = 1
-        int j = errbnd > 4*eps
+        double z = a * b
+
+    if fabs(b) < eps:
+        return 1.
 
     if fabs(a) < eps:
 
+        temp = 0
         for k in range(M):
             temp += b**(2*k) / (2**k * multifactorial(k))
 
         return exp(-b**2/2) * temp
 
-    elif fabs(b) < eps:
-        return 1.
+    if a < b:
+        s = 1
+        c = 0
+        x = a / b
+        d = x
+        S = ive(0, z)
 
-    while j or k <= M:
+        for k in range(1, M):
+            S += (d + 1/d) * ive(k, z)
+            d *= x
 
-        d *= a2 / k
-        h += d
-        f *= b2 / (k + M)
-        S += f * h
+        k = M
+    else:
+        s = -1
+        c = 1
+        x = b / a
+        k = M
+        d = x**M
+        S = 0
 
-        f_err *= b2 / k
-        errbnd -= f_err
-
-        j = errbnd > 4*eps
+    while cond:
+        t = d * ive(k, z)
+        S += t
+        d *= x
         k += 1
 
-        if k > max_iter:
-            break
+        cond = fabs(t/S) > eps
 
-    return 1. - S
+    return c + s * exp(-0.5 * (a-b)**2) * S
+
+# cdef double _marcumq_cython(double a, double b, int M, double eps=1e-8,
+#                             int max_iter=10000) nogil:
+#     """Computes the generalized Marcum Q function of order M.
+#     http://en.wikipedia.org/wiki/Marcum_Q-function
+
+#     a : double, eta/sigma
+#     b : double, m/sigma
+#     M : int, order of the function (Number of coils, N=1 for Rician noise)
+
+#     return : double
+#         Value of the function, always between 0 and 1 since it's a pdf.
+#     """
+#     cdef:
+#         double a2 = 0.5 * a**2
+#         double b2 = 0.5 * b**2
+#         double d = exp(-a2)
+#         double h = exp(-a2)
+#         double f = (b2**M) * exp(-b2) / multifactorial(M)
+#         double f_err = exp(-b2)
+#         double errbnd = 1. - f_err
+#         double  S = f * h
+#         double temp = 0.
+#         int k = 1
+#         int j = errbnd > 4*eps
+
+#     if fabs(a) < eps:
+
+#         for k in range(M):
+#             temp += b**(2*k) / (2**k * multifactorial(k))
+
+#         return exp(-b**2/2) * temp
+
+#     elif fabs(b) < eps:
+#         return 1.
+
+#     while j or k <= M:
+
+#         d *= a2 / k
+#         h += d
+#         f *= b2 / (k + M)
+#         S += f * h
+
+#         f_err *= b2 / k
+#         errbnd -= f_err
+
+#         j = errbnd > 4*eps
+#         k += 1
+
+#         if k > max_iter:
+#             break
+
+#     return 1. - S
 
 
 cdef double fixed_point_finder(double m_hat, double sigma, int N, bint clip_eta=True,
@@ -428,8 +495,8 @@ cdef double _xi(double eta, double sigma, int N) nogil:
 
 
 # Test for cython functions
-def _test_marcumq_cython(a, b, M, eps=1e-7, max_iter=10000):
-    return _marcumq_cython(a, b, M, eps, max_iter)
+def _test_marcumq_cython(a, b, M):
+    return _marcumq_cython(a, b, M)
 
 
 def _test_beta(N):
