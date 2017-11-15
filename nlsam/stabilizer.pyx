@@ -18,7 +18,7 @@ cdef extern from "hyp_1f1.h" nogil:
     double gsl_sf_hyperg_1F1(double a, double b, double x)
 
 
-def stabilization(data, m_hat, mask, sigma, N, n_cores=None, mp_method=None):
+def stabilization(data, m_hat, mask, sigma, N, n_cores=None, mp_method=None, clip_eta=True):
     last_dim = len(data.shape) - 1
     # Check all dims are ok
     if (data.shape != sigma.shape):
@@ -36,7 +36,8 @@ def stabilization(data, m_hat, mask, sigma, N, n_cores=None, mp_method=None):
               m_hat[..., idx, :],
               mask[..., idx, :],
               sigma[..., idx, :],
-              N)
+              N,
+              clip_eta)
              for idx in range(size)]
 
     parallel_stabilization = multiprocesser(_multiprocess_stabilization, n_cores=n_cores, mp_method=mp_method)
@@ -53,7 +54,7 @@ def _multiprocess_stabilization(args):
     return multiprocess_stabilization(*args)
 
 
-def multiprocess_stabilization(data, m_hat, mask, sigma, N):
+def multiprocess_stabilization(data, m_hat, mask, sigma, N, clip_eta=True):
     """Helper function for multiprocessing the stabilization part."""
 
     data = data.astype(np.float64)
@@ -66,8 +67,8 @@ def multiprocess_stabilization(data, m_hat, mask, sigma, N):
 
     for idx in np.ndindex(data.shape):
         if mask[idx]:
-            eta = fixed_point_finder(m_hat[idx], sigma[idx], N)
-            out[idx] = chi_to_gauss(data[idx], eta, sigma[idx], N)
+            eta[idx] = fixed_point_finder(m_hat[idx], sigma[idx], N, clip_eta)
+            out[idx] = chi_to_gauss(data[idx], eta[idx], sigma[idx], N)
 
     return out
 
@@ -220,7 +221,7 @@ cdef double _marcumq_cython(double a, double b, int M, double eps=1e-8,
     return 1. - S
 
 
-cdef double fixed_point_finder(double m_hat, double sigma, int N,
+cdef double fixed_point_finder(double m_hat, double sigma, int N, bint clip_eta=True,
                                 int max_iter=100, double eps=1e-4) nogil:
     """Fixed point formula for finding eta. Table 1 p. 11 of [1]
 
@@ -236,6 +237,14 @@ cdef double fixed_point_finder(double m_hat, double sigma, int N,
         Maximum number of iterations before breaking from the loop
     eps : double, default = 1e-4
         Criterion for reaching convergence between two subsequent estimates
+    clip_eta : bool, default True
+        If True, eta is clipped to 0 when below the noise floor (Bai 2014).
+        If False, a new starting point m_hat is used and yields a negative eta value,
+        which ensures symmetry of the normal distribution near 0 (Koay 2009).
+
+        Having eta at zero is coherent with magnitudes values being >= 0,
+        but allowing negative eta is in line with the original framework
+        and allow averaging or normally distributed values.
 
     Return
     -------
@@ -250,7 +259,7 @@ cdef double fixed_point_finder(double m_hat, double sigma, int N,
     with nogil:
         # If m_hat is below the noise floor, return 0 instead of negatives
         # as per Bai 2014
-        if m_hat < sqrt(0.5 * M_PI) * sigma:
+        if clip_eta and (m_hat < sqrt(0.5 * M_PI) * sigma):
             return 0
 
         delta = _beta(N) * sigma - m_hat
@@ -258,7 +267,10 @@ cdef double fixed_point_finder(double m_hat, double sigma, int N,
         if fabs(delta) < 1e-15:
             return 0
 
-        m = m_hat
+        if delta > 0:
+            m = _beta(N) * sigma + delta
+        else:
+            m = m_hat
 
         t0 = m
         t1 = _fixed_point_k(t0, m, sigma, N)
@@ -273,10 +285,15 @@ cdef double fixed_point_finder(double m_hat, double sigma, int N,
             if n_iter > max_iter:
                 break
 
-        if t1 < 0 or npy_isnan(t1): # Should not happen unless numerically unstable
+        if npy_isnan(t1): # Should not happen unless numerically unstable
+            with gil:
+                print('Unstable voxel stuff! t0 {} t1 {} n_iter {}'.format(t0, t1, n_iter))
             t1 = 0
 
-        return t1
+        if delta > 0:
+            return -t1
+        else:
+            return t1
 
 
 cdef double _beta(int N) nogil:
