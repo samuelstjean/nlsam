@@ -528,5 +528,5 @@ def _test_erfinv(y):
     return erfinv(y)
 
 
-def _test_fixed_point_finder(m_hat, sigma, N):
-    return fixed_point_finder(m_hat, sigma, N)
+def _test_fixed_point_finder(m_hat, sigma, N, clip_eta=True):
+    return fixed_point_finder(m_hat, sigma, N, clip_eta)

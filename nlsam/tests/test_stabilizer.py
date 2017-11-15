@@ -50,11 +50,12 @@ def test_xi():
 
 def test_fixed_point_finder():
     # Values taken from hispeed.SignalFixedPointFinder.fixedPointFinder
-    assert_almost_equal(_test_fixed_point_finder(50, 30, 12), 0)
-    assert_almost_equal(_test_fixed_point_finder(650, 400, 1), 452.287728081486)
-    assert_almost_equal(_test_fixed_point_finder(650, 40, 12), 620.9909935398028)
-    assert_almost_equal(_test_fixed_point_finder(65, 40, 12), 0)
-    assert_almost_equal(_test_fixed_point_finder(15, 4, 4), 10.420401964259176)
+    # large negatives are allowed in the original framework
+    assert_almost_equal(_test_fixed_point_finder(50, 30, 12, clip_eta=False), -192.7828820153368)
+    assert_almost_equal(_test_fixed_point_finder(650, 400, 1), 452.287728081486, decimal=6)
+    assert_almost_equal(_test_fixed_point_finder(650, 40, 12), 620.9909935398028, decimal=6)
+    assert_almost_equal(_test_fixed_point_finder(65, 40, 12, clip_eta=False), -259.1293457901348, decimal=6)
+    assert_almost_equal(_test_fixed_point_finder(15, 4, 4), 10.420401964259176, decimal=6)
 
 
 def test_chi_to_gauss():
