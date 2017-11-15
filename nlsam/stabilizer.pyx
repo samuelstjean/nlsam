@@ -4,12 +4,11 @@ cimport cython
 cimport numpy as np
 
 from libc.math cimport sqrt, exp, fabs, M_PI
-# from hyp_1f1 cimport gsl_sf_hyperg_1F1
 
 import numpy as np
 from nlsam.multiprocess import multiprocesser
-# from scipy.special import
 from scipy.special.cython_special cimport ndtri, ive
+
 # libc.math isnan does not work on windows, it is called _isnan, so we use this one instead
 cdef extern from "numpy/npy_math.h" nogil:
     bint npy_isnan(double x)
@@ -81,6 +80,7 @@ cdef double hyp1f1(double a, int b, double x) nogil:
 
 cdef double erfinv(double y) nogil:
     """Inverse function for erf.
+    Stolen from https://github.com/scipy/scipy/blob/v0.19.1/scipy/special/basic.py#L1096-L1099
     """
     return ndtri((y+1)/2.0)/sqrt(2)
 
@@ -103,8 +103,7 @@ cdef double _inv_cdf_gauss(double y, double eta, double sigma) nogil:
     --------
         Value associated to probability y given a normal distribution N(eta, sigma**2)
     """
-    with gil:
-        return eta + sigma * sqrt(2) * erfinv(2*y - 1)
+    return eta + sigma * sqrt(2) * erfinv(2*y - 1)
 
 
 cdef double chi_to_gauss(double m, double eta, double sigma, int N,
@@ -141,8 +140,6 @@ cdef double chi_to_gauss(double m, double eta, double sigma, int N,
 
     with nogil:
         cdf = 1. - _marcumq_cython(eta/sigma, m/sigma, N)
-        with gil:
-            print(cdf, eta/sigma, m/sigma, N)
         # clip cdf between alpha/2 and 1-alpha/2
         if cdf < alpha/2:
             cdf = alpha/2
@@ -446,7 +443,7 @@ def corrected_sigma_parallel(eta, sigma, mask, N):
     return out
 
 
-cdef double _corrected_sigma(double eta, double sigma, int N)  nogil:
+cdef double _corrected_sigma(double eta, double sigma, int N) nogil:
     """Compute the local corrected standard deviation for the adaptive nonlocal
     means according to the correction factor xi.
 
