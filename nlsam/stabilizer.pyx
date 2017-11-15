@@ -289,8 +289,9 @@ cdef double fixed_point_finder(double m_hat, double sigma, int N, bint clip_eta=
             with gil:
                 print('Unstable voxel stuff! t0 {} t1 {} n_iter {}'.format(t0, t1, n_iter))
             t1 = 0
-
-        if delta > 0:
+        # with gil:
+        #     print(t1, delta)
+        if delta > 0 and not clip_eta:
             return -t1
         else:
             return t1
