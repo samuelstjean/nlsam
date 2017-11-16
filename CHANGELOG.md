@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.1] - development version
+- Fix a numerical issue in the Marcum Q function when computing probabilities used in the stabilizer framework.
+- scipy >= 0.19.1 is now required.
+- nlsam.stabilizer.stabilization  now accepts the keyword clip_eta (default True), which can be used to allow returning negatives values for eta.
+The previous version forced negatives values to zero and is still the default behavior.
+
 ## [0.6] - 2017-10-22
 
 - PIESNO will now warn if less than 1% of noisy voxels were identified, which might indicate that something has gone wrong during the noise estimation.

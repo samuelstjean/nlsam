@@ -66,8 +66,8 @@ def multiprocess_stabilization(data, m_hat, mask, sigma, N, clip_eta=True):
 
     for idx in np.ndindex(data.shape):
         if mask[idx]:
-            eta[idx] = fixed_point_finder(m_hat[idx], sigma[idx], N, clip_eta)
-            out[idx] = chi_to_gauss(data[idx], eta[idx], sigma[idx], N)
+            eta = fixed_point_finder(m_hat[idx], sigma[idx], N, clip_eta)
+            out[idx] = chi_to_gauss(data[idx], eta, sigma[idx], N)
 
     return out
 
