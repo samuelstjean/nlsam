@@ -22,7 +22,7 @@ python -c 'import nibabel as nib; import numpy as np; d = nib.load("mask.nii.gz"
 nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --noise_est local_std --sh_order 0 --block_size 2,2,2 --save_sigma sigma.nii.gz --cores 1
 check_return_code $?
 
-nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --sh_order 0 --load_sigma sigma.nii.gz --no_subsample --fix_implausible #--mp_method spawn
+nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --sh_order 0 --load_sigma sigma.nii.gz --no_subsample --fix_implausible --no_clip_eta #--mp_method spawn
 check_return_code $?
 
 nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --sh_order 0 --noise_map noise.nii.gz --noise_mask pmask.nii.gz --use_f32
@@ -31,7 +31,7 @@ check_return_code $?
 nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --sh_order 0 --load_sigma sigma.nii.gz --no_stabilization --no_denoising
 check_return_code $?
 
-nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --sh_order 0 --load_sigma sigma.nii.gz --no_denoising
+nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --sh_order 0 --load_sigma sigma.nii.gz --no_denoising --no_clip_eta
 check_return_code $?
 
 nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --sh_order 0 --noise_est local_std --no_denoising

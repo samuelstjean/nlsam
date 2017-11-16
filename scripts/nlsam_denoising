@@ -138,6 +138,9 @@ def buildArgsParser():
                    help='If set, does not correct the data for the noise non gaussian bias.\n'
                    'Useful if your data is already bias corrected or you would like to do it afterwards.')
 
+    p.add_argument('--no_clip_eta', action='store_false',
+                   help='If set, allows eta to take negative values during stabilization.')
+
     p.add_argument('--no_denoising', action='store_true',
                    help='If set, does not run the nlsam denoising.\n'
                    'Useful if you only want to bias correct your data or get the noise estimation maps only.')
@@ -192,7 +195,7 @@ def main():
     mp_method = args.mp_method
     use_threading = args.use_threading
     block_size = np.array(args.spatial_block_size + (args.angular_block_size,))
-
+    clip_eta = args.no_clip_eta
     logger = logging.getLogger('nlsam')
 
     if args.logfile is not None:
@@ -368,7 +371,7 @@ def main():
         if sigma.ndim == 3:
             sigma = np.broadcast_to(sigma[..., None], data.shape)
 
-        data_stabilized = stabilization(data, m_hat, mask, sigma, N, n_cores=n_cores, mp_method=mp_method)
+        data_stabilized = stabilization(data, m_hat, mask, sigma, N, n_cores=n_cores, mp_method=mp_method, clip_eta=clip_eta)
         del m_hat
 
         if args.save_stab is not None:
