@@ -194,8 +194,6 @@ cdef double _marcumq_cython(double a, double b, int M, double eps=1e-10) nogil:
         return 1.
 
     if fabs(a) < eps:
-
-        temp = 0
         for k in range(M):
             temp += b**(2*k) / (2**k * multifactorial(k))
 
@@ -297,11 +295,8 @@ cdef double fixed_point_finder(double m_hat, double sigma, int N, bint clip_eta=
                 break
 
         if npy_isnan(t1): # Should not happen unless numerically unstable
-            with gil:
-                print('Unstable voxel stuff! t0 {} t1 {} n_iter {}'.format(t0, t1, n_iter))
             t1 = 0
-        # with gil:
-        #     print(t1, delta)
+
         if delta > 0 and not clip_eta:
             return -t1
         else:
