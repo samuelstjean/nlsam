@@ -231,59 +231,6 @@ cdef double _marcumq_cython(double a, double b, int M, double eps=1e-10) nogil:
 
     return c + s * exp(-0.5 * (a-b)**2) * S
 
-# cdef double _marcumq_cython(double a, double b, int M, double eps=1e-8,
-#                             int max_iter=10000) nogil:
-#     """Computes the generalized Marcum Q function of order M.
-#     http://en.wikipedia.org/wiki/Marcum_Q-function
-
-#     a : double, eta/sigma
-#     b : double, m/sigma
-#     M : int, order of the function (Number of coils, N=1 for Rician noise)
-
-#     return : double
-#         Value of the function, always between 0 and 1 since it's a pdf.
-#     """
-#     cdef:
-#         double a2 = 0.5 * a**2
-#         double b2 = 0.5 * b**2
-#         double d = exp(-a2)
-#         double h = exp(-a2)
-#         double f = (b2**M) * exp(-b2) / multifactorial(M)
-#         double f_err = exp(-b2)
-#         double errbnd = 1. - f_err
-#         double  S = f * h
-#         double temp = 0.
-#         int k = 1
-#         int j = errbnd > 4*eps
-
-#     if fabs(a) < eps:
-
-#         for k in range(M):
-#             temp += b**(2*k) / (2**k * multifactorial(k))
-
-#         return exp(-b**2/2) * temp
-
-#     elif fabs(b) < eps:
-#         return 1.
-
-#     while j or k <= M:
-
-#         d *= a2 / k
-#         h += d
-#         f *= b2 / (k + M)
-#         S += f * h
-
-#         f_err *= b2 / k
-#         errbnd -= f_err
-
-#         j = errbnd > 4*eps
-#         k += 1
-
-#         if k > max_iter:
-#             break
-
-#     return 1. - S
-
 
 cdef double fixed_point_finder(double m_hat, double sigma, int N, bint clip_eta=True,
                                 int max_iter=100, double eps=1e-4) nogil:
@@ -306,9 +253,9 @@ cdef double fixed_point_finder(double m_hat, double sigma, int N, bint clip_eta=
         If False, a new starting point m_hat is used and yields a negative eta value,
         which ensures symmetry of the normal distribution near 0 (Koay 2009).
 
-        Having eta at zero is coherent with magnitudes values being >= 0,
+        Having eta at zero is coherent with magnitude values being >= 0,
         but allowing negative eta is in line with the original framework
-        and allow averaging or normally distributed values.
+        and allows averaging of normally distributed values.
 
     Return
     -------
