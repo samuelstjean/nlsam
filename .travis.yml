@@ -22,9 +22,9 @@ env:
   global:
     - DEPENDS="cython numpy scipy"
     - DEPENDS_PIP="dipy nibabel"
-    - DEPENDS_MIN="cython==0.21 numpy==1.10.4 scipy==0.14"
+    - DEPENDS_MIN="cython==0.21 numpy==1.10.4 scipy==0.19.1"
     - DEPENDS_PIP_MIN="nibabel==2.0.1 dipy==0.11"
-    - DEPENDS_BUILD="cython==0.23 numpy==1.11.3 scipy==0.18.1"
+    - DEPENDS_BUILD="cython==0.23 numpy==1.11.3 scipy==0.19.1"
     - DEPENDS_PIP_BUILD="nibabel==2.1 dipy==0.11"
   matrix:
     - TESTPART=test_scripts1.sh
