@@ -139,7 +139,7 @@ Q = [1.000000, 0.995012, 0.546074, 0.110251, 0.008189, 0.000224,
      1.000000, 1.000000, 1.000000, 1.000000, 1.000000, 1.000000]
 
 for (a, b), q in zip(product(A, B), Q):
-    assert_almost_equal(_test_marcumq_cython(a, b, 1), q, decimal=6)
+    assert_almost_equal(_test_marcumq_cython(a, b, 1), q, decimal=5)
 
 
 A = [0.00, 0.05, 1.00, 2.00, 3.00, 4.00, 5.00, 6.00, 7.00, 8.00, 9.00, 10.00,
@@ -174,7 +174,7 @@ Q = [0.000002, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000,
      1.000000, 1.000000, 1.000000, 1.000000, 1.000000, 1.000000]
 
 for (a, b), q in zip(product(A, B), Q):
-    assert_almost_equal(_test_marcumq_cython(a, b, 1), q, decimal=6)
+    assert_almost_equal(_test_marcumq_cython(a, b, 1), q, decimal=5)
 
 
 A = [0.00, 0.05, 1.00, 2.00, 3.00, 4.00, 5.00, 6.00, 7.00, 8.00, 9.00, 10.00,
@@ -209,7 +209,7 @@ Q = [0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000,
      1.000000, 1.000000, 1.000000, 1.000000, 1.000000, 1.000000]
 
 for (a, b), q in zip(product(A, B), Q):
-    assert_almost_equal(_test_marcumq_cython(a, b, 1), q, decimal=6)
+    assert_almost_equal(_test_marcumq_cython(a, b, 1), q, decimal=5)
 
 
 A = [0.00, 0.05, 1.00, 2.00, 3.00, 4.00, 5.00, 6.00, 7.00, 8.00, 9.00, 10.00,
@@ -244,7 +244,7 @@ Q = [0.000000, 0.000000, 0.000000,
      1.000000, 1.000000, 1.000000]
 
 for (a, b), q in zip(product(A, B), Q):
-    assert_almost_equal(_test_marcumq_cython(a, b, 1), q, decimal=6)
+    assert_almost_equal(_test_marcumq_cython(a, b, 1), q, decimal=5)
 
 
 ## The tests for M>1 were generating from Marcum's tables by
@@ -285,7 +285,7 @@ Q = [1.000000, 0.999987, 0.353353, 0.000000, 0.000000, 0.000000,
      1.000000, 1.000000, 1.000000, 1.000000, 1.000000, 1.000000]
 
 for (a, b), q in zip(product(A, B), Q):
-    assert_almost_equal(_test_marcumq_cython(a, b, M), q, decimal=6)
+    assert_almost_equal(_test_marcumq_cython(a, b, M), q, decimal=5)
 
 M = 5
 a = [0.00, 0.05, 1.00, 2.00, 3.00, 4.00, 5.00, 6.00, 7.00, 8.00, 9.00, 10.00,
@@ -320,7 +320,7 @@ Q = [1.000000, 1.000000, 0.926962, 0.000000, 0.000000, 0.000000,
      1.000000, 1.000000, 1.000000, 1.000000, 1.000000, 1.000000]
 
 for (a, b), q in zip(product(A, B), Q):
-    assert_almost_equal(_test_marcumq_cython(a, b, M), q, decimal=6)
+    assert_almost_equal(_test_marcumq_cython(a, b, M), q, decimal=5)
 
 
 M = 10
@@ -356,7 +356,7 @@ Q = [1.000000, 1.000000, 0.999898, 0.000193, 0.000000, 0.000000,
      1.000000, 1.000000, 1.000000, 1.000000, 1.000000, 1.000000]
 
 for (a, b), q in zip(product(A, B), Q):
-    assert_almost_equal(_test_marcumq_cython(a, b, M), q, decimal=6)
+    assert_almost_equal(_test_marcumq_cython(a, b, M), q, decimal=5)
 
 
 if __name__ == "__main__":
