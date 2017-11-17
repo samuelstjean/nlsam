@@ -48,7 +48,7 @@ def get_setup_params():
     params['url'] = 'https://github.com/samuelstjean/nlsam'
     params['version'] = '0.6'
     params['install_requires'] = ['numpy>=1.10.4',
-                                  'scipy>=0.14',
+                                  'scipy>=0.19.1',
                                   'cython>=0.21',
                                   'nibabel>=2.0',
                                   'spams>=2.4']
