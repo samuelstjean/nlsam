@@ -21,12 +21,9 @@ addons:
 env:
   global:
     - DEPENDS="cython numpy scipy dipy nibabel"
-    # - DEPENDS_PIP="dipy nibabel"
     - DEPENDS_MIN="cython==0.21 numpy==1.10.4 scipy==0.19.1 nibabel==2.0.1 dipy==0.11"
-    # - DEPENDS_PIP_MIN="nibabel==2.0.1 dipy==0.11"
     - SPAMS='https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-2.6.zip'
     - DEPENDS_BUILD="cython==0.23 numpy==1.11.3 scipy==0.19.1 nibabel==2.1 dipy==0.11"\ ${SPAMS}
-    # - DEPENDS_PIP_BUILD="nibabel==2.1 dipy==0.11"
   matrix:
     - TESTPART=test_scripts1.sh
     - TESTPART=test_scripts2.sh
@@ -42,22 +39,18 @@ matrix:
     - python: 2.7
       env:
         - DEPENDS=$DEPENDS_MIN
-          # DEPENDS_PIP=$DEPENDS_PIP_MIN
           TESTPART=test_scripts1.sh
     - python: 2.7
       env:
         - DEPENDS=$DEPENDS_MIN
-          # DEPENDS_PIP=$DEPENDS_PIP_MIN
           TESTPART=test_scripts2.sh
     - python: 3.4
       env:
         - DEPENDS=$DEPENDS_MIN
-          # DEPENDS_PIP=$DEPENDS_PIP_MIN
           TESTPART=test_scripts1.sh
     - python: 3.4
       env:
         - DEPENDS=$DEPENDS_MIN
-          # DEPENDS_PIP=$DEPENDS_PIP_MIN
           TESTPART=test_scripts2.sh
 
     # test only on a few mac osx bots
@@ -70,7 +63,6 @@ matrix:
         - source env/bin/activate
       env:
         - DEPENDS=$DEPENDS
-          # DEPENDS_PIP=$DEPENDS_PIP
           TESTPART=test_scripts1.sh
     - os: osx
       language: generic
@@ -81,7 +73,6 @@ matrix:
         - source env/bin/activate
       env:
         - DEPENDS=$DEPENDS
-          # DEPENDS_PIP=$DEPENDS_PIP
           TESTPART=test_scripts2.sh
     - os: osx
       language: generic
@@ -90,7 +81,6 @@ matrix:
         - source env/bin/activate
       env:
         - DEPENDS=$DEPENDS_MIN
-          # DEPENDS_PIP=$DEPENDS_PIP_MIN
           TESTPART=test_scripts1.sh
     - os: osx
       language: generic
@@ -99,14 +89,12 @@ matrix:
         - source env/bin/activate
       env:
         - DEPENDS=$DEPENDS_MIN
-          # DEPENDS_PIP=$DEPENDS_PIP_MIN
           TESTPART=test_scripts2.sh
 
     # pyinstaller builds
     - python: 3.5
       env:
         - DEPENDS=$DEPENDS_BUILD
-          # DEPENDS_PIP=$DEPENDS_PIP_BUILD
           BUILD_PYINSTALLER=true
     - os: osx
       language: generic
@@ -118,7 +106,6 @@ matrix:
           fi
       env:
         - DEPENDS=$DEPENDS_BUILD
-          # DEPENDS_PIP=$DEPENDS_PIP_BUILD
           BUILD_PYINSTALLER=true
 
 notifications:
@@ -128,7 +115,6 @@ install:
     - python --version # just to check
     - pip install pytest coverage coveralls
     - pip install $DEPENDS --upgrade --upgrade-strategy only-if-needed
-    # - pip install $DEPENDS_PIP --upgrade --upgrade-strategy only-if-needed
     - python setup.py build_ext -i
     - python setup.py install
     # this breaks the pyinstaller builds on linux
