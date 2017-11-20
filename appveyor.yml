@@ -54,7 +54,7 @@ after_test:
   - python setup.py sdist --formats=gztar
   - "pip install pyinstaller"
   - pyinstaller nlsam_denoising.spec --onefile
-  - 7z a nlsam_windows_x64.zip ./dist/nlsam_denoising.exe LICENSE README.md CHANGELOG.md example/
+  - 7z a nlsam_$(APPVEYOR_REPO_TAG_NAME)_windows_x64.zip ./dist/nlsam_denoising.exe LICENSE README.md CHANGELOG.md example/
 
 artifacts:
   - path: dist/*.tar.gz
