@@ -4,11 +4,10 @@ cimport cython
 cimport numpy as np
 
 from libc.math cimport sqrt, exp, fabs, M_PI
-# from hyp_1f1 cimport gsl_sf_hyperg_1F1
 
 import numpy as np
 from nlsam.multiprocess import multiprocesser
-from scipy.special import erfinv
+from scipy.special.cython_special cimport ndtri, ive
 
 # libc.math isnan does not work on windows, it is called _isnan, so we use this one instead
 cdef extern from "numpy/npy_math.h" nogil:
@@ -18,7 +17,7 @@ cdef extern from "hyp_1f1.h" nogil:
     double gsl_sf_hyperg_1F1(double a, double b, double x)
 
 
-def stabilization(data, m_hat, mask, sigma, N, n_cores=None, mp_method=None):
+def stabilization(data, m_hat, mask, sigma, N, n_cores=None, mp_method=None, clip_eta=True):
     last_dim = len(data.shape) - 1
     # Check all dims are ok
     if (data.shape != sigma.shape):
@@ -36,7 +35,8 @@ def stabilization(data, m_hat, mask, sigma, N, n_cores=None, mp_method=None):
               m_hat[..., idx, :],
               mask[..., idx, :],
               sigma[..., idx, :],
-              N)
+              N,
+              clip_eta)
              for idx in range(size)]
 
     parallel_stabilization = multiprocesser(_multiprocess_stabilization, n_cores=n_cores, mp_method=mp_method)
@@ -53,7 +53,7 @@ def _multiprocess_stabilization(args):
     return multiprocess_stabilization(*args)
 
 
-def multiprocess_stabilization(data, m_hat, mask, sigma, N):
+def multiprocess_stabilization(data, m_hat, mask, sigma, N, clip_eta=True):
     """Helper function for multiprocessing the stabilization part."""
 
     data = data.astype(np.float64)
@@ -66,7 +66,7 @@ def multiprocess_stabilization(data, m_hat, mask, sigma, N):
 
     for idx in np.ndindex(data.shape):
         if mask[idx]:
-            eta = fixed_point_finder(m_hat[idx], sigma[idx], N)
+            eta = fixed_point_finder(m_hat[idx], sigma[idx], N, clip_eta)
             out[idx] = chi_to_gauss(data[idx], eta, sigma[idx], N)
 
     return out
@@ -76,6 +76,13 @@ cdef double hyp1f1(double a, int b, double x) nogil:
     """Wrapper for 1F1 hypergeometric series function
     http://en.wikipedia.org/wiki/Confluent_hypergeometric_function"""
     return gsl_sf_hyperg_1F1(a, b, x)
+
+
+cdef double erfinv(double y) nogil:
+    """Inverse function for erf.
+    Stolen from https://github.com/scipy/scipy/blob/v0.19.1/scipy/special/basic.py#L1096-L1099
+    """
+    return ndtri((y+1)/2.0)/sqrt(2)
 
 
 cdef double _inv_cdf_gauss(double y, double eta, double sigma) nogil:
@@ -96,8 +103,7 @@ cdef double _inv_cdf_gauss(double y, double eta, double sigma) nogil:
     --------
         Value associated to probability y given a normal distribution N(eta, sigma**2)
     """
-    with gil:
-        return eta + sigma * sqrt(2) * erfinv(2*y - 1)
+    return eta + sigma * sqrt(2) * erfinv(2*y - 1)
 
 
 cdef double chi_to_gauss(double m, double eta, double sigma, int N,
@@ -134,7 +140,6 @@ cdef double chi_to_gauss(double m, double eta, double sigma, int N,
 
     with nogil:
         cdf = 1. - _marcumq_cython(eta/sigma, m/sigma, N)
-
         # clip cdf between alpha/2 and 1-alpha/2
         if cdf < alpha/2:
             cdf = alpha/2
@@ -166,8 +171,8 @@ cdef double multifactorial(int N, int k=1) nogil:
     return N * multifactorial(N - k, k)
 
 
-cdef double _marcumq_cython(double a, double b, int M, double eps=1e-8,
-                            int max_iter=10000) nogil:
+# Stolen from octave signal marcumq
+cdef double _marcumq_cython(double a, double b, int M, double eps=1e-10) nogil:
     """Computes the generalized Marcum Q function of order M.
     http://en.wikipedia.org/wiki/Marcum_Q-function
 
@@ -179,48 +184,53 @@ cdef double _marcumq_cython(double a, double b, int M, double eps=1e-8,
         Value of the function, always between 0 and 1 since it's a pdf.
     """
     cdef:
-        double a2 = 0.5 * a**2
-        double b2 = 0.5 * b**2
-        double d = exp(-a2)
-        double h = exp(-a2)
-        double f = (b2**M) * exp(-b2) / multifactorial(M)
-        double f_err = exp(-b2)
-        double errbnd = 1. - f_err
-        double  S = f * h
+        bint cond = True
+        int s, c, k
+        double S, x, d, t
         double temp = 0.
-        int k = 1
-        int j = errbnd > 4*eps
+        double z = a * b
+
+    if fabs(b) < eps:
+        return 1.
 
     if fabs(a) < eps:
-
         for k in range(M):
             temp += b**(2*k) / (2**k * multifactorial(k))
 
         return exp(-b**2/2) * temp
 
-    elif fabs(b) < eps:
-        return 1.
+    if a < b:
+        s = 1
+        c = 0
+        x = a / b
+        d = x
+        S = ive(0, z)
 
-    while j or k <= M:
+        for k in range(1, M):
+            S += (d + 1/d) * ive(k, z)
+            d *= x
 
-        d *= a2 / k
-        h += d
-        f *= b2 / (k + M)
-        S += f * h
+        k = M
+    else:
+        s = -1
+        c = 1
+        x = b / a
+        k = M
+        d = x**M
+        S = 0
 
-        f_err *= b2 / k
-        errbnd -= f_err
-
-        j = errbnd > 4*eps
+    while cond:
+        t = d * ive(k, z)
+        S += t
+        d *= x
         k += 1
 
-        if k > max_iter:
-            break
+        cond = fabs(t/S) > eps
 
-    return 1. - S
+    return c + s * exp(-0.5 * (a-b)**2) * S
 
 
-cdef double fixed_point_finder(double m_hat, double sigma, int N,
+cdef double fixed_point_finder(double m_hat, double sigma, int N, bint clip_eta=True,
                                 int max_iter=100, double eps=1e-4) nogil:
     """Fixed point formula for finding eta. Table 1 p. 11 of [1]
 
@@ -236,6 +246,14 @@ cdef double fixed_point_finder(double m_hat, double sigma, int N,
         Maximum number of iterations before breaking from the loop
     eps : double, default = 1e-4
         Criterion for reaching convergence between two subsequent estimates
+    clip_eta : bool, default True
+        If True, eta is clipped to 0 when below the noise floor (Bai 2014).
+        If False, a new starting point m_hat is used and yields a negative eta value,
+        which ensures symmetry of the normal distribution near 0 (Koay 2009).
+
+        Having eta at zero is coherent with magnitude values being >= 0,
+        but allowing negative eta is in line with the original framework
+        and allows averaging of normally distributed values.
 
     Return
     -------
@@ -250,7 +268,7 @@ cdef double fixed_point_finder(double m_hat, double sigma, int N,
     with nogil:
         # If m_hat is below the noise floor, return 0 instead of negatives
         # as per Bai 2014
-        if m_hat < sqrt(0.5 * M_PI) * sigma:
+        if clip_eta and (m_hat < sqrt(0.5 * M_PI) * sigma):
             return 0
 
         delta = _beta(N) * sigma - m_hat
@@ -258,7 +276,10 @@ cdef double fixed_point_finder(double m_hat, double sigma, int N,
         if fabs(delta) < 1e-15:
             return 0
 
-        m = m_hat
+        if delta > 0:
+            m = _beta(N) * sigma + delta
+        else:
+            m = m_hat
 
         t0 = m
         t1 = _fixed_point_k(t0, m, sigma, N)
@@ -273,10 +294,13 @@ cdef double fixed_point_finder(double m_hat, double sigma, int N,
             if n_iter > max_iter:
                 break
 
-        if t1 < 0 or npy_isnan(t1): # Should not happen unless numerically unstable
+        if npy_isnan(t1): # Should not happen unless numerically unstable
             t1 = 0
 
-        return t1
+        if delta > 0 and not clip_eta:
+            return -t1
+        else:
+            return t1
 
 
 cdef double _beta(int N) nogil:
@@ -361,7 +385,7 @@ def corrected_sigma_parallel(eta, sigma, mask, N):
     return out
 
 
-cdef double _corrected_sigma(double eta, double sigma, int N)  nogil:
+cdef double _corrected_sigma(double eta, double sigma, int N) nogil:
     """Compute the local corrected standard deviation for the adaptive nonlocal
     means according to the correction factor xi.
 
@@ -410,8 +434,8 @@ cdef double _xi(double eta, double sigma, int N) nogil:
 
 
 # Test for cython functions
-def _test_marcumq_cython(a, b, M, eps=1e-7, max_iter=10000):
-    return _marcumq_cython(a, b, M, eps, max_iter)
+def _test_marcumq_cython(a, b, M):
+    return _marcumq_cython(a, b, M)
 
 
 def _test_beta(N):
@@ -446,5 +470,5 @@ def _test_erfinv(y):
     return erfinv(y)
 
 
-def _test_fixed_point_finder(m_hat, sigma, N):
-    return fixed_point_finder(m_hat, sigma, N)
+def _test_fixed_point_finder(m_hat, sigma, N, clip_eta=True):
+    return fixed_point_finder(m_hat, sigma, N, clip_eta)

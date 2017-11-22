@@ -28,7 +28,7 @@ install:
   - "conda config --set always_yes yes --set changeps1 no"
   - "conda update -q conda"
   - "conda info -a"
-  - "conda create -q -n buildfarm python=%PYTHON_VERSION% numpy==1.11.3 scipy==0.18.1 cython==0.23 pip"
+  - "conda create -q -n buildfarm python=%PYTHON_VERSION% numpy==1.11.3 scipy==0.19.1 cython==0.23 pip"
   - "activate buildfarm"
 
   - "pip install --no-deps nibabel==2.1 dipy==0.11"
@@ -65,7 +65,7 @@ deploy:
   provider: GitHub
   auth_token:
     secure: CQNO3VUc9HHSetiBExiUYsL7xZDr3x+/GnlEQtPfDpkXafs0Ghui10pks7GTIyyD
-  artifact: nlsam_windows_x64.zip, dist/*.tar.gz
+  artifact: nlsam_windows_x64.zip, dist/*.tar.gz, *.tar.gz
   on:
     branch: master                 # release from master branch only
     appveyor_repo_tag: true        # deploy on tag push only
