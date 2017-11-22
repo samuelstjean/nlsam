@@ -1,20 +1,32 @@
 from __future__ import division
 
 import numpy as np
+
+from nlsam.multiprocess import multiprocesser
 from nlsam._stabilizer import fixed_point_finder, chi_to_gauss
 
 
-def stabilization(data, m_hat, mask, sigma, N, n_cores=None, mp_method=None, clip_eta=True):
-    last_dim = len(data.shape) - 1
+def stabilization(data, m_hat, mask, sigma, N, n_cores=None, mp_method=None, clip_eta=True, return_eta=False):
+
     # Check all dims are ok
     if (data.shape != sigma.shape):
-      raise ValueError('data shape {} is not compatible with sigma shape {}'.format(data.shape, sigma.shape))
+        raise ValueError('data shape {} is not compatible with sigma shape {}'.format(data.shape, sigma.shape))
 
-    if (data.shape[:last_dim] != mask.shape):
-      raise ValueError('data shape {} is not compatible with mask shape {}'.format(data.shape, mask.shape))
+    if (data.shape[:-1] != mask.shape):
+        raise ValueError('data shape {} is not compatible with mask shape {}'.format(data.shape, mask.shape))
 
     if (data.shape != m_hat.shape):
-      raise ValueError('data shape {} is not compatible with m_hat shape {}'.format(data.shape, m_hat.shape))
+        raise ValueError('data shape {} is not compatible with m_hat shape {}'.format(data.shape, m_hat.shape))
+
+    vec_fixed_point_finder = np.frompyfunc(fixed_point_finder, 4, 1)
+    vec_chi_to_gauss = np.frompyfunc(chi_to_gauss, 4, 1)
+
+def chi_to_gauss(m, eta, sigma, N):
+    return _chi_to_gauss(m, eta, sigma, N)
+
+
+def fixed_point_finder(m_hat, sigma, N, clip_eta=True):
+    return _fixed_point_finder(m_hat, sigma, N, clip_eta)
 
     size = data.shape[last_dim - 1]
     mask = np.broadcast_to(mask[..., None], data.shape)
@@ -33,7 +45,10 @@ def stabilization(data, m_hat, mask, sigma, N, n_cores=None, mp_method=None, cli
     for idx in range(len(data_out)):
       data_stabilized[..., idx, :] = data_out[idx]
 
+    if return_eta:
+        return data_stabilized, eta
     return data_stabilized
+
 
 
 def _multiprocess_stabilization(args):
@@ -56,6 +71,5 @@ def multiprocess_stabilization(data, m_hat, mask, sigma, N, clip_eta=True, retur
             eta = fixed_point_finder(m_hat[idx], sigma[idx], N, clip_eta)
             out[idx] = chi_to_gauss(data[idx], eta, sigma[idx], N)
 
-    if return_eta:
         return out, eta
-    return out
+

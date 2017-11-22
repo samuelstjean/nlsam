@@ -3,9 +3,9 @@
 from __future__ import division, print_function
 
 import numpy as np
-from numpy.testing import assert_almost_equal, run_module_suite
+from numpy.testing import assert_almost_equal, assert_array_less, run_module_suite
 
-from nlsam.stabilizer import _test_xi as xi
+from nlsam._stabilizer import _test_xi as xi
 from nlsam.smoothing import (sh_smooth,
                              local_standard_deviation,
                              local_piesno)
@@ -44,7 +44,7 @@ def test_local_standard_deviation():
         corrected_std = local_standard_deviation(noise) / np.sqrt(xi(mean, std, N))
 
         # everything less than 10% error of real value?
-        assert(np.alltrue(0.1 > (np.abs(std - corrected_std.mean()) / std)))
+        assert_array_less(np.abs(std - corrected_std.mean()) / std, 0.1)
 
     # This estimation has a harder time at low SNR, high coils value, probably due
     # to how the synthetic noise field is computed
@@ -62,7 +62,7 @@ def test_local_standard_deviation():
         corrected_std = local_standard_deviation(noise) / np.sqrt(xi(mean, std, N))
 
         # everything less than 10% error of real value?
-        assert(np.alltrue(0.1 > (np.abs(std - corrected_std.mean()) / std)))
+        assert_array_less(np.abs(std - corrected_std.mean()) / std, 0.1)
 
 
 def test_local_piesno():
@@ -78,7 +78,7 @@ def test_local_piesno():
         noise = np.sqrt(noise)
 
         # everything less than 3% error of real value on average?
-        assert(np.alltrue(0.03 > np.abs(std - local_piesno(noise, N, return_mask=False).mean()) / std))
+        assert_array_less(np.abs(std - local_piesno(noise, N, return_mask=False).mean()) / std, 0.03)
 
 
 if __name__ == "__main__":
