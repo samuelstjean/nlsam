@@ -14,14 +14,14 @@ except ImportError:
 from scipy.stats import norm
 from scipy.special import erfinv
 
-from nlsam.stabilizer import (_test_marcumq_cython,
-                              _test_beta,
-                              _test_xi,
-                              _test_fixed_point_finder,
-                              _test_chi_to_gauss,
-                              _test_inv_cdf_gauss,
-                              _test_multifactorial,
-                              _test_erfinv)
+from nlsam._stabilizer import (_test_marcumq_cython,
+                               _test_beta,
+                               _test_xi,
+                               _test_fixed_point_finder,
+                               _test_chi_to_gauss,
+                               _test_inv_cdf_gauss,
+                               _test_multifactorial,
+                               _test_erfinv)
 
 # hispeed is the closed source java reference implementation,
 # from which most values are taken from.

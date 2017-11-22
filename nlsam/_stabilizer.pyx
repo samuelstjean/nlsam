@@ -1,11 +1,10 @@
 #cython: wraparound=False, cdivision=True, boundscheck=False
 
+import numpy as np
 cimport cython
-cimport numpy as np
 
 from libc.math cimport sqrt, exp, fabs, M_PI
 
-import numpy as np
 from nlsam.multiprocess import multiprocesser
 from scipy.special.cython_special cimport ndtri, ive
 
@@ -17,59 +16,13 @@ cdef extern from "hyp_1f1.h" nogil:
     double gsl_sf_hyperg_1F1(double a, double b, double x)
 
 
-def stabilization(data, m_hat, mask, sigma, N, n_cores=None, mp_method=None, clip_eta=True):
-    last_dim = len(data.shape) - 1
-    # Check all dims are ok
-    if (data.shape != sigma.shape):
-      raise ValueError('data shape {} is not compatible with sigma shape {}'.format(data.shape, sigma.shape))
-
-    if (data.shape[:last_dim] != mask.shape):
-      raise ValueError('data shape {} is not compatible with mask shape {}'.format(data.shape, mask.shape))
-
-    if (data.shape != m_hat.shape):
-      raise ValueError('data shape {} is not compatible with m_hat shape {}'.format(data.shape, m_hat.shape))
-
-    size = data.shape[last_dim - 1]
-    mask = np.broadcast_to(mask[..., None], data.shape)
-    arglist = [(data[..., idx, :],
-              m_hat[..., idx, :],
-              mask[..., idx, :],
-              sigma[..., idx, :],
-              N,
-              clip_eta)
-             for idx in range(size)]
-
-    parallel_stabilization = multiprocesser(_multiprocess_stabilization, n_cores=n_cores, mp_method=mp_method)
-    data_out = parallel_stabilization(arglist)
-    data_stabilized = np.empty(data.shape, dtype=np.float32)
-
-    for idx in range(len(data_out)):
-      data_stabilized[..., idx, :] = data_out[idx]
-
-    return data_stabilized
+# These def are used to call the code from the external portions
+def chi_to_gauss(m, eta, sigma, N):
+    return _chi_to_gauss(m, eta, sigma, N)
 
 
-def _multiprocess_stabilization(args):
-    return multiprocess_stabilization(*args)
-
-
-def multiprocess_stabilization(data, m_hat, mask, sigma, N, clip_eta=True):
-    """Helper function for multiprocessing the stabilization part."""
-
-    data = data.astype(np.float64)
-    m_hat = m_hat.astype(np.float64)
-    sigma = sigma.astype(np.float64)
-    N = int(N)
-
-    out = np.zeros(data.shape, dtype=np.float32)
-    np.logical_and(sigma > 0, mask, out=mask)
-
-    for idx in np.ndindex(data.shape):
-        if mask[idx]:
-            eta = fixed_point_finder(m_hat[idx], sigma[idx], N, clip_eta)
-            out[idx] = chi_to_gauss(data[idx], eta, sigma[idx], N)
-
-    return out
+def fixed_point_finder(m_hat, sigma, N, clip_eta=True):
+    return _fixed_point_finder(m_hat, sigma, N, clip_eta)
 
 
 cdef double hyp1f1(double a, int b, double x) nogil:
@@ -106,7 +59,7 @@ cdef double _inv_cdf_gauss(double y, double eta, double sigma) nogil:
     return eta + sigma * sqrt(2) * erfinv(2*y - 1)
 
 
-cdef double chi_to_gauss(double m, double eta, double sigma, int N,
+cdef double _chi_to_gauss(double m, double eta, double sigma, int N,
                           double alpha=0.0001) nogil:
     """Maps the noisy signal intensity from a Rician/Non central chi distribution
     to its gaussian counterpart. See p. 4 of [1] eq. 12.
@@ -230,7 +183,7 @@ cdef double _marcumq_cython(double a, double b, int M, double eps=1e-10) nogil:
     return c + s * exp(-0.5 * (a-b)**2) * S
 
 
-cdef double fixed_point_finder(double m_hat, double sigma, int N, bint clip_eta=True,
+cdef double _fixed_point_finder(double m_hat, double sigma, int N, bint clip_eta=True,
                                 int max_iter=100, double eps=1e-4) nogil:
     """Fixed point formula for finding eta. Table 1 p. 11 of [1]
 
