@@ -73,7 +73,7 @@ cdef double _chi_to_gauss(double m, double eta, double sigma, int N,
     sigma : double
         The gaussian noise estimated standard deviation
     N : int
-        Number of coils of the acquision (N=1 for Rician noise)
+        Number of coils of the acquisition (N=1 for Rician noise)
     alpha : double
         Confidence interval for the cumulative distribution function.
         Clips the cdf to alpha/2 <= cdf <= 1-alpha/2
@@ -194,7 +194,7 @@ cdef double _fixed_point_finder(double m_hat, double sigma, int N, bint clip_eta
     sigma : double
         Gaussian standard deviation of the noise
     N : int
-        Number of coils of the acquision (N=1 for Rician noise)
+        Number of coils of the acquisition (N=1 for Rician noise)
     max_iter : int, default=100
         Maximum number of iterations before breaking from the loop
     eps : double, default = 1e-4
