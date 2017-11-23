@@ -115,6 +115,11 @@ def buildArgsParser():
                    help='Load this file as the standard deviation volume.\n'
                    'Will be squared internally to turn into variance.')
 
+    g.add_argument('--load_eta', metavar='file',
+                   help='Load this file as the underlying signal value eta volume.\n'
+                   'Advanced feature, this is usually computed with a fixed point formula and should only be used '
+                   'for advanced research purposes.')
+
     g.add_argument('--noise_maps', metavar='file',
                    help='Path of the noise map(s) volume for local piesno.\n'
                    'Either supply a 3D noise map or a stack of 3D maps as a 4D volume.\n'
@@ -132,6 +137,10 @@ def buildArgsParser():
 
     p.add_argument('--save_sigma', metavar='file',
                    help='Path to save the intermediate standard deviation volume. '
+                   'Useful for debugging purposes.')
+
+    p.add_argument('--save_eta', metavar='file',
+                   help='Path to save the intermediate underlying signal intensity eta volume. '
                    'Useful for debugging purposes.')
 
     p.add_argument('--no_subsample', action='store_false',
@@ -240,6 +249,7 @@ def main():
 
     overwritable_files = [args.output,
                           args.save_sigma,
+                          args.save_eta,
                           args.save_piesno_mask,
                           args.save_stab]
 
@@ -262,6 +272,12 @@ def main():
         logger.info("Loading mask {}".format(os.path.realpath(args.mask)))
     else:
         mask = np.ones(data.shape[:-1], dtype=np.bool)
+
+    if args.load_eta is not None:
+        eta = np.asarray(nib.load(args.load_eta).get_data(caching='unchanged'), dtype=np.float32)
+        logger.info("Loading eta volume {}".format(os.path.realpath(args.load_eta)))
+    else:
+        eta = None
 
     bvals, bvecs = read_bvals_bvecs(args.bvals, args.bvecs)
     gtab = gradient_table(bvals, bvecs, b0_threshold=b0_threshold)
@@ -381,16 +397,17 @@ def main():
 
                 m_hat = sh_smooth(data, gtab, sh_order=sh_order).clip(min=0)
 
-        # We may have a 3D sigma map, so broadcast to 4D for indexing
-        if sigma.ndim == 3:
-            sigma = np.broadcast_to(sigma[..., None], data.shape)
+        data_stabilized, eta = stabilization(data, m_hat, mask, sigma, N, eta=eta, n_cores=n_cores, mp_method=mp_method, clip_eta=clip_eta, return_eta=True)
 
-        data_stabilized = stabilization(data, m_hat, mask, sigma, N, n_cores=n_cores, mp_method=mp_method, clip_eta=clip_eta)
-        del m_hat
+        if args.save_eta is not None:
+            nib.save(nib.Nifti1Image(eta, affine), args.save_eta)
+            logger.info("eta volume saved as {}".format(os.path.realpath(args.save_eta)))
 
         if args.save_stab is not None:
             nib.save(nib.Nifti1Image(data_stabilized, affine), args.save_stab)
             logger.info("Stabilized data saved as {}".format(os.path.realpath(args.save_stab)))
+
+        del m_hat, eta
 
     ##################
     #  Denoising part
