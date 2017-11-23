@@ -1,4 +1,10 @@
 import os
+from itertools import repeat
+
+try:
+    from itertools import izip
+except ImportError:  # Python 3 built-in zip already returns iterable
+    izip = zip
 
 try:
     from multiprocessing import get_context
@@ -16,6 +22,12 @@ def multiprocessing_hanging_workaround():
     # Mac OSX has it's own blas/lapack, but like openblas it causes conflict for
     # python 2.7 and before python 3.4 in multiprocessing, so disable it.
     os.environ['VECLIB_MAXIMUM_THREADS'] = '1'
+
+
+def _func_star(stuff):
+    """First argument is the function to run in parallel, second is the arglist of stuff
+    """
+    return stuff[0](*list(stuff[1]))
 
 
 def multiprocesser(func, n_cores=None, mp_method=None):
@@ -52,12 +64,12 @@ def multiprocesser(func, n_cores=None, mp_method=None):
     if has_context:
         def parfunc(args):
             with get_context(method=mp_method).Pool(processes=n_cores) as pool:
-                output = pool.map(func, args)
+                output = pool.map(_func_star, izip(repeat(func), args))
             return output
     else:
         def parfunc(args):
             pool = Pool(processes=n_cores)
-            output = pool.map(func, args)
+            output = pool.map(_func_star, izip(repeat(func), args))
             pool.close()
             pool.join()
             return output

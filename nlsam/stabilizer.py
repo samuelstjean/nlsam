@@ -13,7 +13,7 @@ vec_chi_to_gauss = np.vectorize(chi_to_gauss, [np.float64])
 def stabilization(data, m_hat, mask, sigma, N, n_cores=None, mp_method=None, clip_eta=True, return_eta=False):
 
     if sigma.ndim == (data.ndim - 1):
-        sigma = sigma[..., None]
+        sigma = np.broadcast_to(sigma[..., None], data.shape)
 
     # Check all dims are ok
     if (data.shape != sigma.shape):
@@ -25,35 +25,34 @@ def stabilization(data, m_hat, mask, sigma, N, n_cores=None, mp_method=None, cli
     if (data.shape != m_hat.shape):
         raise ValueError('data shape {} is not compatible with m_hat shape {}'.format(data.shape, m_hat.shape))
 
-    arglist = [(data[..., idx, :],
+    arglist = ((data[..., idx, :],
                 m_hat[..., idx, :],
                 mask[..., idx],
                 sigma[..., idx, :],
                 N,
                 clip_eta)
-               for idx in range(data.shape[-2])]
+               for idx in range(data.shape[-2]))
 
-    parallel_stabilization = multiprocesser(_multiprocess_stabilization, n_cores=n_cores, mp_method=mp_method)
+    parallel_stabilization = multiprocesser(multiprocess_stabilization, n_cores=n_cores, mp_method=mp_method)
     output = parallel_stabilization(arglist)
 
-    data_stabilized = np.empty(data.shape, dtype=np.float32)
-    eta = np.empty(data.shape, dtype=np.float32)
+    data_stabilized = np.zeros_like(data, dtype=np.float32)
+    eta = np.zeros_like(data, dtype=np.float32)
 
     for idx, content in enumerate(output):
-        data_stabilized[..., idx, :] = content[idx][0]
-        eta[..., idx, :] = content[idx][1]
+        data_stabilized[..., idx, :] = content[0]
+        eta[..., idx, :] = content[1]
 
     if return_eta:
         return data_stabilized, eta
     return data_stabilized
 
 
-def _multiprocess_stabilization(args):
-    return multiprocess_stabilization(*args)
-
-
 def multiprocess_stabilization(data, m_hat, mask, sigma, N, clip_eta=True):
     """Helper function for multiprocessing the stabilization part."""
+
+    if mask.ndim == (sigma.ndim - 1):
+        mask = np.broadcast_to(mask[..., None], sigma.shape)
 
     mask = np.logical_and(sigma > 0, mask)
     eta = np.zeros_like(data, dtype=np.float64)
