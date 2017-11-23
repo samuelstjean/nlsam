@@ -5,6 +5,10 @@ import numpy as np
 from nlsam.multiprocess import multiprocesser
 from nlsam._stabilizer import fixed_point_finder, chi_to_gauss
 
+# Vectorised version of the above, so we can use implicit broadcasting and stuff
+vec_fixed_point_finder = np.vectorize(fixed_point_finder, [np.float64])
+vec_chi_to_gauss = np.vectorize(chi_to_gauss, [np.float64])
+
 
 def stabilization(data, m_hat, mask, sigma, N, n_cores=None, mp_method=None, clip_eta=True, return_eta=False):
 
@@ -54,12 +58,6 @@ def multiprocess_stabilization(data, m_hat, mask, sigma, N, clip_eta=True):
     mask = np.logical_and(sigma > 0, mask)
     eta = np.zeros_like(data, dtype=np.float64)
     out = np.zeros_like(data, dtype=np.float64)
-
-    # vec_fixed_point_finder = np.frompyfunc(fixed_point_finder, 4, 1)
-    # vec_chi_to_gauss = np.frompyfunc(chi_to_gauss, 4, 1)
-
-    vec_fixed_point_finder = np.vectorize(fixed_point_finder, [np.float64])
-    vec_chi_to_gauss = np.vectorize(chi_to_gauss, [np.float64])
 
     eta[mask] = vec_fixed_point_finder(m_hat[mask], sigma[mask], N, clip_eta)
     out[mask] = vec_chi_to_gauss(data[mask], eta[mask], sigma[mask], N)
