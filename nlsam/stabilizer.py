@@ -25,9 +25,8 @@ def stabilization(data, m_hat, mask, sigma, N, eta=None, clip_eta=True, return_e
     if (data.shape != m_hat.shape):
         raise ValueError('data shape {} is not compatible with m_hat shape {}'.format(data.shape, m_hat.shape))
 
-    # if eta is not None:
-    #     array_eta = eta
-    # else:
+    if eta is None:
+        eta = np.zeros_like(data, dtype=np.float32)
 
     arglist = ((data[..., idx, :],
                 m_hat[..., idx, :],
@@ -41,7 +40,6 @@ def stabilization(data, m_hat, mask, sigma, N, eta=None, clip_eta=True, return_e
     parallel_stabilization = multiprocesser(multiprocess_stabilization, n_cores=n_cores, mp_method=mp_method)
     output = parallel_stabilization(arglist)
 
-    eta = np.zeros_like(data, dtype=np.float32)
     data_stabilized = np.zeros_like(data, dtype=np.float32)
 
     for idx, content in enumerate(output):
@@ -64,6 +62,8 @@ def multiprocess_stabilization(data, m_hat, mask, sigma, N, eta=None, clip_eta=T
 
     if eta is None:
         eta = np.zeros_like(data, dtype=np.float64)
+
+    if np.all(eta == 0):
         eta[mask] = vec_fixed_point_finder(m_hat[mask], sigma[mask], N, clip_eta)
 
     out[mask] = vec_chi_to_gauss(data[mask], eta[mask], sigma[mask], N)
