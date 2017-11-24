@@ -5,7 +5,7 @@ from __future__ import division, print_function
 import numpy as np
 from numpy.testing import assert_almost_equal, assert_array_less, run_module_suite
 
-from nlsam._stabilizer import _test_xi as xi
+from nlsam.stabilizer import _test_xi as xi
 from nlsam.smoothing import (sh_smooth,
                              local_standard_deviation,
                              local_piesno)

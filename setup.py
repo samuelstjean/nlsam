@@ -72,7 +72,7 @@ except ImportError:
 
 # list of pyx modules to compile
 modules = ['nlsam.utils',
-           'nlsam._stabilizer']
+           'nlsam.stabilizer']
 params['ext_modules'] = []
 
 for pyxfile in modules:

@@ -187,7 +187,7 @@ def local_standard_deviation(arr, n_cores=None, mp_method=None):
     if arr.ndim == 3:
         sigma = _local_standard_deviation(arr)
     else:
-        list_arr = [arr[..., i] for i in range(arr.shape[-1])]
+        list_arr = [[arr[..., i]] for i in range(arr.shape[-1])]
         parallel_local_standard_deviation = multiprocesser(_local_standard_deviation, n_cores=n_cores, mp_method=mp_method)
         result = parallel_local_standard_deviation(list_arr)
 

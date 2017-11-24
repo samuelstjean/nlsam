@@ -25,9 +25,9 @@ def multiprocessing_hanging_workaround():
 
 
 def _func_star(stuff):
-    """First argument is the function to run in parallel, second is the arglist of stuff
+    """First argument is the function to run in parallel, second is the arglist of stuff.
     """
-    return stuff[0](*list(stuff[1]))
+    return stuff[0](*stuff[1])
 
 
 def multiprocesser(func, n_cores=None, mp_method=None):

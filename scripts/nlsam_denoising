@@ -17,8 +17,8 @@ import numpy as np
 
 from nlsam.denoiser import nlsam_denoise
 from nlsam.smoothing import local_standard_deviation, sh_smooth, local_piesno
-from nlsam.stabilizer import stabilization
-from nlsam._stabilizer import corrected_sigma
+from nlsam.bias_correction import stabilization
+from nlsam.stabilizer import corrected_sigma
 
 from dipy.io.gradients import read_bvals_bvecs
 from dipy.core.gradients import gradient_table
