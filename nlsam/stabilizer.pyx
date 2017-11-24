@@ -125,7 +125,7 @@ cdef double multifactorial(int N, int k=1) nogil:
 
 
 # Stolen from octave signal marcumq
-cdef double _marcumq_cython(double a, double b, int M, double eps=1e-10) nogil:
+cdef double _marcumq_cython(double a, double b, int M, double eps=1e-7) nogil:
     """Computes the generalized Marcum Q function of order M.
     http://en.wikipedia.org/wiki/Marcum_Q-function
 

@@ -5,20 +5,13 @@ import warnings
 import logging
 
 from time import time
-from itertools import cycle
+from itertools import cycle, starmap
 
 from nlsam.utils import im2col_nd, col2im_nd
 from nlsam.angular_tools import angular_neighbors
 from nlsam.multiprocess import multiprocesser
 
 from scipy.sparse import lil_matrix
-
-try:
-    # python 2
-    from itertools import imap
-except ImportError:
-    # python 3
-    imap = map
 
 try:
     import spams
@@ -254,10 +247,10 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
                for k in range(data.shape[2] - block_size[2] + 1))
 
     if use_threading:
-        data_denoised = imap(_processer, arglist)
+        data_denoised = starmap(processer, arglist)
     else:
         time_multi = time()
-        parallel_processer = multiprocesser(_processer, n_cores=n_cores, mp_method=mp_method)
+        parallel_processer = multiprocesser(processer, n_cores=n_cores, mp_method=mp_method)
         data_denoised = parallel_processer(arglist)
         logger.info('Multiprocessing done in {0:.2f} mins.'.format((time() - time_multi) / 60.))
 
@@ -301,10 +294,6 @@ def greedy_set_finder(sets):
         universe = universe.difference(sets[element])
 
     return output
-
-
-def _processer(args):
-    return processer(*args)
 
 
 def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
