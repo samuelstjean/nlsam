@@ -274,9 +274,9 @@ def main():
     for f in overwritable_files:
         if f is not None and os.path.isfile(f):
             if args.overwrite:
-                logger.warning('Overwriting {0}'.format(os.path.realpath(f)))
+                logger.warning('Overwriting {}'.format(os.path.realpath(f)))
             else:
-                parser.error('{0} already exists! Use -f or --force to overwrite it.'.format(f))
+                parser.error('{} already exists! Use -f or --force to overwrite it.'.format(f))
 
     vol = nib.load(args.input)
     data = np.asarray(vol.get_data(caching='unchanged'), dtype=np.float32)
@@ -368,7 +368,7 @@ def main():
 
         # Compute the corrected value for each 3D volume
         if N > 0:
-            sigma = corrected_sigma(data, sigma, mask, N)
+            sigma = corrected_sigma(data, sigma, N, mask=mask)
 
     if args.save_sigma is not None:
         nib.save(nib.Nifti1Image(sigma, affine), args.save_sigma)
@@ -407,7 +407,8 @@ def main():
 
                 m_hat = sh_smooth(data, gtab, sh_order=sh_order).clip(min=0)
 
-        data_stabilized, eta = stabilization(data, m_hat, mask, sigma, N,
+        data_stabilized, eta = stabilization(data, m_hat, sigma, N,
+                                             mask=mask,
                                              clip_eta=clip_eta,
                                              return_eta=True,
                                              n_cores=n_cores,

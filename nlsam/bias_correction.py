@@ -13,7 +13,16 @@ vec_chi_to_gauss = np.vectorize(chi_to_gauss, [np.float64])
 vec_xi = np.vectorize(xi, [np.float64])
 
 
-def stabilization(data, m_hat, mask, sigma, N, clip_eta=True, return_eta=False, n_cores=None, mp_method=None):
+def stabilization(data, m_hat, sigma, N, mask=None, clip_eta=True, return_eta=False, n_cores=None, mp_method=None):
+
+    data = np.asarray(data)
+    m_hat = np.asarray(m_hat)
+    sigma = np.asarray(sigma)
+
+    if mask is None:
+        mask = np.ones(data.shape[:-1], dtype=np.bool)
+    else:
+        mask = np.asarray(mask, dtype=np.bool)
 
     if sigma.ndim == (data.ndim - 1):
         sigma = np.broadcast_to(sigma[..., None], data.shape)
@@ -67,7 +76,7 @@ def multiprocess_stabilization(data, m_hat, mask, sigma, N, clip_eta=True):
     return out, eta
 
 
-def corrected_sigma(eta, sigma, mask, N):
+def corrected_sigma(eta, sigma, N, mask=None):
     """Compute the local corrected standard deviation for the adaptive nonlocal
     means according to the correction factor xi.
 
@@ -77,26 +86,34 @@ def corrected_sigma(eta, sigma, mask, N):
         Signal intensity
     sigma : double
         Noise magnitude standard deviation
-    mask : ndarray
-        Compute only the corrected sigma value inside the mask.
     N : int
         Number of coils of the acquisition (N=1 for Rician noise)
+    mask : ndarray, optional
+        Compute only the corrected sigma value inside the mask.
 
     Return
     --------
-    sigma, ndarray
+    output, ndarray
         Corrected sigma value, where sigma_gaussian = sigma / sqrt(xi)
     """
+    eta = np.array(eta)
+    sigma = np.array(sigma)
+
+    if not isinstance(N, int):
+        raise ValueError('N is not an integer, but is {}'.format(type(N)))
+
+    if mask is None:
+        mask = np.ones_like(sigma, dtype=np.bool)
+    else:
+        mask = np.array(mask, dtype=np.bool)
 
     # Force 3D/4D broadcasting if needed
     if sigma.ndim == (eta.ndim - 1):
-        sigma = sigma[..., None]
+        sigma = np.broadcast_to(sigma[..., None], eta.shape)
 
     if mask.ndim == (sigma.ndim - 1):
-        mask = mask[..., None]
+        mask = np.broadcast_to(mask[..., None], sigma.shape)
 
-    mask = np.logical_and(sigma > 0, mask)
     output = np.zeros_like(eta, dtype=np.float32)
-
     output[mask] = sigma[mask] / np.sqrt(vec_xi(eta[mask], sigma[mask], N))
     return output
