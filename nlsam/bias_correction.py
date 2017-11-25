@@ -13,7 +13,7 @@ vec_chi_to_gauss = np.vectorize(chi_to_gauss, [np.float64])
 vec_xi = np.vectorize(xi, [np.float64])
 
 
-def stabilization(data, m_hat, mask, sigma, N, eta=None, clip_eta=True, return_eta=False, n_cores=None, mp_method=None):
+def stabilization(data, m_hat, mask, sigma, N, clip_eta=True, return_eta=False, n_cores=None, mp_method=None):
 
     if sigma.ndim == (data.ndim - 1):
         sigma = np.broadcast_to(sigma[..., None], data.shape)
@@ -28,15 +28,11 @@ def stabilization(data, m_hat, mask, sigma, N, eta=None, clip_eta=True, return_e
     if (data.shape != m_hat.shape):
         raise ValueError('data shape {} is not compatible with m_hat shape {}'.format(data.shape, m_hat.shape))
 
-    if eta is None:
-        eta = np.zeros_like(data, dtype=np.float32)
-
     arglist = ((data[..., idx, :],
                 m_hat[..., idx, :],
                 mask[..., idx],
                 sigma[..., idx, :],
                 N,
-                eta[..., idx, :],
                 clip_eta)
                for idx in range(data.shape[-2]))
 
@@ -44,6 +40,7 @@ def stabilization(data, m_hat, mask, sigma, N, eta=None, clip_eta=True, return_e
     output = parallel_stabilization(arglist)
 
     data_stabilized = np.zeros_like(data, dtype=np.float32)
+    eta = np.zeros_like(data, dtype=np.float32)
 
     for idx, content in enumerate(output):
         data_stabilized[..., idx, :] = content[0]
@@ -54,21 +51,17 @@ def stabilization(data, m_hat, mask, sigma, N, eta=None, clip_eta=True, return_e
     return data_stabilized
 
 
-def multiprocess_stabilization(data, m_hat, mask, sigma, N, eta=None, clip_eta=True):
+def multiprocess_stabilization(data, m_hat, mask, sigma, N, clip_eta=True):
     """Helper function for multiprocessing the stabilization part."""
 
     if mask.ndim == (sigma.ndim - 1):
-        mask = np.broadcast_to(mask[..., None], sigma.shape)
+        mask = mask[..., None]
 
     mask = np.logical_and(sigma > 0, mask)
     out = np.zeros_like(data, dtype=np.float64)
+    eta = np.zeros_like(data, dtype=np.float64)
 
-    if eta is None:
-        eta = np.zeros_like(data, dtype=np.float64)
-
-    if np.all(eta == 0):
-        eta[mask] = vec_fixed_point_finder(m_hat[mask], sigma[mask], N, clip_eta)
-
+    eta[mask] = vec_fixed_point_finder(m_hat[mask], sigma[mask], N, clip_eta)
     out[mask] = vec_chi_to_gauss(data[mask], eta[mask], sigma[mask], N)
 
     return out, eta
