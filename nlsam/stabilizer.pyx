@@ -31,13 +31,6 @@ cdef double hyp1f1(double a, int b, double x) nogil:
     return gsl_sf_hyperg_1F1(a, b, x)
 
 
-cdef double erfinv(double y) nogil:
-    """Inverse function for erf.
-    Stolen from https://github.com/scipy/scipy/blob/v0.19.1/scipy/special/basic.py#L1096-L1099
-    """
-    return ndtri((y+1)/2.0)/sqrt(2)
-
-
 cdef double _inv_cdf_gauss(double y, double eta, double sigma) nogil:
     """Helper function for chi_to_gauss. Returns the gaussian distributed value
     associated to a given probability. See p. 4 of [1] eq. 13.
@@ -55,8 +48,13 @@ cdef double _inv_cdf_gauss(double y, double eta, double sigma) nogil:
     return
     --------
         Value associated to probability y given a normal distribution N(eta, sigma**2)
+
+    Note
+    -----
+    The original paper mentions to use erfinv, but we have directly that
+    ndtri(y) = sqrt(2) * erfinv(2*y - 1)
     """
-    return eta + sigma * sqrt(2) * erfinv(2*y - 1)
+    return eta + sigma * ndtri(y)
 
 
 cdef double _chi_to_gauss(double m, double eta, double sigma, int N,
@@ -417,10 +415,6 @@ def _test_inv_cdf_gauss(y, eta, sigma):
 
 def _test_chi_to_gauss(m, eta, sigma, N):
     return chi_to_gauss(m, eta, sigma, N)
-
-
-def _test_erfinv(y):
-    return erfinv(y)
 
 
 def _test_fixed_point_finder(m_hat, sigma, N, clip_eta=True):

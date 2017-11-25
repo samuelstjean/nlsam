@@ -12,7 +12,6 @@ except ImportError:
     from scipy.misc import factorialk
 
 from scipy.stats import norm
-from scipy.special import erfinv
 
 from nlsam.stabilizer import (_test_marcumq_cython,
                               _test_beta,
@@ -20,8 +19,7 @@ from nlsam.stabilizer import (_test_marcumq_cython,
                               _test_fixed_point_finder,
                               _test_chi_to_gauss,
                               _test_inv_cdf_gauss,
-                              _test_multifactorial,
-                              _test_erfinv)
+                              _test_multifactorial)
 
 # hispeed is the closed source java reference implementation,
 # from which most values are taken from.
@@ -81,12 +79,6 @@ def test_factorial():
     assert_almost_equal(_test_multifactorial(20, 2), factorialk(20, 2), decimal=0)
     assert_almost_equal(_test_multifactorial(20, 3), factorialk(20, 3), decimal=0)
     assert_almost_equal(_test_multifactorial(0, 3), factorialk(0, 3), decimal=0)
-
-
-def test_erfinv():
-    for y in np.random.rand(1000):
-        assert_almost_equal(_test_erfinv(y), erfinv(y))
-        assert_almost_equal(_test_erfinv(-y), erfinv(-y))
 
 
 # Test for marcumq, all stolen from octave
