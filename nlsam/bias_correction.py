@@ -3,11 +3,14 @@ from __future__ import division
 import numpy as np
 
 from nlsam.multiprocess import multiprocesser
-from nlsam._stabilizer import fixed_point_finder, chi_to_gauss
+from nlsam.stabilizer import fixed_point_finder, chi_to_gauss
+from nlsam.stabilizer import _test_xi as xi
+
 
 # Vectorised version of the above, so we can use implicit broadcasting and stuff
 vec_fixed_point_finder = np.vectorize(fixed_point_finder, [np.float64])
 vec_chi_to_gauss = np.vectorize(chi_to_gauss, [np.float64])
+vec_xi = np.vectorize(xi, [np.float64])
 
 
 def stabilization(data, m_hat, mask, sigma, N, eta=None, clip_eta=True, return_eta=False, n_cores=None, mp_method=None):
@@ -69,3 +72,38 @@ def multiprocess_stabilization(data, m_hat, mask, sigma, N, eta=None, clip_eta=T
     out[mask] = vec_chi_to_gauss(data[mask], eta[mask], sigma[mask], N)
 
     return out, eta
+
+
+def corrected_sigma(eta, sigma, mask, N):
+    """Compute the local corrected standard deviation for the adaptive nonlocal
+    means according to the correction factor xi.
+
+    Input
+    --------
+    eta : double
+        Signal intensity
+    sigma : double
+        Noise magnitude standard deviation
+    mask : ndarray
+        Compute only the corrected sigma value inside the mask.
+    N : int
+        Number of coils of the acquisition (N=1 for Rician noise)
+
+    Return
+    --------
+    sigma, ndarray
+        Corrected sigma value, where sigma_gaussian = sigma / sqrt(xi)
+    """
+
+    # Force 3D/4D broadcasting if needed
+    if sigma.ndim == (eta.ndim - 1):
+        sigma = sigma[..., None]
+
+    if mask.ndim == (sigma.ndim - 1):
+        mask = mask[..., None]
+
+    mask = np.logical_and(sigma > 0, mask)
+    output = np.zeros_like(eta, dtype=np.float32)
+
+    output[mask] = sigma[mask] / np.sqrt(vec_xi(eta[mask], sigma[mask], N))
+    return output

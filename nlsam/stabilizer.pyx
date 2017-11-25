@@ -284,81 +284,6 @@ cdef double _fixed_point_k(double eta, double m, double sigma, int N) nogil:
     return eta - num / denom
 
 
-def corrected_sigma(eta, sigma, mask, N, n_cores=None, mp_method=None):
-    """Compute the local corrected standard deviation for the adaptive nonlocal
-    means according to the correction factor xi.
-
-    Input
-    --------
-    eta : double
-        Signal intensity
-    sigma : double
-        Noise magnitude standard deviation
-    mask : ndarray
-        Compute only the corrected sigma value inside the mask.
-    N : int
-        Number of coils of the acquisition (N=1 for Rician noise)
-    n_cores : int
-        Number of cpu cores to use for parallel computations, default : all of them
-
-    Return
-    --------
-    sigma, ndarray
-        Corrected sigma value, where sigma_gaussian = sigma / sqrt(xi)
-    """
-    arglist = [(eta_vox, sigma_vox, mask_vox, N)
-               for eta_vox, sigma_vox, mask_vox
-               in zip(eta, sigma, mask)]
-
-    parallel_corrected_sigma = multiprocesser(_corrected_sigma_parallel, n_cores=n_cores, mp_method=mp_method)
-    sigma = parallel_corrected_sigma(arglist)
-    return np.asarray(sigma).reshape(eta.shape)
-
-
-def _corrected_sigma_parallel(args):
-    return corrected_sigma_parallel(*args)
-
-
-def corrected_sigma_parallel(eta, sigma, mask, N):
-    """Helper function for corrected_sigma to multiprocess the correction
-    factor xi."""
-
-    eta = eta.astype(np.float64)
-    sigma = sigma.astype(np.float64)
-    N = int(N)
-    out = np.zeros(eta.shape, dtype=np.float32)
-    np.logical_and(sigma > 0, mask, out=mask)
-
-    for idx in np.ndindex(out.shape):
-        if mask[idx]:
-            out[idx] = _corrected_sigma(eta[idx], sigma[idx], N)
-
-    return out
-
-
-cdef double _corrected_sigma(double eta, double sigma, int N) nogil:
-    """Compute the local corrected standard deviation for the adaptive nonlocal
-    means according to the correction factor xi.
-
-    Input
-    -------
-    eta : double
-        Signal intensity
-    sigma : double
-        Noise magnitude standard deviation
-    N : int
-        Number of coils of the acquisition (N=1 for Rician noise)
-    mask : ndarray
-        Compute only the corrected sigma value inside the mask.
-
-    Return
-    -------
-    ndarray
-        Corrected sigma value, where sigma_gaussian = sigma / sqrt(xi)
-    """
-    return sigma / sqrt(_xi(eta, sigma, N))
-
-
 cdef double _xi(double eta, double sigma, int N) nogil:
     """Standard deviation scaling factor formula, see p. 3 of [1], eq. 10.
 
@@ -381,7 +306,7 @@ cdef double _xi(double eta, double sigma, int N) nogil:
         return 1.
 
     h1f1 = hyp1f1(-0.5, N, -eta**2/(2*sigma**2))
-    return 2*N + eta**2/sigma**2 -(_beta(N) * h1f1)**2
+    return 2*N + eta**2/sigma**2 - (_beta(N) * h1f1)**2
 
 
 # Test for cython functions

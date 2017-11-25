@@ -17,8 +17,7 @@ import numpy as np
 
 from nlsam.denoiser import nlsam_denoise
 from nlsam.smoothing import local_standard_deviation, sh_smooth, local_piesno
-from nlsam.bias_correction import stabilization
-from nlsam.stabilizer import corrected_sigma
+from nlsam.bias_correction import stabilization, corrected_sigma
 
 from dipy.io.gradients import read_bvals_bvecs
 from dipy.core.gradients import gradient_table
@@ -365,9 +364,7 @@ def main():
 
         # Compute the corrected value for each 3D volume
         if N > 0:
-            sigma = np.broadcast_to(sigma[..., None], data.shape)
-            mask_4D = np.broadcast_to(mask[..., None], data.shape)
-            sigma = corrected_sigma(data, sigma, mask_4D, N, n_cores=n_cores, mp_method=mp_method)
+            sigma = corrected_sigma(data, sigma, mask, N)
 
     if args.save_sigma is not None:
         nib.save(nib.Nifti1Image(sigma, affine), args.save_sigma)
