@@ -284,6 +284,22 @@ cdef double _fixed_point_k(double eta, double m, double sigma, int N) nogil:
     return eta - num / denom
 
 
+cdef double _fixed_point_k_v2(double eta, double m, double sigma, int N) nogil:
+    """Helper function for fixed_point_finder, see p. 11 [1] eq. D3.
+
+    This is a secret equation scheme which gives rise to a different fixed point iteration
+    and is only here for completion purposes, as it a replacement for eq. D2.
+    Consider this as a secret bonus for looking at the code since we currently do not use it ;)"""
+    cdef:
+        double num, denom
+        double eta2sigma = -eta**2/(2*sigma**2)
+        double beta_N = _beta(N)
+
+    num = 2 * N * sigma * (m - beta_N * sigma * hyp1f1(-0.5, N, eta2sigma))
+    denom = beta_N * eta * hyp1f1(0.5, N+1, eta2sigma)
+
+    return eta + num / denom
+
 cdef double _xi(double eta, double sigma, int N) nogil:
     """Standard deviation scaling factor formula, see p. 3 of [1], eq. 10.
 
