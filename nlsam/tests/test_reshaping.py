@@ -3,7 +3,7 @@
 from __future__ import division, print_function
 
 import numpy as np
-from numpy.testing import assert_almost_equal, run_module_suite
+from numpy.testing import assert_allclose, run_module_suite
 
 from nlsam.utils import col2im_nd, im2col_nd
 from nlsam.smoothing import sliding_window
@@ -12,12 +12,12 @@ from nlsam.smoothing import sliding_window
 def test_reshaping():
 
     a = np.random.randint(0, 10000, size=(30, 30, 30))
-    assert_almost_equal(a, col2im_nd(im2col_nd(a, (2, 2, 2), (1, 1, 1)), (2, 2, 2), (30, 30, 30), (1, 1, 1)))
-    assert_almost_equal(a, col2im_nd(im2col_nd(a, (3, 3, 3), (2, 2, 2)), (3, 3, 3), (30, 30, 30), (2, 2, 2)))
+    assert_allclose(a, col2im_nd(im2col_nd(a, (2, 2, 2), (1, 1, 1)), (2, 2, 2), (30, 30, 30), (1, 1, 1)))
+    assert_allclose(a, col2im_nd(im2col_nd(a, (3, 3, 3), (2, 2, 2)), (3, 3, 3), (30, 30, 30), (2, 2, 2)))
 
     b = np.random.randint(0, 10000, size=(30, 30, 30, 10))
-    assert_almost_equal(b, col2im_nd(im2col_nd(b, (2, 2, 2, 10), (1, 1, 1, 1)), (2, 2, 2, 10), (30, 30, 30, 10), (1, 1, 1, 1)))
-    assert_almost_equal(b, col2im_nd(im2col_nd(b, (3, 3, 3, 10), (2, 2, 2, 1)), (3, 3, 3, 10), (30, 30, 30, 10), (2, 2, 2, 1)))
+    assert_allclose(b, col2im_nd(im2col_nd(b, (2, 2, 2, 10), (1, 1, 1, 1)), (2, 2, 2, 10), (30, 30, 30, 10), (1, 1, 1, 1)))
+    assert_allclose(b, col2im_nd(im2col_nd(b, (3, 3, 3, 10), (2, 2, 2, 1)), (3, 3, 3, 10), (30, 30, 30, 10), (2, 2, 2, 1)))
 
     a = np.random.rand(1000).reshape(10, 10, 10)
     out = im2col_nd(a, (3, 3, 3), (2, 2, 2))

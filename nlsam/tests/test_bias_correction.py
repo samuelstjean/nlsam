@@ -3,7 +3,7 @@
 from __future__ import division, print_function
 
 import numpy as np
-from numpy.testing import assert_allclose, assert_array_less, run_module_suite
+from numpy.testing import assert_allclose, run_module_suite
 
 from nlsam.bias_correction import corrected_sigma, multiprocess_stabilization
 
@@ -16,21 +16,21 @@ def test_corrected_sigma():
     mask = np.ones_like(sigma)
 
     output = corrected_sigma(eta, sigma, N, mask)
-    assert_allclose(output, sigma, rtol=1e-4)
+    assert_allclose(output, sigma, atol=1e-4)
 
     output = corrected_sigma(eta, sigma[..., 0], N)
-    assert_allclose(output, sigma, rtol=1e-4)
+    assert_allclose(output, sigma, atol=1e-4)
 
     mask[5:8, 3:9] = 0
     output = corrected_sigma(eta, sigma, N, mask)
     sigma[5:8, 3:9] = 0
-    assert_allclose(output, sigma, rtol=1e-4)
+    assert_allclose(output, sigma, atol=1e-4)
 
     # magnitude SNR of 0.5 -> sigma = 50, eta = 25 for N = 1
     eta = 17.5
     sigma = 35
     output = corrected_sigma(eta, sigma, N)
-    assert_allclose(output, 50, atol=1, rtol=1e-4)
+    assert_allclose(output, 50, atol=1)
 
 
 # Taken from original example
@@ -136,8 +136,8 @@ def test_stabilization():
 
     # I don't do smoothing spline, but using the smoothed input on both versions this is what we have
     # The answer is a bit off for the last values of the final output, might be due to different numerical schemes
-    assert_allclose(output[:80], answer[:80], rtol=1e-4)
-    assert_allclose(eta, eta_koay, rtol=1e-2)
+    assert_allclose(output[:80], answer[:80], atol=1e-3)
+    assert_allclose(eta, eta_koay, atol=1e-2)
 
 
 if __name__ == "__main__":

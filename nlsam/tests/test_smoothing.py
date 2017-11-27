@@ -3,7 +3,7 @@
 from __future__ import division, print_function
 
 import numpy as np
-from numpy.testing import assert_almost_equal, assert_array_less, run_module_suite
+from numpy.testing import assert_allclose, assert_array_less, run_module_suite
 
 from nlsam.stabilizer import _test_xi as xi
 from nlsam.smoothing import (sh_smooth,
@@ -25,7 +25,7 @@ def test_sh_smooth():
     signal, sticks = multi_tensor(gtab, mevals, S0=1, angles=angles,
                                   fractions=fractions, snr=50)
 
-    assert_almost_equal(signal, sh_smooth(signal, gtab), decimal=1)
+    assert_allclose(signal, sh_smooth(signal, gtab), atol=0.1, rtol=1e-5)
 
 
 def test_local_standard_deviation():
