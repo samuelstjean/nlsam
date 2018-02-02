@@ -6,7 +6,15 @@ cimport cython
 from libc.math cimport sqrt, exp, fabs, M_PI
 
 from nlsam.multiprocess import multiprocesser
-from scipy.special.cython_special cimport ndtri, ive
+from scipy.special.cython_special cimport ndtri, ive, gamma, chndtr, gammainc
+
+# this is our special R wrapped marcum q function
+# from numba import vectorize, jit
+from rvlib._rmath_ffi.lib import pnchisq as pnchisq_R
+# @jit(nopython=True, nogil=True)
+# def pnchisq(q, df, ncp):
+#     return pnchisq_R(q, df, ncp, False, False)
+
 
 # libc.math isnan does not work on windows, it is called _isnan, so we use this one instead
 cdef extern from "numpy/npy_math.h" nogil:
@@ -25,7 +33,7 @@ def fixed_point_finder(m_hat, sigma, N, clip_eta=True):
     return _fixed_point_finder(m_hat, sigma, N, clip_eta)
 
 
-cdef double hyp1f1(double a, int b, double x) nogil:
+cdef double hyp1f1(double a, double b, double x) nogil:
     """Wrapper for 1F1 hypergeometric series function
     http://en.wikipedia.org/wiki/Confluent_hypergeometric_function"""
     return gsl_sf_hyperg_1F1(a, b, x)
@@ -57,7 +65,7 @@ cdef double _inv_cdf_gauss(double y, double eta, double sigma) nogil:
     return eta + sigma * ndtri(y)
 
 
-cdef double _chi_to_gauss(double m, double eta, double sigma, int N,
+cdef double _chi_to_gauss(double m, double eta, double sigma, double N,
                           double alpha=0.0001) nogil:
     """Maps the noisy signal intensity from a Rician/Non central chi distribution
     to its gaussian counterpart. See p. 4 of [1] eq. 12.
@@ -100,89 +108,193 @@ cdef double _chi_to_gauss(double m, double eta, double sigma, int N,
         return _inv_cdf_gauss(cdf, eta, sigma)
 
 
-cdef double multifactorial(int N, int k=1) nogil:
-    """Returns the multifactorial of order k of N.
-    https://en.wikipedia.org/wiki/Factorial#Multifactorials
+# cdef double multifactorial(double N, int k=1) nogil:
+#     """Returns the multifactorial of order k of N.
+#     https://en.wikipedia.org/wiki/Factorial#Multifactorials
 
-    N : int
-        Number to compute the factorial of
-    k : int
-        Order of the factorial, default k=1
+#     N : int
+#         Number to compute the factorial of
+#     k : int
+#         Order of the factorial, default k=1
 
-    return : double
-        Return type is double, because multifactorial(21) > 2**64.
-        Same as scipy.special.factorialk, but in a nogil clause.
-    """
-    if N == 0:
-        return 1.
+#     return : double
+#         Return type is double, because multifactorial(21) > 2**64.
+#         Same as scipy.special.factorialk, but in a nogil clause.
+#     """
+#     if N == 0:
+#         return 1.
 
-    elif N < (k + 1):
-        return N
+#     elif N < (k + 1):
+#         return N
 
-    return N * multifactorial(N - k, k)
+#     return N * multifactorial(N - k, k)
 
 
-# Stolen from octave signal marcumq
-cdef double _marcumq_cython(double a, double b, int M, double eps=1e-7) nogil:
+# cdef double factorial(double x) nogil:
+#     return gamma(x + 1)
+
+
+cdef double _marcumq_cython(double a, double b, double M) nogil:
     """Computes the generalized Marcum Q function of order M.
     http://en.wikipedia.org/wiki/Marcum_Q-function
 
     a : double, eta/sigma
     b : double, m/sigma
-    M : int, order of the function (Number of coils, N=1 for Rician noise)
+    M : double, order of the function (Number of coils, N=1 for Rician noise)
 
     return : double
         Value of the function, always between 0 and 1 since it's a pdf.
+
+    Notes
+    ------
+    We actually use chndtr which is the cdf of a chi square variable with a few
+    change of arguments. The relation is
+
+    nchi2_pdf(x, k, lbda) = 1 - Marcum(sqrt(lbda), sqrt(x), k/2)
+
+    and therefore
+
+    Marcum(a, b, M) = 1 - nchi2_pdf(b**2, a**2, 2*M)
+
+    or in our notation
+
+    nchi_pdf = 1 - Marcum(a**2, b**2, 2*M)
     """
     cdef:
-        bint cond = True
-        int s, c, k
-        double S, x, d, t
-        double temp = 0.
-        double z = a * b
+        double k = 2 * M
+        double lbda = a**2
+        double x = b**2
+        double out
 
-    if fabs(b) < eps:
-        return 1.
+    # if k < 80:
+    #     out = 1. - chndtr(x, k, lbda)
+    # else:
+    #     with gil:
+    #         out = 1. - pnchisq(x, k, lbda)
 
-    if fabs(a) < eps:
-        for k in range(M):
-            temp += b**(2*k) / (2**k * multifactorial(k))
+    # if fabs(b) < eps:
+    #     return 1.
 
-        return exp(-b**2/2) * temp
+    # if fabs(a) < eps:
+    #     for i in range(int(M)):
+    #         temp += b**(2*i) / (2**i * gamma(i+1.))
 
-    if a < b:
-        s = 1
-        c = 0
-        x = a / b
-        d = x
-        S = ive(0, z)
+    #     return exp(-b**2/2) * temp
 
-        for k in range(1, M):
-            S += (d + 1/d) * ive(k, z)
-            d *= x
-
-        k = M
-    else:
-        s = -1
-        c = 1
-        x = b / a
-        k = M
-        d = x**M
-        S = 0
-
-    while cond:
-        t = d * ive(k, z)
-        S += t
-        d *= x
-        k += 1
-
-        cond = fabs(t/S) > eps
-
-    return c + s * exp(-0.5 * (a-b)**2) * S
+    with gil:
+        out = pnchisq_R(x, k, lbda, False, False)
+        # print(out, x, k, lbda)
+    return out
+    # return 1. - chndtr(x, k, lbda)
 
 
-cdef double _fixed_point_finder(double m_hat, double sigma, int N, bint clip_eta=True,
-                                int max_iter=100, double eps=1e-4) nogil:
+# cdef double _marcumq_cython(double a, double b, double M) nogil:
+#     cdef:
+#         double k = 2 * M
+#         double lbda = a**2
+#         double x = b**2
+
+#         double h = 1 - 2/3 * (k+lbda) * (k+3*lbda) / (k + 2*lbda)**2
+#         double p = (k+2*lbda) / (k + lbda)**2
+#         double m = (h - 1) * (1 - 3*h)
+
+#         double num = (x / (k + lbda))**h - (1 + h*p * (h - 1 - 0.5 * (2 - h) * m * p))
+#         double denom = h * sqrt(2 * p) * (1 + 0.5 * m * p)
+
+#     return 1. - ndtri(num / denom)
+
+
+# Stolen from octave signal marcumq
+# cdef double _marcumq_cython(double a, double b, double M, double eps=1e-7) nogil:
+#     """Computes the generalized Marcum Q function of order M.
+#     http://en.wikipedia.org/wiki/Marcum_Q-function
+
+#     a : double, eta/sigma
+#     b : double, m/sigma
+#     M : int, order of the function (Number of coils, N=1 for Rician noise)
+
+#     return : double
+#         Value of the function, always between 0 and 1 since it's a pdf.
+#     """
+#     cdef:
+#         bint cond = True
+#         int s, c, k
+#         double S, x, d, t
+#         double temp = 0.
+#         double z = a * b
+#         int M_int = int(round(M))
+
+#     if fabs(b) < eps:
+#         return 1.
+
+#     if fabs(a) < eps:
+#         for k in range(M_int):
+#             temp += b**(2*k) / (2**k * gamma(k+1.))
+
+#         return exp(-b**2/2) * temp
+
+#     if a < b:
+#         s = 1
+#         c = 0
+#         x = a / b
+#         d = x
+#         S = ive(0, z)
+
+#         for k in range(1, M_int):
+#             S += (d + 1/d) * ive(k, z)
+#             d *= x
+
+#         k = M_int
+#     else:
+#         s = -1
+#         c = 1
+#         x = b / a
+#         k = M_int
+#         d = x**M_int
+#         S = 0
+
+#     while cond:
+#         t = d * ive(k, z)
+#         S += t
+#         d *= x
+#         k += 1
+
+#         cond = fabs(t/S) > eps
+
+#     return c + s * exp(-0.5 * (a-b)**2) * S
+
+
+# cdef double _marcumq_cython(double a, double b, double M, double eps=1e-7) nogil:
+#     cdef:
+#         bint cond = True
+#         int s, c, k
+#         double S, x, d, t
+#         double temp = 0.
+#         double z = a * b
+#         double a2 = a**2 / 2
+#         double b2 = b**2 / 2
+
+#     if fabs(b) < eps:
+#         return 1.
+
+#     # if fabs(a) < eps:
+#     #     for k in range(M):
+#     #         temp += b**(2*k) / (2**k * gamma(k + 1))
+
+#     #     return exp(-b**2/2) * temp
+
+#     while cond:
+#         t = (gammainc(M+k, b2) / gamma(M)) / gamma(k + 1.)
+#         S += t * a2**k
+#         k += 1
+
+#         cond = fabs(t/S) > eps
+
+#     return 1 - exp(-a2) * S
+
+
+cdef double _fixed_point_finder(double m_hat, double sigma, double N, bint clip_eta=True,
+                                int max_iter=100, double eps=1e-6) nogil:
     """Fixed point formula for finding eta. Table 1 p. 11 of [1]
 
     Input
@@ -254,21 +366,27 @@ cdef double _fixed_point_finder(double m_hat, double sigma, int N, bint clip_eta
             return t1
 
 
-cdef double _beta(int N) nogil:
-    """Helper function for _xi, see p. 3 [1] just after eq. 8."""
-    cdef:
-        double factorialN_1 = multifactorial(N - 1)
-        double factorial2N_1 = multifactorial(2*N - 1, 2)
+# cdef double _beta(double N) nogil:
+#     """Helper function for _xi, see p. 3 [1] just after eq. 8."""
+#     cdef:
+#         double factorialN_1 = multifactorial(N - 1)
+#         double factorial2N_1 = multifactorial(2*N - 1, 2)
 
-    return sqrt(0.5 * M_PI) * (factorial2N_1 / (2**(N-1) * factorialN_1))
+#     return sqrt(0.5 * M_PI) * (factorial2N_1 / (2**(N-1) * factorialN_1))
 
 
-cdef double _fixed_point_g(double eta, double m, double sigma, int N) nogil:
+cdef double _beta(double N) nogil:
+    """Helper function for _xi, see p. 3 [1] just after eq. 8.
+    Generalized version for non integer N"""
+    return sqrt(M_PI / 2) * gamma(N + 0.5) / (gamma(1.5) * gamma(N))
+
+
+cdef double _fixed_point_g(double eta, double m, double sigma, double N) nogil:
     """Helper function for _fixed_point_k, see p. 3 [1] eq. 11."""
     return sqrt(m**2 + (_xi(eta, sigma, N) - 2*N) * sigma**2)
 
 
-cdef double _fixed_point_k(double eta, double m, double sigma, int N) nogil:
+cdef double _fixed_point_k(double eta, double m, double sigma, double N) nogil:
     """Helper function for fixed_point_finder, see p. 11 [1] eq. D2."""
     cdef:
         double fpg, num, denom
@@ -284,7 +402,7 @@ cdef double _fixed_point_k(double eta, double m, double sigma, int N) nogil:
     return eta - num / denom
 
 
-cdef double _fixed_point_k_v2(double eta, double m, double sigma, int N) nogil:
+cdef double _fixed_point_k_v2(double eta, double m, double sigma, double N) nogil:
     """Helper function for fixed_point_finder, see p. 11 [1] eq. D3.
 
     This is a secret equation scheme which gives rise to a different fixed point iteration
@@ -300,7 +418,7 @@ cdef double _fixed_point_k_v2(double eta, double m, double sigma, int N) nogil:
 
     return eta + num / denom
 
-cdef double _xi(double eta, double sigma, int N) nogil:
+cdef double _xi(double eta, double sigma, double N) nogil:
     """Standard deviation scaling factor formula, see p. 3 of [1], eq. 10.
 
     Input
@@ -346,8 +464,8 @@ def _test_xi(eta, sigma, N):
     return _xi(eta, sigma, N)
 
 
-def _test_multifactorial(N, k=1):
-    return multifactorial(N, k)
+# def _test_multifactorial(N, k=1):
+#     return multifactorial(N, k)
 
 
 def _test_inv_cdf_gauss(y, eta, sigma):

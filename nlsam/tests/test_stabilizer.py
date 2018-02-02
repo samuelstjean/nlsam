@@ -6,10 +6,10 @@ import numpy as np
 from numpy.testing import assert_allclose, run_module_suite
 from itertools import product
 
-try:
-    from scipy.special import factorialk
-except ImportError:
-    from scipy.misc import factorialk
+# try:
+#     from scipy.special import factorialk
+# except ImportError:
+#     from scipy.misc import factorialk
 
 from scipy.stats import norm
 
@@ -18,8 +18,7 @@ from nlsam.stabilizer import (_test_marcumq_cython,
                               _test_xi,
                               _test_fixed_point_finder,
                               _test_chi_to_gauss,
-                              _test_inv_cdf_gauss,
-                              _test_multifactorial)
+                              _test_inv_cdf_gauss)
 
 # hispeed is the closed source java reference implementation,
 # from which most values are taken from.
@@ -74,11 +73,11 @@ def test_marcumq():
     assert_allclose(_test_marcumq_cython(42.20399856567383, 42.769595980644226, 1), 0.289848352318906, atol=1e-5)
 
 
-def test_factorial():
-    assert_allclose(_test_multifactorial(10, 1), factorialk(10, 1))
-    assert_allclose(_test_multifactorial(20, 2), factorialk(20, 2))
-    assert_allclose(_test_multifactorial(20, 3), factorialk(20, 3))
-    assert_allclose(_test_multifactorial(0, 3), factorialk(0, 3))
+# def test_factorial():
+#     assert_allclose(_test_multifactorial(10, 1), factorialk(10, 1))
+#     assert_allclose(_test_multifactorial(20, 2), factorialk(20, 2))
+#     assert_allclose(_test_multifactorial(20, 3), factorialk(20, 3))
+#     assert_allclose(_test_multifactorial(0, 3), factorialk(0, 3))
 
 
 # Test for marcumq, all stolen from octave
