@@ -3,7 +3,7 @@ from __future__ import division
 import numpy as np
 
 from nlsam.multiprocess import multiprocesser
-from nlsam.stabilizer import fixed_point_finder, chi_to_gauss
+from nlsam.stabilizer import fixed_point_finder, chi_to_gauss, root_finder
 from nlsam.stabilizer import _test_xi as xi
 
 
@@ -11,6 +11,7 @@ from nlsam.stabilizer import _test_xi as xi
 vec_fixed_point_finder = np.vectorize(fixed_point_finder, [np.float64])
 vec_chi_to_gauss = np.vectorize(chi_to_gauss, [np.float64])
 vec_xi = np.vectorize(xi, [np.float64])
+vec_root_finder = np.vectorize(root_finder, [np.float64])
 
 
 def stabilization(data, m_hat, sigma, N, mask=None, clip_eta=True, return_eta=False, n_cores=None, mp_method=None):
@@ -99,9 +100,6 @@ def corrected_sigma(eta, sigma, N, mask=None):
     eta = np.array(eta)
     sigma = np.array(sigma)
 
-    if not isinstance(N, int):
-        raise ValueError('N is not an integer, but is {}'.format(type(N)))
-
     if mask is None:
         mask = np.ones_like(sigma, dtype=np.bool)
     else:
@@ -116,4 +114,33 @@ def corrected_sigma(eta, sigma, N, mask=None):
 
     output = np.zeros_like(eta, dtype=np.float32)
     output[mask] = sigma[mask] / np.sqrt(vec_xi(eta[mask], sigma[mask], N))
+
     return output
+
+
+def root_finder_sigma(data, sigma, N, mask=None):
+
+    data = np.array(data)
+    sigma = np.array(sigma)
+
+    if mask is None:
+        mask = np.ones_like(sigma, dtype=np.bool)
+    else:
+        mask = np.array(mask, dtype=np.bool)
+
+    # Force 3D/4D broadcasting if needed
+    if sigma.ndim == (data.ndim - 1):
+        sigma = np.broadcast_to(sigma[..., None], data.shape)
+
+    if mask.ndim == (sigma.ndim - 1):
+        mask = np.broadcast_to(mask[..., None], sigma.shape)
+
+    corrected_sigma = np.zeros_like(data, dtype=np.float32)
+    gaussian_SNR = np.zeros_like(data, dtype=np.float32)
+    theta = np.zeros_like(data, dtype=np.float32)
+
+    theta[mask] = data[mask] / sigma[mask]
+    gaussian_SNR[mask] = sigma[mask] / np.sqrt(vec_root_finder(theta[mask], N))
+    corrected_sigma[mask] = sigma[mask] / np.sqrt(vec_xi(gaussian_SNR[mask], 1, N))
+
+    return corrected_sigma

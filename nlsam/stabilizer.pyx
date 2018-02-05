@@ -33,6 +33,10 @@ def fixed_point_finder(m_hat, sigma, N, clip_eta=True):
     return _fixed_point_finder(m_hat, sigma, N, clip_eta)
 
 
+def root_finder(r, N, max_iter=500, eps=1e-6):
+    return _root_finder(r, N, max_iter, eps)
+
+
 cdef double hyp1f1(double a, double b, double x) nogil:
     """Wrapper for 1F1 hypergeometric series function
     http://en.wikipedia.org/wiki/Confluent_hypergeometric_function"""
@@ -441,6 +445,54 @@ cdef double _xi(double eta, double sigma, double N) nogil:
 
     h1f1 = hyp1f1(-0.5, N, -eta**2/(2*sigma**2))
     return 2*N + eta**2/sigma**2 - (_beta(N) * h1f1)**2
+
+
+# Helper function for the loop
+cdef inline double k(double theta, double N, double r) nogil:
+    cdef:
+        # Again fake SNR value for xi
+        double eta = theta
+        double sigma = 1.
+        double g, h1f1m, h1f1p, num, denom
+
+    g = sqrt(_xi(eta, sigma, N) * (1 + r**2) - 2*N)
+    h1f1m = hyp1f1(-0.5, N, -theta**2/2)
+    h1f1p = hyp1f1(0.5, N+1, -theta**2/2)
+
+    num = g * (g - theta)
+    denom = theta * (1 + r**2) * (1 - _beta(N)**2/(2*N) * h1f1m * h1f1p) - g
+
+    return theta - num / denom
+
+
+cdef double _root_finder(double r, double N, int max_iter=500, double eps=1e-6) nogil:
+
+    cdef:
+        bint cond
+        double lower_bound = sqrt((2*N / _xi(0, 1, N)) - 1)
+
+        # This is our fake SNR value for xi
+        double eta = r
+        double sigma = 1.
+
+
+    if r < lower_bound:
+        return 0
+
+    t0 = r - lower_bound
+    t1 = k(t0, N, r)
+
+    for _ in range(max_iter):
+
+        cond = fabs(t1 - t0) < eps
+
+        t0 = t1
+        t1 = k(t0, N, r)
+
+        if cond:
+            break
+
+    return t1
 
 
 # Test for cython functions
