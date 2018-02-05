@@ -382,7 +382,7 @@ cdef double _fixed_point_finder(double m_hat, double sigma, double N, bint clip_
 cdef double _beta(double N) nogil:
     """Helper function for _xi, see p. 3 [1] just after eq. 8.
     Generalized version for non integer N"""
-    return sqrt(M_PI / 2) * gamma(N + 0.5) / (gamma(1.5) * gamma(N))
+    return sqrt(2) * gamma(N + 0.5) / (gamma(N))
 
 
 cdef double _fixed_point_g(double eta, double m, double sigma, double N) nogil:
@@ -442,7 +442,7 @@ cdef double _xi(double eta, double sigma, double N) nogil:
 
     cdef double h1f1, out
 
-    if fabs(sigma) < 1e-15:
+    if fabs(sigma) < 1e-15 or (eta / sigma) > 1e8:
         return 1.
 
     h1f1 = hyp1f1(-0.5, N, -eta**2/(2*sigma**2))

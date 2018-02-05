@@ -145,7 +145,6 @@ def root_finder_sigma(data, sigma, N, mask=None):
 
     theta[mask] = data[mask] / sigma[mask]
     gaussian_SNR[mask] = sigma[mask] / np.sqrt(vec_root_finder(theta[mask], N[mask]))
-    # vec_xi(gaussian_SNR[mask], 1, N[mask])
-    # corrected_sigma[mask] = sigma[mask] / np.sqrt(vec_xi(gaussian_SNR[mask], 1, N[mask]))
+    corrected_sigma[mask] = sigma[mask] / np.sqrt(vec_xi(gaussian_SNR[mask], 1, N[mask]))
 
     return corrected_sigma
