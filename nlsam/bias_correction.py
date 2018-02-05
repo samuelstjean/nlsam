@@ -122,6 +122,7 @@ def root_finder_sigma(data, sigma, N, mask=None):
 
     data = np.array(data)
     sigma = np.array(sigma)
+    N = np.array(N)
 
     if mask is None:
         mask = np.ones_like(sigma, dtype=np.bool)
@@ -135,12 +136,16 @@ def root_finder_sigma(data, sigma, N, mask=None):
     if mask.ndim == (sigma.ndim - 1):
         mask = np.broadcast_to(mask[..., None], sigma.shape)
 
+    if N.ndim < data.ndim:
+        N = np.broadcast_to(N[..., None], data.shape)
+
     corrected_sigma = np.zeros_like(data, dtype=np.float32)
     gaussian_SNR = np.zeros_like(data, dtype=np.float32)
     theta = np.zeros_like(data, dtype=np.float32)
 
     theta[mask] = data[mask] / sigma[mask]
-    gaussian_SNR[mask] = sigma[mask] / np.sqrt(vec_root_finder(theta[mask], N))
-    corrected_sigma[mask] = sigma[mask] / np.sqrt(vec_xi(gaussian_SNR[mask], 1, N))
+    gaussian_SNR[mask] = sigma[mask] / np.sqrt(vec_root_finder(theta[mask], N[mask]))
+    # vec_xi(gaussian_SNR[mask], 1, N[mask])
+    # corrected_sigma[mask] = sigma[mask] / np.sqrt(vec_xi(gaussian_SNR[mask], 1, N[mask]))
 
     return corrected_sigma

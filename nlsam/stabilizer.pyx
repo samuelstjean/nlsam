@@ -440,14 +440,26 @@ cdef double _xi(double eta, double sigma, double N) nogil:
         The correction factor xi, where sigma_gaussian**2 = sigma**2 / xi
     """
 
+    cdef double h1f1, out
+
     if fabs(sigma) < 1e-15:
         return 1.
 
     h1f1 = hyp1f1(-0.5, N, -eta**2/(2*sigma**2))
-    return 2*N + eta**2/sigma**2 - (_beta(N) * h1f1)**2
+    out = 2*N + eta**2/sigma**2 - (_beta(N) * h1f1)**2
+
+    # Ridiculou SNR > 1e15 returns nonsense high numbers (positive or negative in the order of 1e30).
+    # due to floating point precision issues, but the function is bounded between 0 and 1.
+    # It starts to accumulate error around SNR ~ 1e4 though,
+    # so we clip it to 1 to stay on the safe side.
+
+    if fabs(out) > 1:
+        out = 1.
+
+    return out
 
 
-# Helper function for the loop
+# Helper function for the root finding loop
 cdef inline double k(double theta, double N, double r) nogil:
     cdef:
         # Again fake SNR value for xi
