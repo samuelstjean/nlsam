@@ -23,7 +23,7 @@ logger = logging.getLogger('nlsam')
 
 
 def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
-                  mask=None, is_symmetric=False, n_cores=None, split_b0s=False,
+                  mask=None, is_symmetric=False, n_cores=None, split_b0s=False, split_shell=False,
                   subsample=True, n_iter=10, b0_threshold=10, dtype=np.float64,
                   use_threading=False, verbose=False, mp_method=None):
     """Main nlsam denoising function which sets up everything nicely for the local
@@ -56,6 +56,9 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     split_b0s : bool, default False
         If True and the dataset contains multiple b0s, a different b0 will be used for
         each run of the denoising. If False, the b0s are averaged and the average b0 is used instead.
+    split_shell : bool, default False
+        If True and the dataset contains multiple b-values, eahc shell is processed indepently.
+        If False, all the data is used at the same thing for computing neighbors.
     subsample : bool, default True
         If True, find the smallest subset of indices required to process each
         dwi at least once.
@@ -130,9 +133,74 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     else:
         sym_bvecs = np.vstack((bvecs, -bvecs))
 
-    neighbors = angular_neighbors(sym_bvecs, block_size[-1] - 1) % data.shape[-1]
-    neighbors = neighbors[:data.shape[-1]]  # everything was doubled for symmetry
+    if split_shell:
+        logger.info('Data will be split in neighborhoods for each shells separately.')
 
+        # Round similar bvals together for identifying similar shells
+        rounded_bvals = np.zeros_like(bvals)
+        sorted_bvals = np.sort(np.unique(bvals)).astype(np.int32)
+
+        for unique_bval in sorted_bvals:
+            idx = np.abs(unique_bval - bvals) < 10
+            rounded_bvals[idx] = unique_bval
+
+        # process each b-value separately
+        # for unique_bval in sorted_bvals:
+        #     idx = rounded_bvals == unique_bval
+
+        # Round similar bvals together for identifying similar shells
+        # non_bzeros = np.sort(np.unique(bvals))[1:]
+        # shell = np.zeros_like(non_bzeros)
+        # rounded_bvals = np.zeros_like(bvals)
+
+        # for unique_bval in non_bzeros:
+        #     idx = np.abs(unique_bval - non_bzeros) < 10
+        #     shell[idx] = unique_bval
+        #     rounded_bvals
+
+        non_bzeros = np.sort(np.unique(rounded_bvals)).astype(np.int32)[1:]
+        neighbors = [None] * len(non_bzeros)
+
+        for shell, unique_bval in enumerate(non_bzeros):
+            # print(unique_bval, non_bzeros)
+            shell_bvecs = bvecs[unique_bval == rounded_bvals]
+            # print(shell_bvecs, unique_bval, rounded_bvals)
+            if is_symmetric:
+                sym_bvecs = shell_bvecs
+            else:
+                sym_bvecs = np.vstack((shell_bvecs, -shell_bvecs))
+
+            # print(shell_bvecs.shape, sym_bvecs.shape)
+            neighbors[shell] = angular_neighbors(sym_bvecs, block_size[-1] - 1) % shell_bvecs.shape[0]
+            neighbors[shell] = neighbors[shell][:data.shape[-1]]
+
+            # convert to per shell indexes
+            positions = np.arange(shell_bvecs.shape[0])
+            new_positions = np.arange(bvecs.shape[0])[unique_bval == rounded_bvals]
+            # print(positions)
+            # print(new_positions)
+            for pos in positions:
+                indices = neighbors[shell] == pos
+                neighbors[shell][indices] = new_positions[pos]
+                # neighbors[shell][indices] = new_positions[pos]
+            # print(neighbors[shell])
+            # 1/0
+            # positions =
+            # neighbors[shell] = []
+            # neighbors[shell] += unique_bval == rounded_bvals
+            # print(shell_bvecs.shape)
+            # print(neighbors[shell])
+            # print(neighbors[shell][:shell_bvecs.shape[0]])
+
+            # neighbors[shell] = neighbors[shell][:data.shape[-1]]
+        # 1/0
+        neighbors = np.concatenate(neighbors)
+    else:
+        neighbors = angular_neighbors(sym_bvecs, block_size[-1] - 1) % data.shape[-1]
+        neighbors = neighbors[:data.shape[-1]]  # everything was doubled for symmetry
+    # print(neighbors)
+    # print(np.array(neighbors).shape)
+    # 1/0
     # Full overlap for dictionary learning
     overlap = np.array(block_size, dtype=np.int16) - 1
 

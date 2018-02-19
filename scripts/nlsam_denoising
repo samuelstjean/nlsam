@@ -90,6 +90,9 @@ def buildArgsParser():
                            help='If set and multiple b0s are present, they are split amongst the '
                            'training data.')
 
+    optionals.add_argument('--split_shell', action='store_true',
+                           help='If set, each shell is processed by itself.')
+
     optionals.add_argument('--block_size', dest='spatial_block_size',
                            metavar='tuple', type=literal_eval, default=(3, 3, 3),
                            help='Size of the 3D spatial patch to be denoised. Default : 3, 3, 3')
@@ -228,6 +231,7 @@ def main():
     n_iter = args.iterations
     b0_threshold = args.b0_threshold
     split_b0s = args.split_b0s
+    split_shell = args.split_shell
     mp_method = args.mp_method
     use_threading = args.use_threading
     block_size = np.array(args.spatial_block_size + (args.angular_block_size,))
@@ -445,6 +449,7 @@ def main():
                                       is_symmetric=is_symmetric,
                                       n_cores=n_cores,
                                       split_b0s=split_b0s,
+                                      split_shell=split_shell,
                                       subsample=subsample,
                                       n_iter=n_iter,
                                       b0_threshold=b0_threshold,
@@ -456,7 +461,7 @@ def main():
         logger.info("Denoised data saved as {}".format(os.path.realpath(args.output)))
 
         if args.save_difference is not None:
-            nib.save(nib.Nifti1Image(sigma, affine), args.save_difference)
+            nib.save(nib.Nifti1Image(np.abs(data_denoised - data).astype(np.float32), affine, header), args.save_difference)
             logger.info("Difference map saved as {}".format(os.path.realpath(args.save_difference)))
 
 
