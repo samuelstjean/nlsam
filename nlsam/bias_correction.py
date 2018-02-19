@@ -7,7 +7,7 @@ from nlsam.stabilizer import fixed_point_finder, chi_to_gauss, root_finder
 from nlsam.stabilizer import _test_xi as xi
 
 
-# Vectorised version of the above, so we can use implicit broadcasting and stuff
+# Vectorised versions of the above, so we can use implicit broadcasting and stuff
 vec_fixed_point_finder = np.vectorize(fixed_point_finder, [np.float64])
 vec_chi_to_gauss = np.vectorize(chi_to_gauss, [np.float64])
 vec_xi = np.vectorize(xi, [np.float64])
@@ -18,12 +18,16 @@ def stabilization(data, m_hat, sigma, N, mask=None, clip_eta=True, return_eta=Fa
 
     data = np.asarray(data)
     m_hat = np.asarray(m_hat)
-    sigma = np.asarray(sigma)
+    sigma = np.atleast_3d(sigma)
+    N = np.atleast_3d(N)
 
     if mask is None:
         mask = np.ones(data.shape[:-1], dtype=np.bool)
     else:
         mask = np.asarray(mask, dtype=np.bool)
+
+    if N.ndim < data.ndim:
+        N = np.broadcast_to(N[..., None], data.shape)
 
     if sigma.ndim == (data.ndim - 1):
         sigma = np.broadcast_to(sigma[..., None], data.shape)
@@ -42,7 +46,7 @@ def stabilization(data, m_hat, sigma, N, mask=None, clip_eta=True, return_eta=Fa
                 m_hat[..., idx, :],
                 mask[..., idx],
                 sigma[..., idx, :],
-                N,
+                N[..., idx, :],
                 clip_eta)
                for idx in range(data.shape[-2]))
 
@@ -66,13 +70,14 @@ def multiprocess_stabilization(data, m_hat, mask, sigma, N, clip_eta=True):
 
     if mask.ndim == (sigma.ndim - 1):
         mask = mask[..., None]
-
+    # print(m_hat.shape, sigma.shape, N.shape, mask.shape)
     mask = np.logical_and(sigma > 0, mask)
     out = np.zeros_like(data, dtype=np.float64)
     eta = np.zeros_like(data, dtype=np.float64)
 
-    eta[mask] = vec_fixed_point_finder(m_hat[mask], sigma[mask], N, clip_eta)
-    out[mask] = vec_chi_to_gauss(data[mask], eta[mask], sigma[mask], N)
+    # print(eta.shape, m_hat.shape, sigma.shape, N.shape, mask.shape)
+    eta[mask] = vec_fixed_point_finder(m_hat[mask], sigma[mask], N[mask], clip_eta)
+    out[mask] = vec_chi_to_gauss(data[mask], eta[mask], sigma[mask], N[mask])
 
     return out, eta
 
@@ -144,7 +149,7 @@ def root_finder_sigma(data, sigma, N, mask=None):
     theta = np.zeros_like(data, dtype=np.float32)
 
     theta[mask] = data[mask] / sigma[mask]
-    gaussian_SNR[mask] = sigma[mask] / np.sqrt(vec_root_finder(theta[mask], N[mask]))
+    gaussian_SNR[mask] = vec_root_finder(theta[mask], N[mask])
     corrected_sigma[mask] = sigma[mask] / np.sqrt(vec_xi(gaussian_SNR[mask], 1, N[mask]))
 
     return corrected_sigma

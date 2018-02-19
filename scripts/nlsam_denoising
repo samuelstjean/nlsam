@@ -159,6 +159,9 @@ def buildArgsParser():
     advanced.add_argument('--save_sigma', metavar='file',
                           help='Path to save the intermediate standard deviation volume.')
 
+    advanced.add_argument('--save_difference', metavar='file',
+                          help='Path to save the absolute difference volume, abs(noisy - denoised).')
+
     advanced.add_argument('--save_eta', metavar='file',
                           help='Path to save the intermediate underlying signal intensity eta volume.')
 
@@ -267,6 +270,7 @@ def main():
 
     overwritable_files = [args.output,
                           args.save_sigma,
+                          args.save_difference,
                           args.save_eta,
                           args.save_piesno_mask,
                           args.save_stab]
@@ -450,6 +454,10 @@ def main():
 
         nib.save(nib.Nifti1Image(data_denoised.astype(np.float32), affine, header), args.output)
         logger.info("Denoised data saved as {}".format(os.path.realpath(args.output)))
+
+        if args.save_difference is not None:
+            nib.save(nib.Nifti1Image(sigma, affine), args.save_difference)
+            logger.info("Difference map saved as {}".format(os.path.realpath(args.save_difference)))
 
 
 if __name__ == "__main__":

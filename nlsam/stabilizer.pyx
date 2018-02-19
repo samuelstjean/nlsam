@@ -6,7 +6,7 @@ cimport cython
 from libc.math cimport sqrt, exp, fabs, M_PI
 
 from nlsam.multiprocess import multiprocesser
-from scipy.special.cython_special cimport ndtri, ive, gamma, chndtr, gammainc
+from scipy.special.cython_special cimport ndtri, ive, gamma, chndtr, gammainc, chdtr
 
 # this is our special R wrapped marcum q function
 # from numba import vectorize, jit
@@ -138,7 +138,7 @@ cdef double _chi_to_gauss(double m, double eta, double sigma, double N,
 #     return gamma(x + 1)
 
 
-cdef double _marcumq_cython(double a, double b, double M) nogil:
+cdef double _marcumq_cython(double a, double b, double M, double eps=1e-8) nogil:
     """Computes the generalized Marcum Q function of order M.
     http://en.wikipedia.org/wiki/Marcum_Q-function
 
@@ -176,8 +176,15 @@ cdef double _marcumq_cython(double a, double b, double M) nogil:
     #     with gil:
     #         out = 1. - pnchisq(x, k, lbda)
 
-    # if fabs(b) < eps:
-    #     return 1.
+    if fabs(b) < eps:
+        return 1.
+
+    if fabs(M) < eps:
+        k = eps
+
+    # a, b and M can not be negative, so we hardcode their probability to 0
+    if (a < 0) or (b < 0) or (M < 0):
+        return 1.
 
     # if fabs(a) < eps:
     #     for i in range(int(M)):
@@ -187,7 +194,7 @@ cdef double _marcumq_cython(double a, double b, double M) nogil:
 
     with gil:
         out = pnchisq_R(x, k, lbda, False, False)
-        # print(out, x, k, lbda)
+
     return out
     # return 1. - chndtr(x, k, lbda)
 
@@ -385,9 +392,9 @@ cdef double _beta(double N) nogil:
     return sqrt(2) * gamma(N + 0.5) / (gamma(N))
 
 
-cdef double _fixed_point_g(double eta, double m, double sigma, double N) nogil:
-    """Helper function for _fixed_point_k, see p. 3 [1] eq. 11."""
-    return sqrt(m**2 + (_xi(eta, sigma, N) - 2*N) * sigma**2)
+# cdef double _fixed_point_g(double eta, double m, double sigma, double N) nogil:
+#     """Helper function for _fixed_point_k, see p. 3 [1] eq. 11."""
+#     return sqrt(m**2 + (_xi(eta, sigma, N) - 2*N) * sigma**2)
 
 
 cdef double _fixed_point_k(double eta, double m, double sigma, double N) nogil:
@@ -396,7 +403,7 @@ cdef double _fixed_point_k(double eta, double m, double sigma, double N) nogil:
         double fpg, num, denom
         double eta2sigma = -eta**2/(2*sigma**2)
 
-    fpg = _fixed_point_g(eta, m, sigma, N)
+    fpg = sqrt(m**2 + (_xi(eta, sigma, N) - 2*N) * sigma**2)
     num = fpg * (fpg - eta)
 
     denom = eta * (1 - ((_beta(N)**2)/(2*N)) *
@@ -477,7 +484,7 @@ cdef inline double k(double theta, double N, double r) nogil:
     return theta - num / denom
 
 
-cdef double _root_finder(double r, double N, int max_iter=500, double eps=1e-6) nogil:
+cdef double _root_finder(double r, double N, int max_iter, double eps) nogil:
 
     cdef:
         bint cond
@@ -516,8 +523,8 @@ def _test_beta(N):
     return _beta(N)
 
 
-def _test_fixed_point_g(eta, m, sigma, N):
-    return _fixed_point_g(eta, m, sigma, N)
+# def _test_fixed_point_g(eta, m, sigma, N):
+#     return _fixed_point_g(eta, m, sigma, N)
 
 
 def _test_fixed_point_k(eta, m, sigma, N):
