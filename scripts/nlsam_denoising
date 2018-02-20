@@ -442,7 +442,9 @@ def main():
         # If we have a bunch of 4D views, we only want a 3D array
         if sigma.ndim == data.ndim:
             sigma = np.median(sigma, axis=-1)
-        del data
+
+        if args.save_difference is None:
+            del data
 
         data_denoised = nlsam_denoise(data_stabilized, sigma, bvals, bvecs, block_size,
                                       mask=mask,
