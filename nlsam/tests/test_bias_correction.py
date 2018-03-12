@@ -56,7 +56,7 @@ def test_stabilization():
 
     noisySI = np.array(noisySI)
     sigma = 20 * np.ones_like(noisySI)
-    N = 1
+    N = 1 * np.ones_like(noisySI)
     mask = np.ones_like(noisySI, dtype=np.bool)
 
     # this is my mhat value
@@ -136,8 +136,8 @@ def test_stabilization():
 
     # I don't do smoothing spline, but using the smoothed input on both versions this is what we have
     # The answer is a bit off for the last values of the final output, might be due to different numerical schemes
-    assert_allclose(output[:80], answer[:80], atol=1e-3)
-    assert_allclose(eta, eta_koay, atol=1e-2)
+    assert_allclose(output[:80], answer[:80], atol=1e-2, rtol=1e-5)
+    assert_allclose(eta, eta_koay, atol=1e-2, rtol=1e-6)
 
 
 if __name__ == "__main__":

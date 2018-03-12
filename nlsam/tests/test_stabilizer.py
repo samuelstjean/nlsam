@@ -11,24 +11,23 @@ from itertools import product
 # except ImportError:
 #     from scipy.misc import factorialk
 
-from scipy.stats import norm
+# from scipy.stats import norm
 
 from nlsam.stabilizer import (_test_marcumq_cython,
                               _test_beta,
                               _test_xi,
                               _test_fixed_point_finder,
-                              _test_chi_to_gauss,
-                              _test_inv_cdf_gauss)
+                              chi_to_gauss)
 
 # hispeed is the closed source java reference implementation,
 # from which most values are taken from.
 
 
-def test_inv_cdf_gauss():
-    loc = np.random.randint(-10, 10)
-    scale = np.random.rand()
-    y = np.random.rand() * scale + loc
-    assert_allclose(_test_inv_cdf_gauss(norm.cdf(y, loc=loc, scale=scale), loc, scale), y)
+# def test_inv_cdf_gauss():
+#     loc = np.random.randint(-10, 10)
+#     scale = np.random.rand()
+#     y = np.random.rand() * scale + loc
+#     assert_allclose(_test_inv_cdf_gauss(norm.cdf(y, loc=loc, scale=scale), loc, scale), y)
 
 
 def test_beta():
@@ -57,20 +56,20 @@ def test_fixed_point_finder():
 
 def test_chi_to_gauss():
     # Values taken from hispeed.DistributionalMapping.nonCentralChiToGaussian
-    assert_allclose(_test_chi_to_gauss(470, 600, 80, 12), 331.2511087335721)
-    assert_allclose(_test_chi_to_gauss(700, 600, 80, 12), 586.5304199340127)
-    assert_allclose(_test_chi_to_gauss(700, 600, 80, 1), 695.0548001366581)
-    assert_allclose(_test_chi_to_gauss(470, 600, 80, 1), 463.965319619292)
+    assert_allclose(chi_to_gauss(470, 600, 80, 12), 331.2511087335721, rtol=1e-5)
+    assert_allclose(chi_to_gauss(700, 600, 80, 12), 586.5304199340127, rtol=1e-5)
+    assert_allclose(chi_to_gauss(700, 600, 80, 1), 695.0548001366581, rtol=1e-5)
+    assert_allclose(chi_to_gauss(470, 600, 80, 1), 463.965319619292, rtol=1e-5)
 
 
 def test_marcumq():
     # Values taken from octave's marcumq function
-    assert_allclose(_test_marcumq_cython(2, 1, 0), 0.730987939964090, atol=1e-5)
-    assert_allclose(_test_marcumq_cython(7, 5, 0), 0.972285213704037, atol=1e-5)
-    assert_allclose(_test_marcumq_cython(3, 7, 5), 0.00115139503866225, atol=1e-5)
-    assert_allclose(_test_marcumq_cython(0, 7, 5), 4.07324330517049e-07, atol=1e-5)
-    assert_allclose(_test_marcumq_cython(7, 0, 5), 1., atol=1e-5)
-    assert_allclose(_test_marcumq_cython(42.20399856567383, 42.769595980644226, 1), 0.289848352318906, atol=1e-5)
+    assert_allclose(_test_marcumq_cython(2, 1, 0), 0.730987939964090, atol=1e-5, rtol=1e-5)
+    assert_allclose(_test_marcumq_cython(7, 5, 0), 0.972285213704037, atol=1e-5, rtol=1e-5)
+    assert_allclose(_test_marcumq_cython(3, 7, 5), 0.00115139503866225, atol=1e-5, rtol=1e-5)
+    assert_allclose(_test_marcumq_cython(0, 7, 5), 4.07324330517049e-07, atol=1e-5, rtol=1e-5)
+    assert_allclose(_test_marcumq_cython(7, 0, 5), 1., atol=1e-5, rtol=1e-5)
+    assert_allclose(_test_marcumq_cython(42.20399856567383, 42.769595980644226, 1), 0.2898483523187969, atol=1e-4, rtol=1e-5)
 
 
 # def test_factorial():
@@ -130,7 +129,7 @@ def test_marcumq_octave():
          1.000000, 1.000000, 1.000000, 1.000000, 1.000000, 1.000000]
 
     for (a, b), q in zip(product(A, B), Q):
-        assert_allclose(_test_marcumq_cython(a, b, 1), q, atol=1e-5)
+        assert_allclose(_test_marcumq_cython(a, b, 1), q, atol=1e-4, rtol=1e-6)
 
     A = [0.00, 0.05, 1.00, 2.00, 3.00, 4.00, 5.00, 6.00, 7.00, 8.00, 9.00, 10.00,
          11.00, 12.00, 13.00, 14.00, 15.00, 16.00, 17.00, 18.00, 19.00, 20.00,
@@ -164,7 +163,7 @@ def test_marcumq_octave():
          1.000000, 1.000000, 1.000000, 1.000000, 1.000000, 1.000000]
 
     for (a, b), q in zip(product(A, B), Q):
-        assert_allclose(_test_marcumq_cython(a, b, 1), q, atol=1e-5)
+        assert_allclose(_test_marcumq_cython(a, b, 1), q, atol=1e-4, rtol=1e-6)
 
     A = [0.00, 0.05, 1.00, 2.00, 3.00, 4.00, 5.00, 6.00, 7.00, 8.00, 9.00, 10.00,
          11.00, 12.00, 13.00, 14.00, 15.00, 16.00, 17.00, 18.00, 19.00, 20.00,
@@ -198,7 +197,7 @@ def test_marcumq_octave():
          1.000000, 1.000000, 1.000000, 1.000000, 1.000000, 1.000000]
 
     for (a, b), q in zip(product(A, B), Q):
-        assert_allclose(_test_marcumq_cython(a, b, 1), q, atol=1e-5)
+        assert_allclose(_test_marcumq_cython(a, b, 1), q, atol=1e-4, rtol=1e-6)
 
     A = [0.00, 0.05, 1.00, 2.00, 3.00, 4.00, 5.00, 6.00, 7.00, 8.00, 9.00, 10.00,
          11.00, 12.00, 13.00, 14.00, 15.00, 16.00, 17.00, 18.00, 19.00, 20.00,
@@ -232,7 +231,7 @@ def test_marcumq_octave():
          1.000000, 1.000000, 1.000000]
 
     for (a, b), q in zip(product(A, B), Q):
-        assert_allclose(_test_marcumq_cython(a, b, 1), q, atol=1e-5)
+        assert_allclose(_test_marcumq_cython(a, b, 1), q, atol=1e-4, rtol=1e-6)
 
     ## The tests for M>1 were generating from Marcum's tables by
     ## using the formula
@@ -271,7 +270,7 @@ def test_marcumq_octave():
          1.000000, 1.000000, 1.000000, 1.000000, 1.000000, 1.000000]
 
     for (a, b), q in zip(product(A, B), Q):
-        assert_allclose(_test_marcumq_cython(a, b, M), q, atol=1e-5)
+        assert_allclose(_test_marcumq_cython(a, b, M), q, atol=1e-4, rtol=1e-6)
 
     M = 5
     a = [0.00, 0.05, 1.00, 2.00, 3.00, 4.00, 5.00, 6.00, 7.00, 8.00, 9.00, 10.00,
@@ -306,7 +305,7 @@ def test_marcumq_octave():
          1.000000, 1.000000, 1.000000, 1.000000, 1.000000, 1.000000]
 
     for (a, b), q in zip(product(A, B), Q):
-        assert_allclose(_test_marcumq_cython(a, b, M), q, atol=1e-5)
+        assert_allclose(_test_marcumq_cython(a, b, M), q, atol=1e-4, rtol=1e-6)
 
     M = 10
     a = [0.00, 0.05, 1.00, 2.00, 3.00, 4.00, 5.00, 6.00, 7.00, 8.00, 9.00, 10.00,
@@ -341,7 +340,7 @@ def test_marcumq_octave():
          1.000000, 1.000000, 1.000000, 1.000000, 1.000000, 1.000000]
 
     for (a, b), q in zip(product(A, B), Q):
-        assert_allclose(_test_marcumq_cython(a, b, M), q, atol=1e-5)
+        assert_allclose(_test_marcumq_cython(a, b, M), q, atol=1e-4, rtol=1e-6)
 
 
 if __name__ == "__main__":

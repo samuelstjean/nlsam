@@ -7,6 +7,7 @@ from nlsam.multiprocess import multiprocessing_hanging_workaround
 multiprocessing_hanging_workaround()
 
 import os
+import sys
 import argparse
 import logging
 from multiprocessing import cpu_count, freeze_support
@@ -23,6 +24,12 @@ from dipy.io.gradients import read_bvals_bvecs
 from dipy.core.gradients import gradient_table
 from dipy.denoise.noise_estimate import piesno
 
+# Only for python >= 3.4
+try:
+    from multiprocessing import set_start_method
+    has_context = True
+except ImportError:
+    has_context = False
 
 DESCRIPTION = """
 Main script for the NLSAM denoising [1], including the bias correction framework from [2].
@@ -60,10 +67,10 @@ def buildArgsParser():
     required.add_argument('output', metavar='output',
                           help='Path for the saved denoised file.')
 
-    required.add_argument('N', metavar='N', type=int,
+    required.add_argument('N', metavar='N', type=float,
                           help='Number of receiver coils of the scanner. \n'
-                          'Use N=1 in the case of a SENSE (GE, Philips) reconstruction and '
-                          'N >= 1 for GRAPPA reconstruction (Siemens).')
+                          'Use N = 1 in the case of a SENSE (Philips) reconstruction and '
+                          'N >= 1 for GRAPPA based reconstruction (Siemens).')
 
     required.add_argument('bvals', metavar='bvals',
                           help='Path of the bvals file, in FSL format.')
@@ -469,4 +476,10 @@ def main():
 
 if __name__ == "__main__":
     freeze_support()
+
+    # If we can use forkserver, then we force it instead so we can still be multithreaded
+    # on Mac OSX
+    if has_context and sys.platform == "darwin":
+        set_start_method('forkserver')
+
     main()

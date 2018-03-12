@@ -1,4 +1,5 @@
 import os
+import sys
 from itertools import repeat
 
 try:
@@ -7,7 +8,7 @@ except ImportError:  # Python 3 built-in zip already returns iterable
     izip = zip
 
 try:
-    from multiprocessing import get_context
+    from multiprocessing import get_context, set_start_method
     has_context = True
 except ImportError:
     from multiprocessing import Pool
@@ -21,7 +22,11 @@ def multiprocessing_hanging_workaround():
 
     # Mac OSX has it's own blas/lapack, but like openblas it causes conflict for
     # python 2.7 and before python 3.4 in multiprocessing, so disable it.
-    os.environ['VECLIB_MAXIMUM_THREADS'] = '1'
+    # os.environ['VECLIB_MAXIMUM_THREADS'] = '1'
+
+    # If we can use forkserver, then we force it instead so we can still be multithreaded.
+    if not has_context:
+        os.environ['VECLIB_MAXIMUM_THREADS'] = '1'
 
 
 def _func_star(stuff):

@@ -6,11 +6,11 @@ cimport cython
 from libc.math cimport sqrt, exp, fabs, M_PI
 
 from nlsam.multiprocess import multiprocesser
-from scipy.special.cython_special cimport ndtri, ive, gamma, chndtr, gammainc, chdtr
+from scipy.special.cython_special cimport ndtri, gamma, chndtr
 
 # this is our special R wrapped marcum q function
 # from numba import vectorize, jit
-from rvlib._rmath_ffi.lib import pnchisq as pnchisq_R
+# from rvlib._rmath_ffi.lib import pnchisq as pnchisq_R
 # @jit(nopython=True, nogil=True)
 # def pnchisq(q, df, ncp):
 #     return pnchisq_R(q, df, ncp, False, False)
@@ -43,32 +43,6 @@ cdef double hyp1f1(double a, double b, double x) nogil:
     return gsl_sf_hyperg_1F1(a, b, x)
 
 
-cdef double _inv_cdf_gauss(double y, double eta, double sigma) nogil:
-    """Helper function for chi_to_gauss. Returns the gaussian distributed value
-    associated to a given probability. See p. 4 of [1] eq. 13.
-
-    Input
-    -------
-    y : double
-        Probability of observing the desired value in the normal
-        distribution N(eta, sigma**2)
-    eta :
-        Mean of the normal distribution N(eta, sigma**2)
-    sigma : double
-        Standard deviation of the normal distribution N(eta, sigma**2)
-
-    return
-    --------
-        Value associated to probability y given a normal distribution N(eta, sigma**2)
-
-    Note
-    -----
-    The original paper mentions to use erfinv, but we have directly that
-    ndtri(y) = sqrt(2) * erfinv(2*y - 1)
-    """
-    return eta + sigma * ndtri(y)
-
-
 cdef double _chi_to_gauss(double m, double eta, double sigma, double N,
                           double alpha=0.0001) nogil:
     """Maps the noisy signal intensity from a Rician/Non central chi distribution
@@ -99,17 +73,19 @@ cdef double _chi_to_gauss(double m, double eta, double sigma, double N,
     and its applications in MRI.
     Journal of Magnetic Resonance 2009; 197: 108-119.
     """
-    cdef double cdf
+    cdef double cdf, inv_cdf_gauss
 
     with nogil:
         cdf = 1. - _marcumq_cython(eta/sigma, m/sigma, N)
+
         # clip cdf between alpha/2 and 1-alpha/2
         if cdf < alpha/2:
             cdf = alpha/2
         elif cdf > 1 - alpha/2:
             cdf = 1 - alpha/2
 
-        return _inv_cdf_gauss(cdf, eta, sigma)
+        inv_cdf_gauss = eta + sigma * ndtri(cdf)
+        return inv_cdf_gauss
 
 
 # cdef double multifactorial(double N, int k=1) nogil:
@@ -182,8 +158,10 @@ cdef double _marcumq_cython(double a, double b, double M, double eps=1e-8) nogil
     if fabs(M) < eps:
         k = eps
 
-    # a, b and M can not be negative, so we hardcode their probability to 0
-    if (a < 0) or (b < 0) or (M < 0):
+    # a, b and M can not be negative normally in our case,
+    # but a is allowed and the real marcumq function is symmetric in a and b apparently
+    # for general values of M. b and M negative have no physical sense though in our case.
+    if M < 0:
         return 1.
 
     # if fabs(a) < eps:
@@ -192,11 +170,11 @@ cdef double _marcumq_cython(double a, double b, double M, double eps=1e-8) nogil
 
     #     return exp(-b**2/2) * temp
 
-    with gil:
-        out = pnchisq_R(x, k, lbda, False, False)
+    # with gil:
+    #     out = pnchisq_R(x, k, lbda, False, False)
 
+    out = 1. - chndtr(x, k, lbda)
     return out
-    # return 1. - chndtr(x, k, lbda)
 
 
 # cdef double _marcumq_cython(double a, double b, double M) nogil:
@@ -318,7 +296,7 @@ cdef double _fixed_point_finder(double m_hat, double sigma, double N, bint clip_
         Number of coils of the acquisition (N=1 for Rician noise)
     max_iter : int, default=100
         Maximum number of iterations before breaking from the loop
-    eps : double, default = 1e-4
+    eps : double, default = 1e-6
         Criterion for reaching convergence between two subsequent estimates
     clip_eta : bool, default True
         If True, eta is clipped to 0 when below the noise floor (Bai 2014).
@@ -336,7 +314,7 @@ cdef double _fixed_point_finder(double m_hat, double sigma, double N, bint clip_
     """
     cdef:
         double delta, m, t0, t1
-        int cond = True
+        bint cond = True
         int n_iter = 0
 
     with nogil:
@@ -389,7 +367,7 @@ cdef double _fixed_point_finder(double m_hat, double sigma, double N, bint clip_
 cdef double _beta(double N) nogil:
     """Helper function for _xi, see p. 3 [1] just after eq. 8.
     Generalized version for non integer N"""
-    return sqrt(2) * gamma(N + 0.5) / (gamma(N))
+    return sqrt(2) * gamma(N + 0.5) / gamma(N)
 
 
 # cdef double _fixed_point_g(double eta, double m, double sigma, double N) nogil:
@@ -400,15 +378,15 @@ cdef double _beta(double N) nogil:
 cdef double _fixed_point_k(double eta, double m, double sigma, double N) nogil:
     """Helper function for fixed_point_finder, see p. 11 [1] eq. D2."""
     cdef:
-        double fpg, num, denom
+        double fpg, num, denom, h1f1m, h1f1p
         double eta2sigma = -eta**2/(2*sigma**2)
 
     fpg = sqrt(m**2 + (_xi(eta, sigma, N) - 2*N) * sigma**2)
-    num = fpg * (fpg - eta)
+    h1f1m = hyp1f1(-0.5, N, eta2sigma)
+    h1f1p = hyp1f1(0.5, N+1, eta2sigma)
 
-    denom = eta * (1 - ((_beta(N)**2)/(2*N)) *
-                   hyp1f1(-0.5, N, eta2sigma) *
-                   hyp1f1(0.5, N+1, eta2sigma)) - fpg
+    num = fpg * (fpg - eta)
+    denom = eta * (1 - (_beta(N)**2 / (2*N)) * h1f1m * h1f1p) - fpg
 
     return eta - num / denom
 
@@ -424,8 +402,11 @@ cdef double _fixed_point_k_v2(double eta, double m, double sigma, double N) nogi
         double eta2sigma = -eta**2/(2*sigma**2)
         double beta_N = _beta(N)
 
-    num = 2 * N * sigma * (m - beta_N * sigma * hyp1f1(-0.5, N, eta2sigma))
-    denom = beta_N * eta * hyp1f1(0.5, N+1, eta2sigma)
+    h1f1m = hyp1f1(-0.5, N, eta2sigma)
+    h1f1p = hyp1f1(0.5, N+1, eta2sigma)
+
+    num = 2 * N * sigma * (m - beta_N * sigma * h1f1m)
+    denom = beta_N * eta * h1f1p
 
     return eta + num / denom
 
@@ -455,7 +436,7 @@ cdef double _xi(double eta, double sigma, double N) nogil:
     h1f1 = hyp1f1(-0.5, N, -eta**2/(2*sigma**2))
     out = 2*N + eta**2/sigma**2 - (_beta(N) * h1f1)**2
 
-    # Ridiculou SNR > 1e15 returns nonsense high numbers (positive or negative in the order of 1e30).
+    # Ridiculous SNR > 1e15 returns nonsense high numbers (positive or negative in the order of 1e30).
     # due to floating point precision issues, but the function is bounded between 0 and 1.
     # It starts to accumulate error around SNR ~ 1e4 though,
     # so we clip it to 1 to stay on the safe side.
@@ -467,9 +448,9 @@ cdef double _xi(double eta, double sigma, double N) nogil:
 
 
 # Helper function for the root finding loop
-cdef inline double k(double theta, double N, double r) nogil:
+cdef double k(double theta, double N, double r) nogil:
     cdef:
-        # Again fake SNR value for xi
+        # Fake SNR value for xi
         double eta = theta
         double sigma = 1.
         double g, h1f1m, h1f1p, num, denom
@@ -489,11 +470,6 @@ cdef double _root_finder(double r, double N, int max_iter, double eps) nogil:
     cdef:
         bint cond
         double lower_bound = sqrt((2*N / _xi(0, 1, N)) - 1)
-
-        # This is our fake SNR value for xi
-        double eta = r
-        double sigma = 1.
-
 
     if r < lower_bound:
         return 0
@@ -539,12 +515,12 @@ def _test_xi(eta, sigma, N):
 #     return multifactorial(N, k)
 
 
-def _test_inv_cdf_gauss(y, eta, sigma):
-    return _inv_cdf_gauss(y, eta, sigma)
+# def _test_inv_cdf_gauss(y, eta, sigma):
+#     return _inv_cdf_gauss(y, eta, sigma)
 
 
-def _test_chi_to_gauss(m, eta, sigma, N):
-    return chi_to_gauss(m, eta, sigma, N)
+# def _test_chi_to_gauss(m, eta, sigma, N):
+#     return chi_to_gauss(m, eta, sigma, N)
 
 
 def _test_fixed_point_finder(m_hat, sigma, N, clip_eta=True):
