@@ -5,20 +5,14 @@ import warnings
 import logging
 
 from time import time
-from itertools import cycle
+from itertools import cycle, starmap
 
-from nlsam.utils import im2col_nd, col2im_nd
+from nlsam.block_utils import im2col_nd, col2im_nd, extract_patches
+from nlsam.utils import col2im_nd as col2im_nd_old
 from nlsam.angular_tools import angular_neighbors
 from nlsam.multiprocess import multiprocesser
 
 from scipy.sparse import lil_matrix
-
-try:
-    # python 2
-    from itertools import imap
-except ImportError:
-    # python 3
-    imap = map
 
 try:
     import spams
@@ -30,7 +24,7 @@ logger = logging.getLogger('nlsam')
 
 
 def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
-                  mask=None, is_symmetric=False, n_cores=None, split_b0s=False,
+                  mask=None, is_symmetric=False, n_cores=None, split_b0s=False, split_shell=False,
                   subsample=True, n_iter=10, b0_threshold=10, dtype=np.float64,
                   use_threading=False, verbose=False, mp_method=None):
     """Main nlsam denoising function which sets up everything nicely for the local
@@ -63,6 +57,9 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     split_b0s : bool, default False
         If True and the dataset contains multiple b0s, a different b0 will be used for
         each run of the denoising. If False, the b0s are averaged and the average b0 is used instead.
+    split_shell : bool, default False
+        If True and the dataset contains multiple b-values, eahc shell is processed indepently.
+        If False, all the data is used at the same thing for computing neighbors.
     subsample : bool, default True
         If True, find the smallest subset of indices required to process each
         dwi at least once.
@@ -137,18 +134,60 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     else:
         sym_bvecs = np.vstack((bvecs, -bvecs))
 
-    neighbors = angular_neighbors(sym_bvecs, block_size[-1] - 1) % data.shape[-1]
-    neighbors = neighbors[:data.shape[-1]]  # everything was doubled for symmetry
+    if split_shell:
+        logger.info('Data will be split in neighborhoods for each shells separately.')
+
+        # Round similar bvals together for identifying similar shells
+        rounded_bvals = np.zeros_like(bvals)
+        sorted_bvals = np.sort(np.unique(bvals)).astype(np.int32)
+
+        for unique_bval in sorted_bvals:
+            idx = np.abs(unique_bval - bvals) < 10
+            rounded_bvals[idx] = unique_bval
+
+        non_bzeros = np.sort(np.unique(rounded_bvals)).astype(np.int32)[1:]
+        neighbors = [None] * len(non_bzeros)
+        full_indexes = []
+
+        for shell, unique_bval in enumerate(non_bzeros):
+            shell_bvecs = bvecs[unique_bval == rounded_bvals]
+
+            if is_symmetric:
+                sym_bvecs = shell_bvecs
+            else:
+                sym_bvecs = np.vstack((shell_bvecs, -shell_bvecs))
+
+            neighbors[shell] = angular_neighbors(sym_bvecs, block_size[-1] - 1) % shell_bvecs.shape[0]
+            neighbors[shell] = neighbors[shell][:shell_bvecs.shape[0]]
+
+            # convert to per shell indexes
+            positions = np.arange(shell_bvecs.shape[0])
+            new_positions = np.arange(bvecs.shape[0])[unique_bval == rounded_bvals]
+
+            # this magically works for who knows why
+            # https://stackoverflow.com/questions/13572448/replace-values-of-a-numpy-index-array-with-values-of-a-list?answertab=votes#tab-top
+            index = np.digitize(neighbors[shell].ravel(), positions, right=True)
+            neighbors[shell] = new_positions[index].reshape(neighbors[shell].shape)
+
+            neighbors[shell] = [(dwi,) + tuple(neighbors[shell][pos]) for pos, dwi in enumerate(new_positions) if dwi in dwis]
+            full_indexes.extend(neighbors[shell])
+
+            if subsample:
+                neighbors[shell] = greedy_set_finder(neighbors[shell])
+
+        indexes = [x for shell in neighbors for x in shell]
+    else:
+        neighbors = angular_neighbors(sym_bvecs, block_size[-1] - 1) % data.shape[-1]
+        neighbors = neighbors[:data.shape[-1]]  # everything was doubled for symmetry
+        full_indexes = [(dwi,) + tuple(neighbors[dwi]) for dwi in range(data.shape[-1]) if dwi in dwis]
+
+        if subsample:
+            indexes = greedy_set_finder(full_indexes)
+        else:
+            indexes = full_indexes
 
     # Full overlap for dictionary learning
     overlap = np.array(block_size, dtype=np.int16) - 1
-
-    full_indexes = [(dwi,) + tuple(neighbors[dwi]) for dwi in range(data.shape[-1]) if dwi in dwis]
-
-    if subsample:
-        indexes = greedy_set_finder(full_indexes)
-    else:
-        indexes = full_indexes
 
     # If we have more b0s than indexes, then we have to add a few more blocks since
     # we won't do a full cycle. If we have more b0s than indexes after that, then it breaks.
@@ -201,8 +240,8 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
         mask = np.ones(data.shape[:-1], dtype=np.bool)
 
     # no overlapping blocks for training
-    no_over = (0, 0, 0, 0)
-    X = im2col_nd(data, block_size, no_over)
+    time_D = time()
+    X = extract_patches(data, block_size, block_size)
 
     # Solving for D
     param_alpha = {}
@@ -222,18 +261,21 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     if 'D' in param_alpha:
         param_D['D'] = param_alpha['D']
 
-    mask_col = im2col_nd(np.broadcast_to(mask[..., None], data.shape), block_size, no_over)
-    train_idx = np.sum(mask_col, axis=0) > (mask_col.shape[0] / 2.)
+    mask_col = extract_patches(mask, block_size[:-1], block_size[:-1])
+    dims = tuple(range(mask_col.ndim//2, mask_col.ndim))
+    axis = tuple(range(X.ndim//2, X.ndim))
+    shape = mask_col.shape[mask_col.ndim//2:]
 
-    train_data = X[:, train_idx]
-    train_data = np.asfortranarray(train_data[:, np.any(train_data != 0, axis=0)], dtype=dtype)
+    train_idx = np.logical_and(np.sum(mask_col, axis=dims)[..., None] > (np.prod(shape)//2), np.any(X != 0, axis=axis))
+    train_data = np.asfortranarray(X[train_idx].reshape(np.prod(block_size), -1))
     train_data /= np.sqrt(np.sum(train_data**2, axis=0, keepdims=True), dtype=dtype)
 
     param_alpha['D'] = spams.trainDL(train_data, **param_D)
     param_alpha['D'] /= np.sqrt(np.sum(param_alpha['D']**2, axis=0, keepdims=True, dtype=dtype))
     param_D['D'] = param_alpha['D']
 
-    del train_data, X, mask_col
+    logger.info('Dictionary learning done in {0:.2f} mins.'.format((time() - time_D) / 60.))
+    del train_idx, train_data, X
 
     if use_threading or (n_cores == 1):
         param_alpha['numThreads'] = n_cores
@@ -254,12 +296,12 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
                for k in range(data.shape[2] - block_size[2] + 1))
 
     if use_threading:
-        data_denoised = imap(_processer, arglist)
+        data_denoised = starmap(processer, arglist)
     else:
-        time_multi = time()
-        parallel_processer = multiprocesser(_processer, n_cores=n_cores, mp_method=mp_method)
+        time_recon = time()
+        parallel_processer = multiprocesser(processer, n_cores=n_cores, mp_method=mp_method)
         data_denoised = parallel_processer(arglist)
-        logger.info('Multiprocessing done in {0:.2f} mins.'.format((time() - time_multi) / 60.))
+        logger.info('Reconstruction done in {0:.2f} mins.'.format((time() - time_recon) / 60.))
 
     # Put together the multiprocessed results
     data_subset = np.zeros_like(data, dtype=np.float32)
@@ -303,69 +345,68 @@ def greedy_set_finder(sets):
     return output
 
 
-def _processer(args):
-    return processer(*args)
-
-
 def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
               dtype=np.float64, n_iter=10, gamma=3., tau=1., tolerance=1e-5):
 
     orig_shape = data.shape
-    mask_array = im2col_nd(mask, block_size[:-1], overlap[:-1])
-    train_idx = np.sum(mask_array, axis=0) > (mask_array.shape[0] / 2.)
+    mask_col = im2col_nd(mask, block_size[:-1], overlap[:-1], reshape_2D=False)
+    dims = tuple(range(mask_col.ndim//2, mask_col.ndim))
+    shape = mask_col.shape[mask_col.ndim//2:]
+    train_idx = np.sum(mask_col, axis=dims) > (np.prod(shape)//2)
 
     # If mask is empty, return a bunch of zeros as blocks
     if not np.any(train_idx):
         return np.zeros_like(data)
 
-    X = im2col_nd(data, block_size, overlap)
-    var_mat = np.median(im2col_nd(variance, block_size[:-1], overlap[:-1])[:, train_idx], axis=0)
-    X_full_shape = X.shape
-    X = X[:, train_idx].astype(dtype)
+    X = im2col_nd(data, block_size, overlap, reshape_2D=False)
+    X = X[train_idx].reshape(-1, np.prod(block_size)).T
+    X = np.asfortranarray(X, dtype=dtype)
 
+    axis = range(1, data.ndim)
+    var_mat = np.median(im2col_nd(variance, block_size[:-1], overlap[:-1], reshape_2D=False)[train_idx], axis=axis)
     param_alpha['L'] = int(0.5 * X.shape[0])
-
     D = param_alpha['D']
 
     alpha = lil_matrix((D.shape[1], X.shape[1]))
-    W = np.ones(alpha.shape, dtype=dtype, order='F')
+    W = np.ones(alpha.shape, dtype=dtype)
 
-    DtD = np.dot(D.T, D)
+    DtD = np.asfortranarray(np.dot(D.T, D))
     DtX = np.dot(D.T, X)
     DtXW = np.empty_like(DtX, order='F')
+    DtDW = np.empty_like(DtD, order='F')
 
     alpha_old = np.ones(alpha.shape, dtype=dtype)
-    has_converged = np.zeros(alpha.shape[1], dtype=np.bool)
+    not_converged = np.ones(alpha.shape[1], dtype=np.bool)
     arr = np.empty(alpha.shape)
+    nonzero_ind = np.empty(alpha.shape, dtype=np.bool)
 
     xi = np.random.randn(X.shape[0], X.shape[1]) * var_mat
     eps = np.max(np.abs(np.dot(D.T, xi)), axis=0)
-
+    # from sklearn import linear_model
     for _ in range(n_iter):
-        not_converged = np.equal(has_converged, False)
         DtXW[:, not_converged] = DtX[:, not_converged] / W[:, not_converged]
 
         for i in range(alpha.shape[1]):
-            if not has_converged[i]:
+            if not_converged[i]:
                 param_alpha['lambda1'] = var_mat[i] * (X.shape[0] + gamma * np.sqrt(2 * X.shape[0]))
-                DtDW = (1. / W[..., None, i]) * DtD * (1. / W[:, i])
-                alpha[:, i:i + 1] = spams.lasso(X[:, i:i + 1], Q=np.asfortranarray(DtDW), q=DtXW[:, i:i + 1], **param_alpha)
+                DtDW[:] = (1. / W[..., None, i]) * DtD * (1. / W[:, i])
+                alpha[:, i:i + 1] = spams.lasso(X[:, i:i + 1], Q=DtDW, q=DtXW[:, i:i + 1], **param_alpha)
 
         alpha.toarray(out=arr)
-        nonzero_ind = arr != 0
+        nonzero_ind[:] = arr != 0
         arr[nonzero_ind] /= W[nonzero_ind]
-        has_converged = np.max(np.abs(alpha_old - arr), axis=0) < tolerance
-
-        if np.all(has_converged):
-            break
+        not_converged[:] = np.max(np.abs(alpha_old - arr), axis=0) > tolerance
 
         alpha_old[:] = arr
         W[:] = 1. / (np.abs(alpha_old**tau) + eps)
 
-    weigths = np.ones(X_full_shape[1], dtype=dtype, order='F')
-    weigths[train_idx] = 1. / (alpha.getnnz(axis=0) + 1.)
-
-    X = np.zeros(X_full_shape, dtype=dtype, order='F')
+    # weigths = 1. / (alpha.getnnz(axis=0) + 1.)
+    weigths = None
+    train_idx = train_idx.ravel()
+    X = np.zeros((X.shape[0], train_idx.shape[0]), np.float32)
+    print(X.shape, np.dot(D, arr).shape, train_idx.shape)
     X[:, train_idx] = np.dot(D, arr)
-
-    return col2im_nd(X, block_size, orig_shape, overlap, weigths)
+    mask = train_idx.ravel()
+    out = col2im_nd_old(X, block_size, orig_shape, overlap)
+    # out = col2im_nd(X, block_size, orig_shape, overlap, mask, weigths)
+    return out

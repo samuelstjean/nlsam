@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 import numpy as np
-from numpy.testing import assert_almost_equal, assert_equal, run_module_suite
+from numpy.testing import assert_allclose, assert_equal, run_module_suite
 
 from nlsam.angular_tools import angular_neighbors, _angle
 
@@ -31,7 +31,7 @@ def test_angle():
                [np.pi / 2,     np.pi / 2, np.pi / 2],
                [np.pi / 2,     np.pi / 2, 0]]
 
-    assert_almost_equal(angles, correct)
+    assert_allclose(angles, correct)
 
 
 if __name__ == "__main__":
