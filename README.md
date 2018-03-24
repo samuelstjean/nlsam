@@ -17,6 +17,8 @@ The reference implementation for the Non Local Spatial and Angular Matching (NLS
 
 You can find the documentation and installation instructions at [![Documentation Status](https://readthedocs.org/projects/nlsam/badge/?version=latest)](http://nlsam.readthedocs.io/en/latest/?badge=latest)
 
+An Offline version of the documentation is also available [here](https://readthedocs.org/projects/nlsam/downloads/])
+
 ## How to install
 
 The easiest way is to go grab a [release][], in which case the downloaded zip file contains everything you need (no python installation required,
