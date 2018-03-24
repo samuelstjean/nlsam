@@ -28,7 +28,19 @@ from recommonmark.parser import CommonMarkParser
 source_parsers = {
     '.md': CommonMarkParser,
 }
-autodoc_mock_imports = ["nlsam.tests"]
+
+import sys
+from unittest.mock import MagicMock
+
+class Mock(MagicMock):
+    @classmethod
+    def __getattr__(cls, name):
+        return MagicMock()
+
+MOCK_MODULES = ["numpy, scipy, spams, dipy, nibabel"]
+sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
+
+autodoc_mock_imports = MOCK_MODULES
 # If your documentation needs a minimal Sphinx version, state it here.
 #
 # needs_sphinx = '1.0'
