@@ -17,19 +17,20 @@ You can find the original paper and full details of the algorithm as presented i
 
 Which you can grab a copy from the publisher website_ or from arxiv_.
 
+You an find below the documentation for each modules and a few instructions on topics such as noise estimation and detailed installation instructions.
+
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :maxdepth: 3
+   :caption: Modules
 
+   modules
 
-Indices and tables
-==================
-    * :ref:`advanced_estimation`
-    * :ref:`genindex`
-    * :ref:`genindex`
+.. toctree::
+   :maxdepth: 1
+   :glob:
+   :caption: Instructions
 
-The previous wiki entries have moved here
-:ref:`example_script`
+   wiki/*
 
 
 Indices and tables

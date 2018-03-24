@@ -1,4 +1,4 @@
-## Advanced techniques for estimating degrees of freedom in a non central chi distribution
+# Advanced techniques for estimating degrees of freedom in a non central chi distribution
 
 This section is mostly personal recommendations based on some literature, stuff I have played with
 and stuff I have seen in MR physics classes. It is probably not exhaustive nor perfectly accurate,
@@ -58,7 +58,7 @@ your receiver coil due to the way MRI scanners reconstruct and combine images.
 
 From my personal recommendations (well, don't quote me too much on it though), a good rule of thumb would be for 12 coils -> N=4, for 32 coils -> N=8 and for 64 coils (which are separated as a 24 coils for the upper part and 40 coils for the lower part), I would try out N=6 as dictated by the upper part, N=4 if it does not produce satisfactory results.
 
-## References
+### References
 
 Aja-Fernandez, S., Vegas-Sanchez-Ferrero, G., Tristan-Vega, A., 2014.
 Noise estimation in parallel MRI: GRAPPA and SENSE.

@@ -1,3 +1,6 @@
+# Instruction for installing on Windows
+
+
 ## Easy way - grab a binary release
 
 + To simply run the algorithm, the easiest way is definitely to download the windows binary from the [release](https://github.com/samuelstjean/nlsam/releases) section as you won't need to install python or anything else.

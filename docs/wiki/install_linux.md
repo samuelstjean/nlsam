@@ -1,3 +1,5 @@
+# Instruction for installing on Linux
+
 For a linux installation, you should find everything you need in your package manager. These are the gcc compilers, the GSL lib development headers, python headers and a blas/lapack implementation such as atlas/openblas intel mkl/etc.
 
 ### Debian/Ubuntu and derivatives
