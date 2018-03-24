@@ -1,12 +1,12 @@
 # Non Local Spatial and Angular Matching (NLSAM) denoising
 
 [release]: https://github.com/samuelstjean/nlsam/releases
-[wiki]: https://github.com/samuelstjean/nlsam/wiki
 [DOI]: http://dx.doi.org/doi:10.1016/j.media.2016.02.010
 [URL]: http://www.sciencedirect.com/science/article/pii/S1361841516000335
 [paper]: https://arxiv.org/pdf/1606.07239.pdf
 [nlsam_data]: https://github.com/samuelstjean/nlsam_data
 [spams]: http://spams-devel.gforge.inria.fr/
+[rtd]: https://nlsam.readthedocs.io/en/latest/
 
 The reference implementation for the Non Local Spatial and Angular Matching (NLSAM) denoising algorithm for diffusion MRI.
 
@@ -14,6 +14,10 @@ The reference implementation for the Non Local Spatial and Angular Matching (NLS
 
 + [Source downloads + precompiled binaries](https://github.com/samuelstjean/nlsam/releases)
 + [Example + Usage guide](example/README.md)
+
+You can find the documentation and installation instructions at [![Documentation Status](https://readthedocs.org/projects/nlsam/badge/?version=latest)](http://nlsam.readthedocs.io/en/latest/?badge=latest)
+
+An Offline version of the documentation is also available [here](https://readthedocs.org/projects/nlsam/downloads)
 
 ## How to install
 
@@ -36,12 +40,6 @@ and then install everything through pip after grabbing some dependencies
 git clone https://github.com/samuelstjean/nlsam.git
 pip install -e nlsam
 ```
-
-Check out the [wiki][wiki] for detailed instructions about each platforms.
-
-+ [Windows](https://github.com/samuelstjean/nlsam/wiki/Installation-for-Windows)
-+ [Mac OSX](https://github.com/samuelstjean/nlsam/wiki/Installation-for-Mac-OSX)
-+ [Linux](https://github.com/samuelstjean/nlsam/wiki/Installation-for-linux)
 
 You can also download the datasets used in the paper over [here][nlsam_data].
 
