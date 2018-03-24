@@ -15,9 +15,7 @@ The reference implementation for the Non Local Spatial and Angular Matching (NLS
 + [Source downloads + precompiled binaries](https://github.com/samuelstjean/nlsam/releases)
 + [Example + Usage guide](example/README.md)
 
-You can find the documentation and installation instructions over [here](http://nlsam.readthedocs.io/en/latest).
-
-An Offline version of the documentation is also available [here](https://readthedocs.org/projects/nlsam/downloads).
+You can find the latest documentation and installation instructions over [here](http://nlsam.readthedocs.io/en/latest) with a downloadable version of the documentation [here](https://readthedocs.org/projects/nlsam/downloads).
 
 ## How to install
 
