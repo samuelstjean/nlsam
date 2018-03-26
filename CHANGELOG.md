@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.7] Development version
+
+- New online documentation available at http://nlsam.readthedocs.io/ for the current (and future) versions.
+
 ## [0.6.1] - 2017-11-17
 - Fixed a numerical issue in the Marcum Q function when computing probabilities used in the stabilizer framework.
 - Scipy >= 0.19.1 is now required.
