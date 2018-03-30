@@ -16,11 +16,10 @@ import nibabel as nib
 import numpy as np
 
 from nlsam.denoiser import nlsam_denoise
-from nlsam.smoothing import local_standard_deviation, sh_smooth, local_piesno
+from nlsam.smoothing import local_standard_deviation, local_piesno
 from nlsam.stabilizer import corrected_sigma, stabilization
 
 from dipy.io.gradients import read_bvals_bvecs
-from dipy.core.gradients import gradient_table
 from dipy.denoise.noise_estimate import piesno
 
 
@@ -79,9 +78,7 @@ def buildArgsParser():
                    help='Size of the 3D spatial patch to be denoised. Default : 3, 3, 3')
 
     p.add_argument('--fix_implausible', action='store_true', dest='implausible_signal_fix',
-                   help='If set, remove physically implausible signals from the input data by setting '
-                   'the b0 signal as the highest value along volumes.\nUseful if your data '
-                   'is highly noisy and the S0 signal is low.')
+                   help='This option has been removed and had no effect.')
 
     p.add_argument('--is_symmetric', action='store_true',
                    help='If supplied, assumes the set of bvals/bvecs to be already symmetrized,\n'
@@ -90,9 +87,8 @@ def buildArgsParser():
     p.add_argument('--iterations', metavar='int', default=10, type=int,
                    help='Maximum number of iterations for the l1 reweighting. Default 10.')
 
-    p.add_argument('--sh_order', metavar='int', default=8, type=int, choices=[0, 2, 4, 6, 8],
-                   help='Spherical harmonics order used for sh_smooth.\n'
-                   'Use 0 to disable the spherical harmonics fitting. Default 8')
+    p.add_argument('--sh_order', metavar='int', default=0, type=int, choices=[0, 2, 4, 6, 8],
+                   help='This option has been removed and had no effect.')
 
     g = p.add_mutually_exclusive_group()
 
@@ -184,7 +180,6 @@ def main():
     args = parser.parse_args()
 
     noise_method = args.noise_method
-    sh_order = args.sh_order
     N = args.N
 
     subsample = args.no_subsample
@@ -228,6 +223,12 @@ def main():
         logger.info('Using multithreading instead of multiprocessing, please make sure your blas/lapack/spams '
                     'libraries are built with multithreading support!')
 
+    if args.implausible_signal_fix:
+        logger.warning('Option --implausible_signal_fix has been deprecated')
+
+    if args.sh_order:
+        logger.warning('Option --sh_order has been deprecated')
+
     ##########################################
     #  Load up data and do some sanity checks
     ##########################################
@@ -258,11 +259,6 @@ def main():
         mask = np.ones(data.shape[:-1], dtype=np.bool)
 
     bvals, bvecs = read_bvals_bvecs(args.bvals, args.bvecs)
-    gtab = gradient_table(bvals, bvecs, b0_threshold=b0_threshold)
-
-    if args.implausible_signal_fix:
-        data[..., gtab.b0s_mask] = np.max(data, axis=-1, keepdims=True)
-        logger.info("Fixing b0 implausible signals to max(dwi) voxelwise")
 
     if args.cores is None or args.cores > cpu_count():
         n_cores = cpu_count()
@@ -351,21 +347,7 @@ def main():
     else:
         logger.info("Now performing stabilization")
 
-        if sh_order <= 0:
-            m_hat = data
-        else:
-            logger.info("Estimating m_hat with sh order {}".format(sh_order))
-
-            # Raise warning for sh order if there is not enough DWIs
-            required_dwis = int((sh_order + 1) * (sh_order + 2) / 2)
-            number_of_dwis = data.shape[-1] - np.sum(gtab.b0s_mask)
-            if number_of_dwis < required_dwis:
-                logger.warning('We recommend having at least {} unique DWIs volumes, '
-                               'but you currently have {} volumes. Try lowering the '
-                               'parameter --sh_order in case of non '
-                               'convergence.'.format(required_dwis, number_of_dwis))
-
-            m_hat = sh_smooth(data, gtab, sh_order=sh_order).clip(min=0)
+        m_hat = data
 
         # We may have a 3D sigma map, so broadcast to 4D for indexing
         if sigma.ndim == 3:

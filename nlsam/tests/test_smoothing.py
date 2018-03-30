@@ -6,26 +6,7 @@ import numpy as np
 from numpy.testing import assert_almost_equal, run_module_suite
 
 from nlsam.stabilizer import _test_xi as xi
-from nlsam.smoothing import (sh_smooth,
-                             local_standard_deviation,
-                             local_piesno)
-
-from dipy.core.gradients import gradient_table
-from dipy.sims.voxel import multi_tensor
-from dipy.data import get_sphere
-
-
-def test_sh_smooth():
-    sphere = get_sphere('repulsion724')
-    fractions = [50, 50]
-    angles = [(0, 0), (60, 0)]
-    gtab = gradient_table(np.ones(724) * 1000, sphere.vertices)
-    mevals = np.array([[0.0015, 0.0003, 0.0003],
-                       [0.0015, 0.0003, 0.0003]])
-    signal, sticks = multi_tensor(gtab, mevals, S0=1, angles=angles,
-                                  fractions=fractions, snr=50)
-
-    assert_almost_equal(signal, sh_smooth(signal, gtab), decimal=1)
+from nlsam.smoothing import local_standard_deviation, local_piesno
 
 
 def test_local_standard_deviation():

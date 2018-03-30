@@ -5,121 +5,10 @@ from numpy.lib.stride_tricks import as_strided as ast
 
 from nlsam.multiprocess import multiprocesser
 
-from dipy.core.geometry import cart2sphere
-from dipy.core.ndindex import ndindex
-from dipy.reconst.shm import sph_harm_ind_list, real_sph_harm, smooth_pinv
 from dipy.denoise.noise_estimate import piesno
 
 from scipy.ndimage.filters import convolve, gaussian_filter
 from scipy.ndimage.interpolation import zoom
-
-# numpy changed stuff, but it is fixed in dipy master
-from distutils.version import LooseVersion
-if LooseVersion(np.__version__) >= LooseVersion('1.12'):
-    def sph_harm_ind_list(sh_order):
-        """
-        Returns the degree (n) and order (m) of all the symmetric spherical
-        harmonics of degree less then or equal to `sh_order`. The results, `m_list`
-        and `n_list` are kx1 arrays, where k depends on sh_order. They can be
-        passed to :func:`real_sph_harm`.
-        Parameters
-        ----------
-        sh_order : int
-            even int > 0, max degree to return
-        Returns
-        -------
-        m_list : array
-            orders of even spherical harmonics
-        n_list : array
-            degrees of even spherical harmonics
-        See also
-        --------
-        real_sph_harm
-        """
-        if sh_order % 2 != 0:
-            raise ValueError('sh_order must be an even integer >= 0')
-
-        n_range = np.arange(0, sh_order + 1, 2, dtype=int)
-        n_list = np.repeat(n_range, n_range * 2 + 1)
-
-        ncoef = int((sh_order + 2) * (sh_order + 1) // 2)
-        offset = 0
-        m_list = np.empty(ncoef, 'int')
-        for ii in n_range:
-            m_list[offset:offset + 2 * ii + 1] = np.arange(-ii, ii + 1)
-            offset = offset + 2 * ii + 1
-
-        # makes the arrays ncoef by 1, allows for easy broadcasting later in code
-        return (m_list, n_list)
-
-
-def sh_smooth(data, gtab, sh_order=8, similarity_threshold=50, regul=0.006):
-    """Smooth the raw diffusion signal with spherical harmonics.
-
-    data : ndarray
-        The diffusion data to smooth.
-
-    gtab : gradient table object
-        Corresponding gradients table object to data.
-
-    sh_order : int, default 8
-        Order of the spherical harmonics to fit.
-
-    similarity_threshold : int, default 50
-        All b-values such that |b_1 - b_2| < similarity_threshold
-        will be considered as identical for smoothing purpose.
-        Must be lower than 200.
-
-    regul : float, default 0.006
-        Amount of regularization to apply to sh coefficients computation.
-
-    Return
-    ---------
-    pred_sig : ndarray
-        The smoothed diffusion data, fitted through spherical harmonics.
-    """
-
-    if similarity_threshold > 200:
-        raise ValueError("similarity_threshold = {}, which is higher than 200,"
-                         " please use a lower value".format(similarity_threshold))
-
-    m, n = sph_harm_ind_list(sh_order)
-    L = -n * (n + 1)
-    where_b0s = gtab.b0s_mask
-    pred_sig = np.zeros_like(data, dtype=np.float32)
-
-    # Round similar bvals together for identifying similar shells
-    bvals = gtab.bvals
-    rounded_bvals = np.zeros_like(bvals)
-
-    for unique_bval in np.unique(bvals):
-        idx = np.abs(unique_bval - bvals) < similarity_threshold
-        rounded_bvals[idx] = unique_bval
-
-    # process each b-value separately
-    for unique_bval in np.unique(rounded_bvals):
-        idx = rounded_bvals == unique_bval
-
-        # Just give back the signal for the b0s since we can't really do anything about it
-        if np.all(idx == where_b0s):
-            if np.sum(gtab.b0s_mask) > 1:
-                pred_sig[..., idx] = np.mean(data[..., idx], axis=-1, keepdims=True)
-            else:
-                pred_sig[..., idx] = data[..., idx]
-            continue
-
-        x, y, z = gtab.gradients[idx].T
-        r, theta, phi = cart2sphere(x, y, z)
-
-        # Find the sh coefficients to smooth the signal
-        B_dwi = real_sph_harm(m, n, theta[:, None], phi[:, None])
-        invB = smooth_pinv(B_dwi, np.sqrt(regul) * L)
-        sh_coeff = np.dot(data[..., idx], invB.T)
-
-        # Find the smoothed signal from the sh fit for the given gtab
-        pred_sig[..., idx] = np.dot(sh_coeff, B_dwi.T)
-
-    return pred_sig
 
 
 def _local_standard_deviation(arr):
@@ -218,7 +107,7 @@ def local_piesno(data, N, size=5, return_mask=True):
 
     s_out = sigma.reshape(data.shape[0] // size, data.shape[1] // size, data.shape[2] // size)
 
-    for n, i in enumerate(ndindex(s_out.shape)):
+    for n, i in enumerate(np.ndindex(s_out.shape)):
         i = np.array(i) * size
         j = i + size
         m_out[i[0]:j[0], i[1]:j[1], i[2]:j[2]] = mask[n].reshape(size, size, size)
