@@ -2,6 +2,7 @@
 
 ## [0.7] Development version
 
+- Deprecation of options --implausible_signal_fix and --sh_order, use --load_mhat instead for initialization.
 - New online documentation available at http://nlsam.readthedocs.io/ for the current (and future) versions.
 
 ## [0.6.1] - 2017-11-17
