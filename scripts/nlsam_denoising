@@ -17,7 +17,7 @@ import numpy as np
 
 from nlsam.denoiser import nlsam_denoise
 from nlsam.smoothing import local_standard_deviation, local_piesno
-from nlsam.stabilizer import corrected_sigma, stabilization
+from nlsam.bias_correction import stabilization, corrected_sigma
 
 from dipy.io.gradients import read_bvals_bvecs
 from dipy.denoise.noise_estimate import piesno
