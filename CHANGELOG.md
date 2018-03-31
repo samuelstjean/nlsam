@@ -2,6 +2,7 @@
 
 ## [0.7] Development version
 
+- New module nlsam.bias_correction, which contains an easier to use interface to the C functions in nlsam.stabilizer
 - Deprecation of options --implausible_signal_fix and --sh_order, use --load_mhat instead for initialization.
 - New online documentation available at http://nlsam.readthedocs.io/ for the current (and future) versions.
 
