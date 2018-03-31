@@ -3,90 +3,59 @@
 from __future__ import division, print_function
 
 import numpy as np
-from numpy.testing import assert_almost_equal, run_module_suite
+from numpy.testing import assert_allclose, run_module_suite
 from itertools import product
-
-try:
-    from scipy.special import factorialk
-except ImportError:
-    from scipy.misc import factorialk
-
-from scipy.stats import norm
-from scipy.special import erfinv
 
 from nlsam.stabilizer import (_test_marcumq_cython,
                               _test_beta,
                               _test_xi,
                               _test_fixed_point_finder,
-                              _test_chi_to_gauss,
-                              _test_inv_cdf_gauss,
-                              _test_multifactorial,
-                              _test_erfinv)
+                              chi_to_gauss)
 
 # hispeed is the closed source java reference implementation,
 # from which most values are taken from.
 
 
-def test_inv_cdf_gauss():
-    loc = np.random.randint(-10, 10)
-    scale = np.random.rand()
-    y = np.random.rand() * scale + loc
-    assert_almost_equal(_test_inv_cdf_gauss(norm.cdf(y, loc=loc, scale=scale), loc, scale), y, decimal=10)
-
-
 def test_beta():
     # Values taken from hispeed.SignalFixedPointFinder.beta
-    assert_almost_equal(_test_beta(3), 2.349964007466563, decimal=10)
-    assert_almost_equal(_test_beta(7), 3.675490580428171, decimal=10)
-    assert_almost_equal(_test_beta(12), 4.848227898082543, decimal=10)
+    assert_allclose(_test_beta(3), 2.349964007466563)
+    assert_allclose(_test_beta(7), 3.675490580428171)
+    assert_allclose(_test_beta(12), 4.848227898082543)
 
 
 def test_xi():
     # Values taken from hispeed.SignalFixedPointFinder.xi
-    assert_almost_equal(_test_xi(50, 2, 2), 0.9976038446303619)
-    assert_almost_equal(_test_xi(100, 25, 12), 0.697674262651006)
-    assert_almost_equal(_test_xi(4, 1, 12), 0.697674262651006)
+    assert_allclose(_test_xi(50, 2, 2), 0.9976038446303619)
+    assert_allclose(_test_xi(100, 25, 12), 0.697674262651006)
+    assert_allclose(_test_xi(4, 1, 12), 0.697674262651006)
 
 
 def test_fixed_point_finder():
     # Values taken from hispeed.SignalFixedPointFinder.fixedPointFinder
     # large negatives are allowed in the original framework
-    assert_almost_equal(_test_fixed_point_finder(50, 30, 12, clip_eta=False), -192.7828820153368)
-    assert_almost_equal(_test_fixed_point_finder(650, 400, 1), 452.287728081486, decimal=6)
-    assert_almost_equal(_test_fixed_point_finder(650, 40, 12), 620.9909935398028, decimal=6)
-    assert_almost_equal(_test_fixed_point_finder(65, 40, 12, clip_eta=False), -259.1293457901348, decimal=6)
-    assert_almost_equal(_test_fixed_point_finder(15, 4, 4), 10.420401964259176, decimal=6)
+    assert_allclose(_test_fixed_point_finder(50, 30, 12, clip_eta=False), -192.7828820153368)
+    assert_allclose(_test_fixed_point_finder(650, 400, 1), 452.287728081486)
+    assert_allclose(_test_fixed_point_finder(650, 40, 12), 620.9909935398028)
+    assert_allclose(_test_fixed_point_finder(65, 40, 12, clip_eta=False), -259.1293457901348)
+    assert_allclose(_test_fixed_point_finder(15, 4, 4), 10.420401964259176)
 
 
 def test_chi_to_gauss():
     # Values taken from hispeed.DistributionalMapping.nonCentralChiToGaussian
-    assert_almost_equal(_test_chi_to_gauss(470, 600, 80, 12), 331.2511087335721, decimal=3)
-    assert_almost_equal(_test_chi_to_gauss(700, 600, 80, 12), 586.5304199340127, decimal=3)
-    assert_almost_equal(_test_chi_to_gauss(700, 600, 80, 1), 695.0548001366581, decimal=3)
-    assert_almost_equal(_test_chi_to_gauss(470, 600, 80, 1), 463.965319619292, decimal=3)
+    assert_allclose(chi_to_gauss(470, 600, 80, 12), 331.2511087335721, rtol=1e-5)
+    assert_allclose(chi_to_gauss(700, 600, 80, 12), 586.5304199340127, rtol=1e-5)
+    assert_allclose(chi_to_gauss(700, 600, 80, 1), 695.0548001366581, rtol=1e-5)
+    assert_allclose(chi_to_gauss(470, 600, 80, 1), 463.965319619292, rtol=1e-5)
 
 
 def test_marcumq():
     # Values taken from octave's marcumq function
-    assert_almost_equal(_test_marcumq_cython(2, 1, 0), 0.730987939964090, decimal=6)
-    assert_almost_equal(_test_marcumq_cython(7, 5, 0), 0.972285213704037, decimal=6)
-    assert_almost_equal(_test_marcumq_cython(3, 7, 5), 0.00115139503866225, decimal=6)
-    assert_almost_equal(_test_marcumq_cython(0, 7, 5), 4.07324330517049e-07, decimal=6)
-    assert_almost_equal(_test_marcumq_cython(7, 0, 5), 1., decimal=6)
-    assert_almost_equal(_test_marcumq_cython(42.20399856567383, 42.769595980644226, 1), 0.289848352318906, decimal=6)
-
-
-def test_factorial():
-    assert_almost_equal(_test_multifactorial(10, 1), factorialk(10, 1), decimal=0)
-    assert_almost_equal(_test_multifactorial(20, 2), factorialk(20, 2), decimal=0)
-    assert_almost_equal(_test_multifactorial(20, 3), factorialk(20, 3), decimal=0)
-    assert_almost_equal(_test_multifactorial(0, 3), factorialk(0, 3), decimal=0)
-
-
-def test_erfinv():
-    for y in np.random.rand(1000):
-        assert_almost_equal(_test_erfinv(y), erfinv(y))
-        assert_almost_equal(_test_erfinv(-y), erfinv(-y))
+    assert_allclose(_test_marcumq_cython(2, 1, 0), 0.730987939964090, atol=1e-5, rtol=1e-5)
+    assert_allclose(_test_marcumq_cython(7, 5, 0), 0.972285213704037, atol=1e-5, rtol=1e-5)
+    assert_allclose(_test_marcumq_cython(3, 7, 5), 0.00115139503866225, atol=1e-5, rtol=1e-5)
+    assert_allclose(_test_marcumq_cython(0, 7, 5), 4.07324330517049e-07, atol=1e-5, rtol=1e-5)
+    assert_allclose(_test_marcumq_cython(7, 0, 5), 1., atol=1e-5, rtol=1e-5)
+    assert_allclose(_test_marcumq_cython(42.20399856567383, 42.769595980644226, 1), 0.2898483523187969, atol=1e-4, rtol=1e-5)
 
 
 # Test for marcumq, all stolen from octave
@@ -139,7 +108,7 @@ def test_marcumq_octave():
          1.000000, 1.000000, 1.000000, 1.000000, 1.000000, 1.000000]
 
     for (a, b), q in zip(product(A, B), Q):
-        assert_almost_equal(_test_marcumq_cython(a, b, 1), q, decimal=5)
+        assert_allclose(_test_marcumq_cython(a, b, 1), q, atol=1e-4, rtol=1e-6)
 
     A = [0.00, 0.05, 1.00, 2.00, 3.00, 4.00, 5.00, 6.00, 7.00, 8.00, 9.00, 10.00,
          11.00, 12.00, 13.00, 14.00, 15.00, 16.00, 17.00, 18.00, 19.00, 20.00,
@@ -173,7 +142,7 @@ def test_marcumq_octave():
          1.000000, 1.000000, 1.000000, 1.000000, 1.000000, 1.000000]
 
     for (a, b), q in zip(product(A, B), Q):
-        assert_almost_equal(_test_marcumq_cython(a, b, 1), q, decimal=5)
+        assert_allclose(_test_marcumq_cython(a, b, 1), q, atol=1e-4, rtol=1e-6)
 
     A = [0.00, 0.05, 1.00, 2.00, 3.00, 4.00, 5.00, 6.00, 7.00, 8.00, 9.00, 10.00,
          11.00, 12.00, 13.00, 14.00, 15.00, 16.00, 17.00, 18.00, 19.00, 20.00,
@@ -207,7 +176,7 @@ def test_marcumq_octave():
          1.000000, 1.000000, 1.000000, 1.000000, 1.000000, 1.000000]
 
     for (a, b), q in zip(product(A, B), Q):
-        assert_almost_equal(_test_marcumq_cython(a, b, 1), q, decimal=5)
+        assert_allclose(_test_marcumq_cython(a, b, 1), q, atol=1e-4, rtol=1e-6)
 
     A = [0.00, 0.05, 1.00, 2.00, 3.00, 4.00, 5.00, 6.00, 7.00, 8.00, 9.00, 10.00,
          11.00, 12.00, 13.00, 14.00, 15.00, 16.00, 17.00, 18.00, 19.00, 20.00,
@@ -241,7 +210,7 @@ def test_marcumq_octave():
          1.000000, 1.000000, 1.000000]
 
     for (a, b), q in zip(product(A, B), Q):
-        assert_almost_equal(_test_marcumq_cython(a, b, 1), q, decimal=5)
+        assert_allclose(_test_marcumq_cython(a, b, 1), q, atol=1e-4, rtol=1e-6)
 
     ## The tests for M>1 were generating from Marcum's tables by
     ## using the formula
@@ -280,7 +249,7 @@ def test_marcumq_octave():
          1.000000, 1.000000, 1.000000, 1.000000, 1.000000, 1.000000]
 
     for (a, b), q in zip(product(A, B), Q):
-        assert_almost_equal(_test_marcumq_cython(a, b, M), q, decimal=5)
+        assert_allclose(_test_marcumq_cython(a, b, M), q, atol=1e-4, rtol=1e-6)
 
     M = 5
     a = [0.00, 0.05, 1.00, 2.00, 3.00, 4.00, 5.00, 6.00, 7.00, 8.00, 9.00, 10.00,
@@ -315,7 +284,7 @@ def test_marcumq_octave():
          1.000000, 1.000000, 1.000000, 1.000000, 1.000000, 1.000000]
 
     for (a, b), q in zip(product(A, B), Q):
-        assert_almost_equal(_test_marcumq_cython(a, b, M), q, decimal=5)
+        assert_allclose(_test_marcumq_cython(a, b, M), q, atol=1e-4, rtol=1e-6)
 
     M = 10
     a = [0.00, 0.05, 1.00, 2.00, 3.00, 4.00, 5.00, 6.00, 7.00, 8.00, 9.00, 10.00,
@@ -350,7 +319,7 @@ def test_marcumq_octave():
          1.000000, 1.000000, 1.000000, 1.000000, 1.000000, 1.000000]
 
     for (a, b), q in zip(product(A, B), Q):
-        assert_almost_equal(_test_marcumq_cython(a, b, M), q, decimal=5)
+        assert_allclose(_test_marcumq_cython(a, b, M), q, atol=1e-4, rtol=1e-6)
 
 
 if __name__ == "__main__":
