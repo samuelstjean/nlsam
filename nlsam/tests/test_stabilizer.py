@@ -8,8 +8,8 @@ from itertools import product
 
 from nlsam.stabilizer import (_test_marcumq_cython,
                               _test_beta,
-                              _test_xi,
-                              _test_fixed_point_finder,
+                              xi,
+                              fixed_point_finder,
                               chi_to_gauss)
 
 # hispeed is the closed source java reference implementation,
@@ -25,19 +25,19 @@ def test_beta():
 
 def test_xi():
     # Values taken from hispeed.SignalFixedPointFinder.xi
-    assert_allclose(_test_xi(50, 2, 2), 0.9976038446303619)
-    assert_allclose(_test_xi(100, 25, 12), 0.697674262651006)
-    assert_allclose(_test_xi(4, 1, 12), 0.697674262651006)
+    assert_allclose(xi(50, 2, 2), 0.9976038446303619)
+    assert_allclose(xi(100, 25, 12), 0.697674262651006)
+    assert_allclose(xi(4, 1, 12), 0.697674262651006)
 
 
 def test_fixed_point_finder():
     # Values taken from hispeed.SignalFixedPointFinder.fixedPointFinder
     # large negatives are allowed in the original framework
-    assert_allclose(_test_fixed_point_finder(50, 30, 12, clip_eta=False), -192.7828820153368)
-    assert_allclose(_test_fixed_point_finder(650, 400, 1), 452.287728081486)
-    assert_allclose(_test_fixed_point_finder(650, 40, 12), 620.9909935398028)
-    assert_allclose(_test_fixed_point_finder(65, 40, 12, clip_eta=False), -259.1293457901348)
-    assert_allclose(_test_fixed_point_finder(15, 4, 4), 10.420401964259176)
+    assert_allclose(fixed_point_finder(50, 30, 12, clip_eta=False), -192.7828820153368)
+    assert_allclose(fixed_point_finder(650, 400, 1), 452.287728081486)
+    assert_allclose(fixed_point_finder(650, 40, 12), 620.9909935398028)
+    assert_allclose(fixed_point_finder(65, 40, 12, clip_eta=False), -259.1293457901348)
+    assert_allclose(fixed_point_finder(15, 4, 4), 10.420401964259176)
 
 
 def test_chi_to_gauss():

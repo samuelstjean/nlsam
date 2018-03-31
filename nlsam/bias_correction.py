@@ -3,8 +3,7 @@ from __future__ import division
 import numpy as np
 
 from nlsam.multiprocess import multiprocesser
-from nlsam.stabilizer import fixed_point_finder, chi_to_gauss, root_finder
-from nlsam.stabilizer import _test_xi as xi
+from nlsam.stabilizer import fixed_point_finder, chi_to_gauss, root_finder, xi
 
 
 # Vectorised versions of the above, so we can use implicit broadcasting and stuff

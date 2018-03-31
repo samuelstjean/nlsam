@@ -30,6 +30,9 @@ def root_finder(r, N, max_iter=500, eps=1e-6):
     return _root_finder(r, N, max_iter, eps)
 
 
+def xi(eta, sigma, N):
+    return _xi(eta, sigma, N)
+
 cdef double hyp1f1(double a, double b, double x) nogil:
     """Wrapper for 1F1 hypergeometric series function
     http://en.wikipedia.org/wiki/Confluent_hypergeometric_function"""
@@ -334,11 +337,3 @@ def _test_beta(N):
 
 def _test_fixed_point_k(eta, m, sigma, N):
     return _fixed_point_k(eta, m, sigma, N)
-
-
-def _test_xi(eta, sigma, N):
-    return _xi(eta, sigma, N)
-
-
-def _test_fixed_point_finder(m_hat, sigma, N, clip_eta=True):
-    return fixed_point_finder(m_hat, sigma, N, clip_eta)
