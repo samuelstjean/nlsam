@@ -12,6 +12,14 @@ nlsam\.angular\_tools module
     :undoc-members:
     :show-inheritance:
 
+nlsam\.bias\_correction module
+----------------------------
+
+.. automodule:: nlsam.bias_correction
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 nlsam\.denoiser module
 ----------------------
 
