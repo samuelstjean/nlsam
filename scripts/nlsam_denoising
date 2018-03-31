@@ -24,7 +24,7 @@ from dipy.denoise.noise_estimate import piesno
 
 
 DESCRIPTION = """
-Main script for the NLSAM denoising [1], including the stabilizer framework from [2].
+Main script for the NLSAM denoising [1], including the bias correction framework from [2].
 """
 
 EPILOG = """
@@ -44,53 +44,75 @@ def buildArgsParser():
 
     p = argparse.ArgumentParser(description=DESCRIPTION,
                                 epilog=EPILOG,
+                                add_help=False,
                                 formatter_class=argparse.RawTextHelpFormatter)
 
-    p.add_argument('input', metavar='input',
-                   help='Path of the image file to denoise.')
+    #####################
+    # Required arguments
+    #####################
 
-    p.add_argument('output', metavar='output',
-                   help='Path for the saved denoised file.')
+    required = p.add_argument_group('Required arguments')
 
-    p.add_argument('N', metavar='N', type=int,
-                   help='Number of receiver coils of the scanner. \n'
-                   'Use N=1 in the case of a SENSE (GE, Philips) reconstruction and '
-                   'N >= 1 for GRAPPA reconstruction (Siemens).')
+    required.add_argument('input', metavar='input',
+                          help='Path of the image file to denoise.')
 
-    p.add_argument('bvals', metavar='bvals',
-                   help='Path of the bvals file, in FSL format.')
+    required.add_argument('output', metavar='output',
+                          help='Path for the saved denoised file.')
 
-    p.add_argument('bvecs', metavar='bvecs',
-                   help='Path of the bvecs file, in FSL format.')
+    required.add_argument('N', metavar='N', type=float,
+                          help='Number of receiver coils of the scanner. \n'
+                          'Use N = 1 in the case of a SENSE (Philips) reconstruction and '
+                          'N >= 1 for GRAPPA based reconstruction (Siemens).')
 
-    p.add_argument('angular_block_size', metavar='n_angular_neighbors',
-                   type=int, help='Number of angular neighbors used for denoising.')
+    required.add_argument('bvals', metavar='bvals',
+                          help='Path of the bvals file, in FSL format.')
 
-    p.add_argument('--b0_threshold', metavar='int', default=10, type=int,
-                   help='Lowest b-value to be considered as a b0. Default 10.')
+    required.add_argument('bvecs', metavar='bvecs',
+                          help='Path of the bvecs file, in FSL format.')
 
-    p.add_argument('--split_b0s', action='store_true',
-                   help='If set and multiple b0s are present, they are split amongst the '
-                   'training data.')
+    required.add_argument('angular_block_size', metavar='n_angular_neighbors',
+                          type=int, help='Number of angular neighbors used for denoising.')
 
-    p.add_argument('--block_size', dest='spatial_block_size',
-                   metavar='tuple', type=literal_eval, default=(3, 3, 3),
-                   help='Size of the 3D spatial patch to be denoised. Default : 3, 3, 3')
+    #####################
+    # Optional arguments
+    #####################
 
-    p.add_argument('--fix_implausible', action='store_true', dest='implausible_signal_fix',
-                   help='This option has been removed and had no effect.')
+    optionals = p.add_argument_group('Optional arguments')
 
-    p.add_argument('--is_symmetric', action='store_true',
-                   help='If supplied, assumes the set of bvals/bvecs to be already symmetrized,\n'
-                   'i.e. All points (x,y,z) on the sphere and (-x,-y,-z) were acquired, such as in full grid DSI.')
+    optionals.add_argument('-m', '--mask', metavar='file',
+                           help='Path to a binary mask. Only the data inside the mask will be reconstructed.')
 
-    p.add_argument('--iterations', metavar='int', default=10, type=int,
-                   help='Maximum number of iterations for the l1 reweighting. Default 10.')
+    optionals.add_argument('--b0_threshold', metavar='int', default=10, type=int,
+                           help='Lowest b-value to be considered as a b0. Default 10.')
 
-    p.add_argument('--sh_order', metavar='int', default=0, type=int, choices=[0, 2, 4, 6, 8],
-                   help='This option has been removed and had no effect.')
+    optionals.add_argument('--split_b0s', action='store_true',
+                           help='If set and multiple b0s are present, they are split amongst the '
+                           'training data.')
 
-    g = p.add_mutually_exclusive_group()
+    optionals.add_argument('--block_size', dest='spatial_block_size',
+                           metavar='tuple', type=literal_eval, default=(3, 3, 3),
+                           help='Size of the 3D spatial patch to be denoised. Default : 3, 3, 3')
+
+    optionals.add_argument('--is_symmetric', action='store_true',
+                           help='If supplied, assumes the set of bvals/bvecs to be already symmetrized,\n'
+                           'i.e. All points (x,y,z) on the sphere and (-x,-y,-z) were acquired, such as in full grid DSI.')
+
+    optionals.add_argument('--iterations', metavar='int', default=10, type=int,
+                           help='Maximum number of iterations for the l1 reweighting. Default 10.')
+
+    optionals.add_argument('--no_subsample', action='store_false',
+                           help='If set, process all the dwis multiple times, '
+                           'but note that this option lengthen the total time.\n'
+                           'The default is to find the smallest subset so that each dwi is '
+                           'processed at least once.')
+
+    g1 = optionals.add_mutually_exclusive_group()
+
+    g1.add_argument('--load_mhat', metavar='file',
+                    help='Load this volume as a m_hat value estimation for the stabilization.\n'
+                    'This is used to replace the argument --sh_order with another initialisation for the algorithm.')
+
+    g = optionals.add_mutually_exclusive_group()
 
     g.add_argument('--noise_est', dest='noise_method',
                    metavar='string', default='piesno',
@@ -105,72 +127,92 @@ def buildArgsParser():
                    help='Load this file as the standard deviation volume.\n'
                    'Will be squared internally to turn into variance.')
 
-    g.add_argument('--noise_maps', metavar='file',
-                   help='Path of the noise map(s) volume for local piesno.\n'
-                   'Either supply a 3D noise map or a stack of 3D maps as a 4D volume.\n'
-                   'This is intended for noise maps collected by the scanner (so that there is no signal in those measurements)\n'
-                   'which are properly scaled with the rest of the data you collected.\n'
-                   'If in doubt, it is safer to use another estimation method with --noise_est')
+    #####################
+    # Advanced arguments
+    #####################
 
-    p.add_argument('--noise_mask', dest='save_piesno_mask', metavar='file',
-                   help='If supplied, output filename for saving the mask of noisy voxels '
-                   'found by PIESNO.')
+    advanced = p.add_argument_group('Advanced noise estimation')
 
-    p.add_argument('--save_stab', metavar='file',
-                   help='Path to save the intermediate noisy bias corrected volume. '
-                   'Useful for debugging purposes.')
+    advanced.add_argument('--noise_maps', metavar='file',
+                          help='Path of the noise map(s) volume for local piesno.\n'
+                          'Either supply a 3D noise map or a stack of 3D maps as a 4D volume.\n'
+                          'This is intended for noise maps collected by the scanner (so that there is no signal in those measurements)\n'
+                          'which are properly scaled with the rest of the data you collected.\n'
+                          'If in doubt, it is safer to use another estimation method with --noise_est')
 
-    p.add_argument('--save_sigma', metavar='file',
-                   help='Path to save the intermediate standard deviation volume. '
-                   'Useful for debugging purposes.')
+    advanced.add_argument('--noise_mask', dest='save_piesno_mask', metavar='file',
+                          help='If supplied, output filename for saving the mask of noisy voxels found by PIESNO.')
 
-    p.add_argument('--no_subsample', action='store_false',
-                   help='If set, process all the dwis multiple times, '
-                   'but note that this option lengthen the total time.\n'
-                   'The default is to find the smallest subset so that each dwi is '
-                   'processed at least once.')
+    advanced.add_argument('--save_stab', metavar='file',
+                          help='Path to save the intermediate noisy bias corrected volume.')
 
-    p.add_argument('--no_stabilization', action='store_true',
-                   help='If set, does not correct the data for the noise non gaussian bias.\n'
-                   'Useful if your data is already bias corrected or you would like to do it afterwards.')
+    advanced.add_argument('--save_sigma', metavar='file',
+                          help='Path to save the intermediate standard deviation volume.')
 
-    p.add_argument('--no_clip_eta', action='store_false',
-                   help='If set, allows eta to take negative values during stabilization.')
+    advanced.add_argument('--save_difference', metavar='file',
+                          help='Path to save the absolute difference volume, abs(noisy - denoised).')
 
-    p.add_argument('--no_denoising', action='store_true',
-                   help='If set, does not run the nlsam denoising.\n'
-                   'Useful if you only want to bias correct your data or get the noise estimation maps only.')
+    advanced.add_argument('--save_eta', metavar='file',
+                          help='Path to save the intermediate underlying signal intensity eta volume.')
 
-    p.add_argument('--cores', metavar='int', type=int,
-                   help='Number of cores to use for multithreading.')
+    advanced.add_argument('--no_clip_eta', action='store_false',
+                          help='If set, allows eta to take negative values during stabilization.')
 
-    p.add_argument('--use_threading', action='store_true',
-                   help='If set, rely on your blas/lapack/spams multithreading capabilities instead of python multiprocessing.\n'
-                   'This mode uses less ram, but is slower than multiprocessing and should only be used for very large datasets\n'
-                   'or in cases where the amount of available ram is limited.')
+    ############
+    # The rest
+    ############
 
-    p.add_argument('--use_f32', action='store_true',
-                   help='If supplied, use float32 for inner computations. This option lowers ram usage, but\n'
-                   'could lead to numerical precision issues, so use carefully and inspect the final output.')
+    misc = p.add_argument_group('Logging and multicores options')
 
-    p.add_argument('--mp_method', metavar='string',
-                   help='Dispatch method for multiprocessing, see\n'
-                        'https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods for more information.\n'
-                        'Default : None, use the default, platform dependent method to run multiprocessing.\n'
-                        'Only available in python 3.4 and later.')
+    misc.add_argument('--no_stabilization', action='store_true',
+                      help='If set, does not correct the data for the noise non gaussian bias.\n'
+                      'Useful if your data is already bias corrected or you would like to do it afterwards.')
 
-    p.add_argument('-m', '--mask', metavar='file',
-                   help='Path to a binary mask. Only the data inside the mask will be reconstructed.')
+    misc.add_argument('--no_denoising', action='store_true',
+                      help='If set, does not run the nlsam denoising.\n'
+                      'Useful if you only want to bias correct your data or get the noise estimation maps only.')
 
-    p.add_argument('-f', '--force', action='store_true', dest='overwrite',
-                   help='If set, the output denoised volume will be overwritten '
-                   'if it already exists.')
+    misc.add_argument('--cores', metavar='int', type=int,
+                      help='Number of cores to use for multithreading.')
 
-    p.add_argument('-v', '--verbose', action='store_true',
-                   help='If set, print useful information message during processing.')
+    misc.add_argument('--use_threading', action='store_true',
+                      help='If set, rely on your blas/lapack/spams multithreading capabilities instead of python multiprocessing.\n'
+                      'This mode uses less ram, but is slower than multiprocessing and should only be used for very large datasets\n'
+                      'or in cases where the amount of available ram is limited.')
 
-    p.add_argument('-l', '--log', dest='logfile', metavar='file',
-                   help='Save the logging output to this file. Implies verbose output.')
+    misc.add_argument('--use_f32', action='store_true',
+                      help='If supplied, use float32 for inner computations. This option lowers ram usage, but\n'
+                      'could lead to numerical precision issues, so use carefully and inspect the final output.')
+
+    misc.add_argument('--mp_method', metavar='string',
+                      help='Dispatch method for multiprocessing, see\n'
+                      'https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods for more information.\n'
+                      'Default : None, use the default, platform dependent method to run multiprocessing.\n'
+                      'Only available in python 3.4 and later.')
+
+    misc.add_argument('-f', '--force', action='store_true', dest='overwrite',
+                      help='If set, the output denoised volume will be overwritten '
+                      'if it already exists.')
+
+    misc.add_argument('-v', '--verbose', action='store_true',
+                      help='If set, print useful information message during processing.')
+
+    misc.add_argument('-l', '--log', dest='logfile', metavar='file',
+                      help='Save the logging output to this file. Implies verbose output.')
+
+    misc.add_argument("-h", "--help", action="help", help="Show this help message and exit.")
+
+    ############
+    # Old stuff
+    ############
+
+    deprecated = p.add_argument_group('Deprecated options')
+
+    deprecated.add_argument('--fix_implausible', action='store_true', dest='implausible_signal_fix',
+                   help='This option has been removed and has no effect.')
+
+    deprecated.add_argument('--sh_order', metavar='int', default=0, type=int, choices=[0, 2, 4, 6, 8],
+                   help='This option has been removed and had no effect.')
 
     return p
 
@@ -199,7 +241,7 @@ def main():
     else:
         handler = logging.StreamHandler(args.logfile)
 
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s', "%Y-%m-%d %H:%M:%S")
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s', "%Y-%m-%d %H:%M")
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
@@ -235,15 +277,17 @@ def main():
 
     overwritable_files = [args.output,
                           args.save_sigma,
+                          args.save_difference,
                           args.save_piesno_mask,
-                          args.save_stab]
+                          args.save_stab,
+                          args.save_eta]
 
     for f in overwritable_files:
         if f is not None and os.path.isfile(f):
             if args.overwrite:
-                logger.warning('Overwriting {0}'.format(os.path.realpath(f)))
+                logger.warning('Overwriting {}'.format(os.path.realpath(f)))
             else:
-                parser.error('{0} already exists! Use -f or --force to overwrite it.'.format(f))
+                parser.error('{} already exists! Use -f or --force to overwrite it.'.format(f))
 
     vol = nib.load(args.input)
     data = np.asarray(vol.get_data(caching='unchanged'), dtype=np.float32)
@@ -257,6 +301,15 @@ def main():
         logger.info("Loading mask {}".format(os.path.realpath(args.mask)))
     else:
         mask = np.ones(data.shape[:-1], dtype=np.bool)
+
+    # load m_hat if we supplied the argument
+    if args.load_mhat is not None:
+        m_hat = np.asarray(nib.load(args.load_mhat).get_data(caching='unchanged'), dtype=np.float32)
+        logger.info("Loading m_hat {}".format(os.path.realpath(args.load_mhat)))
+        if m_hat.shape != data.shape:
+            raise ValueError('m_hat shape {} is different from data shape {}!'.format(m_hat.shape, data.shape))
+    else:
+        m_hat = data
 
     bvals, bvecs = read_bvals_bvecs(args.bvals, args.bvecs)
 
@@ -330,9 +383,7 @@ def main():
 
         # Compute the corrected value for each 3D volume
         if N > 0:
-            sigma = np.broadcast_to(sigma[..., None], data.shape)
-            mask_4D = np.broadcast_to(mask[..., None], data.shape)
-            sigma = corrected_sigma(data, sigma, mask_4D, N, n_cores=n_cores, mp_method=mp_method)
+            sigma = corrected_sigma(data, sigma, N, mask=mask)
 
     if args.save_sigma is not None:
         nib.save(nib.Nifti1Image(sigma, affine), args.save_sigma)
@@ -347,18 +398,26 @@ def main():
     else:
         logger.info("Now performing stabilization")
 
-        m_hat = data
-
         # We may have a 3D sigma map, so broadcast to 4D for indexing
         if sigma.ndim == 3:
             sigma = np.broadcast_to(sigma[..., None], data.shape)
 
-        data_stabilized = stabilization(data, m_hat, mask, sigma, N, n_cores=n_cores, mp_method=mp_method, clip_eta=clip_eta)
-        del m_hat
+        data_stabilized, eta = stabilization(data, m_hat, sigma, N,
+                                             mask=mask,
+                                             clip_eta=clip_eta,
+                                             return_eta=True,
+                                             n_cores=n_cores,
+                                             mp_method=mp_method)
+
+        if args.save_eta is not None:
+            nib.save(nib.Nifti1Image(eta, affine), args.save_eta)
+            logger.info("eta volume saved as {}".format(os.path.realpath(args.save_eta)))
 
         if args.save_stab is not None:
             nib.save(nib.Nifti1Image(data_stabilized, affine), args.save_stab)
             logger.info("Stabilized data saved as {}".format(os.path.realpath(args.save_stab)))
+
+        del m_hat, eta
 
     ##################
     #  Denoising part
@@ -370,7 +429,9 @@ def main():
         # If we have a bunch of 4D views, we only want a 3D array
         if sigma.ndim == data.ndim:
             sigma = np.median(sigma, axis=-1)
-        del data
+
+        if args.save_difference is None:
+            del data
 
         data_denoised = nlsam_denoise(data_stabilized, sigma, bvals, bvecs, block_size,
                                       mask=mask,
@@ -386,6 +447,10 @@ def main():
 
         nib.save(nib.Nifti1Image(data_denoised.astype(np.float32), affine, header), args.output)
         logger.info("Denoised data saved as {}".format(os.path.realpath(args.output)))
+
+        if args.save_difference is not None:
+            nib.save(nib.Nifti1Image(np.abs(data_denoised - data).astype(np.float32), affine, header), args.save_difference)
+            logger.info("Difference map saved as {}".format(os.path.realpath(args.save_difference)))
 
 
 if __name__ == "__main__":

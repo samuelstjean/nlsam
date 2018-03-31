@@ -69,12 +69,11 @@ def multiprocess_stabilization(data, m_hat, mask, sigma, N, clip_eta=True):
 
     if mask.ndim == (sigma.ndim - 1):
         mask = mask[..., None]
-    # print(m_hat.shape, sigma.shape, N.shape, mask.shape)
+
     mask = np.logical_and(sigma > 0, mask)
     out = np.zeros_like(data, dtype=np.float64)
     eta = np.zeros_like(data, dtype=np.float64)
 
-    # print(eta.shape, m_hat.shape, sigma.shape, N.shape, mask.shape)
     eta[mask] = vec_fixed_point_finder(m_hat[mask], sigma[mask], N[mask], clip_eta)
     out[mask] = vec_chi_to_gauss(data[mask], eta[mask], sigma[mask], N[mask])
 

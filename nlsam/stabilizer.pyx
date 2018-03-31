@@ -33,6 +33,7 @@ def root_finder(r, N, max_iter=500, eps=1e-6):
 def xi(eta, sigma, N):
     return _xi(eta, sigma, N)
 
+
 cdef double hyp1f1(double a, double b, double x) nogil:
     """Wrapper for 1F1 hypergeometric series function
     http://en.wikipedia.org/wiki/Confluent_hypergeometric_function"""
