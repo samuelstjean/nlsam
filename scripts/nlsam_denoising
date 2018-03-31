@@ -200,8 +200,6 @@ def buildArgsParser():
     misc.add_argument('-l', '--log', dest='logfile', metavar='file',
                       help='Save the logging output to this file. Implies verbose output.')
 
-    misc.add_argument("-h", "--help", action="help", help="Show this help message and exit.")
-
     ############
     # Old stuff
     ############
@@ -209,10 +207,10 @@ def buildArgsParser():
     deprecated = p.add_argument_group('Deprecated options')
 
     deprecated.add_argument('--fix_implausible', action='store_true', dest='implausible_signal_fix',
-                   help='This option has been removed and has no effect.')
+                            help='This option has been removed and has no effect.')
 
     deprecated.add_argument('--sh_order', metavar='int', default=0, type=int, choices=[0, 2, 4, 6, 8],
-                   help='This option has been removed and had no effect.')
+                            help='This option has been removed and has no effect.')
 
     return p
 
