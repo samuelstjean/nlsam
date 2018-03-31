@@ -1,11 +1,7 @@
 #cython: wraparound=False, cdivision=True, boundscheck=False
 
-import numpy as np
 cimport cython
-
 from libc.math cimport sqrt, exp, fabs, M_PI
-
-from nlsam.multiprocess import multiprocesser
 from scipy.special.cython_special cimport ndtri, gamma, chndtr
 
 
@@ -165,8 +161,7 @@ cdef double _fixed_point_finder(double m_hat, double sigma, double N, bint clip_
     """
     cdef:
         double delta, m, t0, t1
-        bint cond = True
-        int n_iter = 0
+        bint cond
 
     with nogil:
         # If m_hat is below the noise floor, return 0 instead of negatives
@@ -185,17 +180,16 @@ cdef double _fixed_point_finder(double m_hat, double sigma, double N, bint clip_
             m = m_hat
 
         t0 = m
-        t1 = _fixed_point_k(t0, m, sigma, N)
 
-        while cond:
+        for _ in range(max_iter):
+
+            t1 = _fixed_point_k(t0, m, sigma, N)
+            cond = fabs(t1 - t0) < eps
+
+            if cond:
+                break
 
             t0 = t1
-            t1 = _fixed_point_k(t0, m, sigma, N)
-            n_iter += 1
-            cond = fabs(t1 - t0) > eps
-
-            if n_iter > max_iter:
-                break
 
         if npy_isnan(t1): # Should not happen unless numerically unstable
             t1 = 0
@@ -235,7 +229,7 @@ cdef double _fixed_point_k_v2(double eta, double m, double sigma, double N) nogi
     and is only here for completion purposes, as it a replacement for eq. D2.
     Consider this as a secret bonus for looking at the code since we currently do not use it ;)"""
     cdef:
-        double num, denom
+        double num, denom, h1f1m, h1f1p
         double eta2sigma = -eta**2/(2*sigma**2)
         double beta_N = _beta(N)
 
@@ -303,7 +297,6 @@ cdef double k(double theta, double N, double r) nogil:
 
 
 cdef double _root_finder(double r, double N, int max_iter, double eps) nogil:
-
     cdef:
         bint cond
         double lower_bound = sqrt((2*N / _xi(0, 1, N)) - 1)
