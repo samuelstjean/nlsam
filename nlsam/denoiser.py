@@ -14,13 +14,6 @@ from nlsam.multiprocess import multiprocesser
 from scipy.sparse import lil_matrix
 
 try:
-    # python 2
-    from itertools import imap
-except ImportError:
-    # python 3
-    imap = map
-
-try:
     import spams
     warnings.filterwarnings("ignore", category=FutureWarning, module='spams')
 except ImportError:

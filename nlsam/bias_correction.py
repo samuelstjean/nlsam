@@ -1,10 +1,12 @@
 from __future__ import division
 
 import numpy as np
+import logging
 
 from nlsam.multiprocess import multiprocesser
 from nlsam.stabilizer import fixed_point_finder, chi_to_gauss, root_finder, xi
 
+logger = logging.getLogger('nlsam')
 
 # Vectorised versions of the above, so we can use implicit broadcasting and stuff
 vec_fixed_point_finder = np.vectorize(fixed_point_finder, [np.float64])
@@ -64,7 +66,7 @@ def stabilization(data, m_hat, sigma, N, mask=None, clip_eta=True, return_eta=Fa
     return data_stabilized
 
 
-def multiprocess_stabilization(data, m_hat, mask, sigma, N, clip_eta=True):
+def multiprocess_stabilization(data, m_hat, mask, sigma, N, clip_eta):
     """Helper function for multiprocessing the stabilization part."""
 
     if mask.ndim == (sigma.ndim - 1):
@@ -74,13 +76,18 @@ def multiprocess_stabilization(data, m_hat, mask, sigma, N, clip_eta=True):
     out = np.zeros_like(data, dtype=np.float64)
     eta = np.zeros_like(data, dtype=np.float64)
 
-    eta[mask] = vec_fixed_point_finder(m_hat[mask], sigma[mask], N[mask], clip_eta)
+    eta[mask] = vec_fixed_point_finder(m_hat[mask], sigma[mask], N[mask], clip_eta=clip_eta)
     out[mask] = vec_chi_to_gauss(data[mask], eta[mask], sigma[mask], N[mask])
 
     return out, eta
 
 
 def corrected_sigma(eta, sigma, N, mask=None):
+    logger.warning('The function nlsam.bias_correction.corrected_sigma was replaced by nlsam.bias_correction.root_finder_sigma')
+    return root_finder_sigma(eta, sigma, N, mask=mask)
+
+
+def root_finder_sigma(data, sigma, N, mask=None):
     """Compute the local corrected standard deviation for the adaptive nonlocal
     means according to the correction factor xi.
 
@@ -100,29 +107,6 @@ def corrected_sigma(eta, sigma, N, mask=None):
     output, ndarray
         Corrected sigma value, where sigma_gaussian = sigma / sqrt(xi)
     """
-    eta = np.array(eta)
-    sigma = np.array(sigma)
-
-    if mask is None:
-        mask = np.ones_like(sigma, dtype=np.bool)
-    else:
-        mask = np.array(mask, dtype=np.bool)
-
-    # Force 3D/4D broadcasting if needed
-    if sigma.ndim == (eta.ndim - 1):
-        sigma = np.broadcast_to(sigma[..., None], eta.shape)
-
-    if mask.ndim == (sigma.ndim - 1):
-        mask = np.broadcast_to(mask[..., None], sigma.shape)
-
-    output = np.zeros_like(eta, dtype=np.float32)
-    output[mask] = sigma[mask] / np.sqrt(vec_xi(eta[mask], sigma[mask], N))
-
-    return output
-
-
-def root_finder_sigma(data, sigma, N, mask=None):
-
     data = np.array(data)
     sigma = np.array(sigma)
     N = np.array(N)
