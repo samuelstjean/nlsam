@@ -68,17 +68,16 @@ cdef double _chi_to_gauss(double m, double eta, double sigma, double N,
     """
     cdef double cdf, inv_cdf_gauss
 
-    with nogil:
-        cdf = 1. - _marcumq_cython(eta/sigma, m/sigma, N)
+    cdf = 1. - _marcumq_cython(eta/sigma, m/sigma, N)
 
-        # clip cdf between alpha/2 and 1-alpha/2
-        if cdf < alpha/2:
-            cdf = alpha/2
-        elif cdf > 1 - alpha/2:
-            cdf = 1 - alpha/2
+    # clip cdf between alpha/2 and 1-alpha/2
+    if cdf < alpha/2:
+        cdf = alpha/2
+    elif cdf > 1 - alpha/2:
+        cdf = 1 - alpha/2
 
-        inv_cdf_gauss = eta + sigma * ndtri(cdf)
-        return inv_cdf_gauss
+    inv_cdf_gauss = eta + sigma * ndtri(cdf)
+    return inv_cdf_gauss
 
 
 cdef double _marcumq_cython(double a, double b, double M, double eps=1e-8) nogil:
@@ -163,41 +162,40 @@ cdef double _fixed_point_finder(double m_hat, double sigma, double N, bint clip_
         double delta, m, t0, t1
         bint cond
 
-    with nogil:
-        # If m_hat is below the noise floor, return 0 instead of negatives
-        # as per Bai 2014
-        if clip_eta and (m_hat < sqrt(0.5 * M_PI) * sigma):
-            return 0
+    # If m_hat is below the noise floor, return 0 instead of negatives
+    # as per Bai 2014
+    if clip_eta and (m_hat < sqrt(0.5 * M_PI) * sigma):
+        return 0
 
-        delta = _beta(N) * sigma - m_hat
+    delta = _beta(N) * sigma - m_hat
 
-        if fabs(delta) < 1e-15:
-            return 0
+    if fabs(delta) < 1e-15:
+        return 0
 
-        if delta > 0:
-            m = _beta(N) * sigma + delta
-        else:
-            m = m_hat
+    if delta > 0:
+        m = _beta(N) * sigma + delta
+    else:
+        m = m_hat
 
-        t0 = m
+    t0 = m
 
-        for _ in range(max_iter):
+    for _ in range(max_iter):
 
-            t1 = _fixed_point_k(t0, m, sigma, N)
-            cond = fabs(t1 - t0) < eps
+        t1 = _fixed_point_k(t0, m, sigma, N)
+        cond = fabs(t1 - t0) < eps
 
-            if cond:
-                break
+        if cond:
+            break
 
-            t0 = t1
+        t0 = t1
 
-        if npy_isnan(t1): # Should not happen unless numerically unstable
-            t1 = 0
+    if npy_isnan(t1): # Should not happen unless numerically unstable
+        t1 = 0
 
-        if delta > 0 and not clip_eta:
-            return -t1
-        else:
-            return t1
+    if delta > 0 and not clip_eta:
+        return -t1
+    else:
+        return t1
 
 
 cdef double _beta(double N) nogil:
@@ -261,22 +259,21 @@ cdef double _xi(double eta, double sigma, double N) nogil:
 
     cdef double h1f1, out
 
-    with nogil:
-        if fabs(sigma) < 1e-15 or (eta / sigma) > 1000:
-            return 1.
+    if fabs(sigma) < 1e-15 or (eta / sigma) > 1000:
+        return 1.
 
-        h1f1 = hyp1f1(-0.5, N, -eta**2/(2*sigma**2))
-        out = 2*N + eta**2/sigma**2 - (_beta(N) * h1f1)**2
+    h1f1 = hyp1f1(-0.5, N, -eta**2/(2*sigma**2))
+    out = 2*N + eta**2/sigma**2 - (_beta(N) * h1f1)**2
 
-        # Ridiculous SNR > 1e15 returns nonsense high numbers (positive or negative in the order of 1e30).
-        # due to floating point precision issues, but the function is bounded between 0 and 1.
-        # It starts to accumulate error around SNR ~ 1e4 though,
-        # so we clip it to 1 to stay on the safe side.
+    # Ridiculous SNR > 1e15 returns nonsense high numbers (positive or negative in the order of 1e30).
+    # due to floating point precision issues, but the function is bounded between 0 and 1.
+    # It starts to accumulate error around SNR ~ 1e4 though,
+    # so we clip it to 1 to stay on the safe side.
 
-        if fabs(out) > 1:
-            out = 1.
+    if fabs(out) > 1:
+        out = 1.
 
-        return out
+    return out
 
 
 # Helper function for the root finding loop
@@ -302,24 +299,23 @@ cdef double _root_finder(double r, double N, int max_iter, double eps) nogil:
         bint cond
         double lower_bound = sqrt((2*N / _xi(0, 1, N)) - 1)
 
-    with nogil:
-        if r < lower_bound:
-            return 0
+    if r < lower_bound:
+        return 0
 
-        t0 = r - lower_bound
+    t0 = r - lower_bound
+    t1 = k(t0, N, r)
+
+    for _ in range(max_iter):
+
+        cond = fabs(t1 - t0) < eps
+
+        t0 = t1
         t1 = k(t0, N, r)
 
-        for _ in range(max_iter):
+        if cond:
+            break
 
-            cond = fabs(t1 - t0) < eps
-
-            t0 = t1
-            t1 = k(t0, N, r)
-
-            if cond:
-                break
-
-        return t1
+    return t1
 
 
 # Test for cython functions
