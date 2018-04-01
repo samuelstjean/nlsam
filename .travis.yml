@@ -58,7 +58,7 @@ matrix:
       language: generic
       before_install:
         - brew update
-        - brew install python3
+        - brew upgrade python
         - virtualenv env -p python3
         - source env/bin/activate
       env:
@@ -68,7 +68,7 @@ matrix:
       language: generic
       before_install:
         - brew update
-        - brew install python3
+        - brew upgrade python
         - virtualenv env -p python3
         - source env/bin/activate
       env:
@@ -113,6 +113,7 @@ notifications:
 
 install:
     - python --version # just to check
+    - pip install -U pip
     - pip install pytest coverage coveralls
     - pip install $DEPENDS --upgrade --upgrade-strategy only-if-needed
     - python setup.py build_ext -i
@@ -133,7 +134,7 @@ before_script:
 script:
     - mkdir tester
     - cd tester
-    - py.test ../nlsam/tests/ --verbose
+    - pytest ../nlsam/tests/ --verbose
     - if [[ "$TESTPART" ]];
         then echo 'Running tests $TESTPART';
         chmod +x ../nlsam/tests/$TESTPART;
