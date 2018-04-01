@@ -31,7 +31,7 @@ install:
   - "conda create -q -n buildfarm python=%PYTHON_VERSION% numpy==1.11.3 scipy==0.19.1 cython==0.23 pip"
   - "activate buildfarm"
 
-  - "pip install --no-deps nibabel==2.1 dipy==0.11"
+  - "pip install --upgrade --upgrade-strategy only-if-needed nibabel==2.1 dipy==0.11"
   - "pip install pytest"
   - 'pip install https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-2.4-cp27-none-win_amd64.whl'
 
