@@ -261,21 +261,22 @@ cdef double _xi(double eta, double sigma, double N) nogil:
 
     cdef double h1f1, out
 
-    if fabs(sigma) < 1e-15 or (eta / sigma) > 1e8:
-        return 1.
+    with nogil:
+        if fabs(sigma) < 1e-15 or (eta / sigma) > 1000:
+            return 1.
 
-    h1f1 = hyp1f1(-0.5, N, -eta**2/(2*sigma**2))
-    out = 2*N + eta**2/sigma**2 - (_beta(N) * h1f1)**2
+        h1f1 = hyp1f1(-0.5, N, -eta**2/(2*sigma**2))
+        out = 2*N + eta**2/sigma**2 - (_beta(N) * h1f1)**2
 
-    # Ridiculous SNR > 1e15 returns nonsense high numbers (positive or negative in the order of 1e30).
-    # due to floating point precision issues, but the function is bounded between 0 and 1.
-    # It starts to accumulate error around SNR ~ 1e4 though,
-    # so we clip it to 1 to stay on the safe side.
+        # Ridiculous SNR > 1e15 returns nonsense high numbers (positive or negative in the order of 1e30).
+        # due to floating point precision issues, but the function is bounded between 0 and 1.
+        # It starts to accumulate error around SNR ~ 1e4 though,
+        # so we clip it to 1 to stay on the safe side.
 
-    if fabs(out) > 1:
-        out = 1.
+        if fabs(out) > 1:
+            out = 1.
 
-    return out
+        return out
 
 
 # Helper function for the root finding loop
@@ -301,23 +302,24 @@ cdef double _root_finder(double r, double N, int max_iter, double eps) nogil:
         bint cond
         double lower_bound = sqrt((2*N / _xi(0, 1, N)) - 1)
 
-    if r < lower_bound:
-        return 0
+    with nogil:
+        if r < lower_bound:
+            return 0
 
-    t0 = r - lower_bound
-    t1 = k(t0, N, r)
-
-    for _ in range(max_iter):
-
-        cond = fabs(t1 - t0) < eps
-
-        t0 = t1
+        t0 = r - lower_bound
         t1 = k(t0, N, r)
 
-        if cond:
-            break
+        for _ in range(max_iter):
 
-    return t1
+            cond = fabs(t1 - t0) < eps
+
+            t0 = t1
+            t1 = k(t0, N, r)
+
+            if cond:
+                break
+
+        return t1
 
 
 # Test for cython functions
