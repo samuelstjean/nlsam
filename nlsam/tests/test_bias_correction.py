@@ -3,15 +3,15 @@
 from __future__ import division, print_function
 
 import numpy as np
-from numpy.testing import assert_allclose, run_module_suite
+from numpy.testing import assert_allclose, assert_array_less, run_module_suite
 
 from nlsam.bias_correction import root_finder_sigma, multiprocess_stabilization
 
 
 def test_root_finder_sigma():
 
-    eta = np.full((10, 10, 10, 10), 100)
-    sigma = np.full((10, 10, 10, 10), 1)
+    eta = np.full((10, 10, 10, 10), 100.)
+    sigma = np.full((10, 10, 10, 10), 1.)
     N = 1
     mask = np.ones_like(eta[..., 0])
     output = root_finder_sigma(eta, sigma, N, mask)
@@ -30,7 +30,9 @@ def test_root_finder_sigma():
     eta = [a.mean(), a.mean()]
     sigma = a.std()
     output = root_finder_sigma(eta, sigma, 1)
-    assert_allclose(output, 50, atol=1)
+
+    # everything less than 5% error of real value?
+    assert_array_less(np.abs(output - 50) / 50, 0.05)
 
 
 # Taken from original example
@@ -67,7 +69,7 @@ def test_stabilization():
             231.3837, 213.2975, 196.4307, 180.729, 166.1395, 152.6104, 140.0909, 128.5316, 117.8841, 108.1015,
             99.1377, 90.9479, 83.4886, 76.7173, 70.5929, 65.0752, 60.1254, 55.7058, 51.7798, 48.3122,
             45.2688, 42.6165, 40.3235, 38.3593, 36.6944, 35.3005, 34.1505, 33.2185, 32.4797, 31.9106,
-            31.4888, 31.1931, 31.0035, 30.9011, 30.8682, 30.8884, 30.9463, 31.0279, 31.12,31.211, 31.2903,
+            31.4888, 31.1931, 31.0035, 30.9011, 30.8682, 30.8884, 30.9463, 31.0279, 31.12, 31.211, 31.2903,
             31.3484, 31.3771, 31.3693, 31.3191, 31.2218, 31.0739, 30.873, 30.6179, 30.3087, 29.9465,
             29.5336, 29.0737, 28.5714, 28.0325, 27.4643, 26.8748, 26.2736, 25.6712, 25.0795, 24.5113,
             23.9808, 23.5034, 23.0955, 22.7748, 22.5601, 22.4715, 22.5301, 22.7584, 23.1799, 23.8194,
