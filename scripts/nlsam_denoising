@@ -200,6 +200,8 @@ def buildArgsParser():
     misc.add_argument('-l', '--log', dest='logfile', metavar='file',
                       help='Save the logging output to this file. Implies verbose output.')
 
+    misc.add_argument("-h", "--help", action="help", help="Show this help message and exit.")
+
     ############
     # Old stuff
     ############

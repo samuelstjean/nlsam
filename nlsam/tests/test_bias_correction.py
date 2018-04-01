@@ -5,31 +5,31 @@ from __future__ import division, print_function
 import numpy as np
 from numpy.testing import assert_allclose, run_module_suite
 
-from nlsam.bias_correction import corrected_sigma, multiprocess_stabilization
+from nlsam.bias_correction import root_finder_sigma, multiprocess_stabilization
 
 
-def test_corrected_sigma():
+def test_root_finder_sigma():
 
     eta = np.full((10, 10, 10, 10), 100)
     sigma = np.full((10, 10, 10, 10), 1)
     N = 1
     mask = np.ones_like(sigma)
 
-    output = corrected_sigma(eta, sigma, N, mask)
+    output = root_finder_sigma(eta, sigma, N, mask)
     assert_allclose(output, sigma, atol=1e-4)
 
-    output = corrected_sigma(eta, sigma[..., 0], N)
+    output = root_finder_sigma(eta, sigma[..., 0], N)
     assert_allclose(output, sigma, atol=1e-4)
 
     mask[5:8, 3:9] = 0
-    output = corrected_sigma(eta, sigma, N, mask)
+    output = root_finder_sigma(eta, sigma, N, mask)
     sigma[5:8, 3:9] = 0
     assert_allclose(output, sigma, atol=1e-4)
 
     # magnitude SNR of 0.5 -> sigma = 50, eta = 25 for N = 1
     eta = 17.5
     sigma = 35
-    output = corrected_sigma(eta, sigma, N)
+    output = root_finder_sigma(eta, sigma, N)
     assert_allclose(output, 50, atol=1)
 
 

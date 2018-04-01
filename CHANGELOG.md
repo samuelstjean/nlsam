@@ -2,8 +2,13 @@
 
 ## [0.7] Development version
 
+- New command line arguments, now subclassed into categories.
+    + --load_mhat file, to load a volume for initializing the bias correction, the default is to use the data itself.
+    + --save_difference file, to save a volume showing the removed signal parts as abs(original_data - denoised_data)
+    + --save_eta file, to save the result of the estimated underlying signal value for debugging purposes.
+    + Deprecation of options --implausible_signal_fix and --sh_order, use --load_mhat instead for initialization.
+- Support for non integer values of N
 - New module nlsam.bias_correction, which contains an easier to use interface to the C functions in nlsam.stabilizer
-- Deprecation of options --implausible_signal_fix and --sh_order, use --load_mhat instead for initialization.
 - New online documentation available at http://nlsam.readthedocs.io/ for the current (and future) versions.
 
 ## [0.6.1] - 2017-11-17
