@@ -13,8 +13,7 @@ def test_root_finder_sigma():
     eta = np.full((10, 10, 10, 10), 100)
     sigma = np.full((10, 10, 10, 10), 1)
     N = 1
-    mask = np.ones_like(sigma)
-
+    mask = np.ones_like(eta[..., 0])
     output = root_finder_sigma(eta, sigma, N, mask)
     assert_allclose(output, sigma, atol=1e-4)
 
@@ -27,9 +26,10 @@ def test_root_finder_sigma():
     assert_allclose(output, sigma, atol=1e-4)
 
     # magnitude SNR of 0.5 -> sigma = 50, eta = 25 for N = 1
-    eta = 17.5
-    sigma = 35
-    output = root_finder_sigma(eta, sigma, N)
+    a = np.sqrt(((25 + np.random.randn(1000)) * 50)**2 + ((25 + np.random.randn(1000) * 50))**2)
+    eta = [a.mean(), a.mean()]
+    sigma = a.std()
+    output = root_finder_sigma(eta, sigma, 1)
     assert_allclose(output, 50, atol=1)
 
 

@@ -93,11 +93,11 @@ def root_finder_sigma(data, sigma, N, mask=None):
 
     Input
     --------
-    eta : double
+    eta : ndarray
         Signal intensity
-    sigma : double
+    sigma : ndarray
         Noise magnitude standard deviation
-    N : int
+    N : ndarray or double
         Number of coils of the acquisition (N=1 for Rician noise)
     mask : ndarray, optional
         Compute only the corrected sigma value inside the mask.
@@ -120,18 +120,18 @@ def root_finder_sigma(data, sigma, N, mask=None):
     if sigma.ndim == (data.ndim - 1):
         sigma = np.broadcast_to(sigma[..., None], data.shape)
 
-    if mask.ndim == (sigma.ndim - 1):
-        mask = np.broadcast_to(mask[..., None], sigma.shape)
-
     if N.ndim < data.ndim:
         N = np.broadcast_to(N[..., None], data.shape)
 
     corrected_sigma = np.zeros_like(data, dtype=np.float32)
-    gaussian_SNR = np.zeros_like(data, dtype=np.float32)
-    theta = np.zeros_like(data, dtype=np.float32)
 
-    theta[mask] = data[mask] / sigma[mask]
-    gaussian_SNR[mask] = vec_root_finder(theta[mask], N[mask])
-    corrected_sigma[mask] = sigma[mask] / np.sqrt(vec_xi(gaussian_SNR[mask], 1, N[mask]))
+    # To not murder people ram, we process it slice by slice and reuse the arrays in a for loop
+    gaussian_SNR = np.zeros_like(data[..., 0][mask], dtype=np.float32)
+    theta = np.zeros_like(gaussian_SNR)
+
+    for idx in range(data.shape[-1]):
+        theta[:] = data[..., idx][mask] / sigma[..., idx][mask]
+        gaussian_SNR[:] = vec_root_finder(theta, N[..., idx][mask])
+        corrected_sigma[..., idx][mask] = sigma[..., idx][mask] / np.sqrt(vec_xi(gaussian_SNR, 1, N[..., idx][mask]))
 
     return corrected_sigma
