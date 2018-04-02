@@ -26,13 +26,13 @@ def test_root_finder_sigma():
     assert_allclose(output, sigma, atol=1e-4)
 
     # magnitude SNR of 0.5 -> sigma = 50, eta = 25 for N = 1
-    a = np.sqrt(((25 + np.random.randn(1000)) * 50)**2 + ((25 + np.random.randn(1000) * 50))**2)
+    a = np.sqrt((25 + np.random.randn(10000) * 50)**2 + (np.random.randn(10000) * 50)**2)
     eta = [a.mean(), a.mean()]
     sigma = a.std()
     output = root_finder_sigma(eta, sigma, 1)
 
-    # everything less than 5% error of real value?
-    assert_array_less(np.abs(output - 50) / 50, 0.05)
+    # everything less than 10% error of real value?
+    assert_array_less(np.abs(output - 50) / 50, 0.1)
 
 
 # Taken from original example

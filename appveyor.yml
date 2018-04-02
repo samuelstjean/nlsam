@@ -31,7 +31,8 @@ install:
   - "conda create -q -n buildfarm python=%PYTHON_VERSION% numpy==1.11.3 scipy==0.19.1 cython==0.23 pip"
   - "activate buildfarm"
 
-  - "pip install --no-deps nibabel==2.1 dipy==0.11"
+  - "pip install --upgrade --upgrade-strategy only-if-needed nibabel==2.1"
+  - "pip install --upgrade --upgrade-strategy only-if-needed dipy==0.11"
   - "pip install pytest"
   - 'pip install https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-2.4-cp27-none-win_amd64.whl'
 
@@ -52,9 +53,9 @@ test_script:
 after_test:
   - "cd C:\\projects\\nlsam"
   - python setup.py sdist --formats=gztar
-  - "pip install pyinstaller"
+  - pip install pyinstaller
   - pyinstaller nlsam_denoising.spec --onefile
-  - 7z a nlsam_%APPVEYOR_REPO_TAG_NAME%_windows_x64.zip ./dist/nlsam_denoising.exe LICENSE README.md CHANGELOG.md example/
+  - 7z a nlsam_%APPVEYOR_REPO_TAG_NAME%_windows_x64.zip ./dist/nlsam_denoising.exe LICENSE README.md CHANGELOG.md example/ docs/
 
 artifacts:
   - path: dist/*.tar.gz

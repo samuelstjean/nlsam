@@ -57,39 +57,83 @@ matrix:
     - os: osx
       language: generic
       before_install:
-        - brew update
-        - brew install python3
-        - virtualenv env -p python3
-        - source env/bin/activate
+        # Install Anaconda
+        - if [[ "$ANACONDA_PYTHON_VERSION" == "2.7" ]]; then
+            wget https://repo.continuum.io/miniconda/Miniconda2-latest-MacOSX-x86_64.sh -O miniconda.sh;
+          else
+            wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh;
+          fi
+        - bash miniconda.sh -b -p $HOME/miniconda
+        - export PATH="$HOME/miniconda/bin:$PATH"
+        - hash -r
+        - conda config --set always_yes yes --set changeps1 no
+        - conda update -q conda
+        - conda create -q -n test-environment python=$ANACONDA_PYTHON_VERSION
+        - source activate test-environment
       env:
         - DEPENDS=$DEPENDS
           TESTPART=test_scripts1.sh
+          ANACONDA_PYTHON_VERSION=2.7
     - os: osx
       language: generic
       before_install:
-        - brew update
-        - brew install python3
-        - virtualenv env -p python3
-        - source env/bin/activate
+        # Install Anaconda
+        - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
+            wget https://repo.continuum.io/miniconda/Miniconda2-latest-MacOSX-x86_64.sh -O miniconda.sh;
+          else
+            wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh;
+          fi
+        - bash miniconda.sh -b -p $HOME/miniconda
+        - export PATH="$HOME/miniconda/bin:$PATH"
+        - hash -r
+        - conda config --set always_yes yes --set changeps1 no
+        - conda update -q conda
+        - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION
+        - source activate test-environment
       env:
         - DEPENDS=$DEPENDS
           TESTPART=test_scripts2.sh
+          ANACONDA_PYTHON_VERSION=2.7
     - os: osx
       language: generic
       before_install:
-        - virtualenv env -p python
-        - source env/bin/activate
+        # Install Anaconda
+        - if [[ "$ANACONDA_PYTHON_VERSION" == "2.7" ]]; then
+            wget https://repo.continuum.io/miniconda/Miniconda2-latest-MacOSX-x86_64.sh -O miniconda.sh;
+          else
+            wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh;
+          fi
+        - bash miniconda.sh -b -p $HOME/miniconda
+        - export PATH="$HOME/miniconda/bin:$PATH"
+        - hash -r
+        - conda config --set always_yes yes --set changeps1 no
+        - conda update -q conda
+        - conda create -q -n test-environment python=$ANACONDA_PYTHON_VERSION
+        - source activate test-environment
       env:
         - DEPENDS=$DEPENDS_MIN
           TESTPART=test_scripts1.sh
+          ANACONDA_PYTHON_VERSION=3.5
     - os: osx
       language: generic
       before_install:
-        - virtualenv env -p python
-        - source env/bin/activate
+        # Install Anaconda
+        - if [[ "$ANACONDA_PYTHON_VERSION" == "2.7" ]]; then
+            wget https://repo.continuum.io/miniconda/Miniconda2-latest-MacOSX-x86_64.sh -O miniconda.sh;
+          else
+            wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh;
+          fi
+        - bash miniconda.sh -b -p $HOME/miniconda
+        - export PATH="$HOME/miniconda/bin:$PATH"
+        - hash -r
+        - conda config --set always_yes yes --set changeps1 no
+        - conda update -q conda
+        - conda create -q -n test-environment python=$ANACONDA_PYTHON_VERSION
+        - source activate test-environment
       env:
         - DEPENDS=$DEPENDS_MIN
           TESTPART=test_scripts2.sh
+          ANACONDA_PYTHON_VERSION=3.5
 
     # pyinstaller builds
     - python: 3.5
@@ -113,6 +157,7 @@ notifications:
 
 install:
     - python --version # just to check
+    - pip install -U pip
     - pip install pytest coverage coveralls
     - pip install $DEPENDS --upgrade --upgrade-strategy only-if-needed
     - python setup.py build_ext -i
@@ -124,6 +169,7 @@ install:
         pyinstaller nlsam_denoising.spec --onefile;
         zip -j nlsam_${TRAVIS_TAG}_${TRAVIS_OS_NAME}_x64.zip dist/nlsam_denoising LICENSE README.md CHANGELOG.md;
         zip -r nlsam_${TRAVIS_TAG}_${TRAVIS_OS_NAME}_x64.zip example/*;
+        zip -r nlsam_${TRAVIS_TAG}_${TRAVIS_OS_NAME}_x64.zip docs/*;
       fi
 
 before_script:
@@ -133,7 +179,7 @@ before_script:
 script:
     - mkdir tester
     - cd tester
-    - py.test ../nlsam/tests/ --verbose
+    - pytest ../nlsam/tests/ --verbose
     - if [[ "$TESTPART" ]];
         then echo 'Running tests $TESTPART';
         chmod +x ../nlsam/tests/$TESTPART;
