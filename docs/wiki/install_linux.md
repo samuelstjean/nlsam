@@ -20,7 +20,7 @@ The gsl lib is now included as a precompiled static library, so no need to insta
 Of course feel free to use your favorite blas/lapack implementation (such as intel MKL),
 but I got 5x faster runtimes out of openblas vs atlas for NLSAM just by switching libraries.
 
-## Installing nlsam
+## Installing NLSAM
 
 For the python dependencies themselves, I recommend a fresh pip install since versions from the repositories tend to get old quite fast.
 You will need numpy, scipy, cython, nibabel, dipy and spams.
