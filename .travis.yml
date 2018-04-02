@@ -129,6 +129,7 @@ install:
         pyinstaller nlsam_denoising.spec --onefile;
         zip -j nlsam_${TRAVIS_TAG}_${TRAVIS_OS_NAME}_x64.zip dist/nlsam_denoising LICENSE README.md CHANGELOG.md;
         zip -r nlsam_${TRAVIS_TAG}_${TRAVIS_OS_NAME}_x64.zip example/*;
+        zip -r nlsam_${TRAVIS_TAG}_${TRAVIS_OS_NAME}_x64.zip docs/*;
       fi
 
 before_script:
