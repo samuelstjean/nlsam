@@ -28,19 +28,20 @@ Of course, while it is easy, it also has a downside.
 Adding the conda forge channel will also replace all of your existing conda package with their own version which is using openblas instead of apple veclib.
 This might not be a problem in general, but you might need to rebuild/compile other python packages installed prior to adding this channel.
 
-### B. The harder way, building spams with openmp support
+### B. The slower way, building spams *without* openmp support
 
-As the apple version of clang does not support openmp, we need to install another compiler.
+As the apple version of clang does not support openmp, we would need to install another compiler.
 The old instructions would have you do `brew install llvm` and a few compiler  paths shenanigans, but it is much easier to use Anaconda and gcc.
+It is also possible to install spams without openmp, but some parts will not be multithreaded in that case, making the overall runtime of the algorithm longer.
 
-Building spams can be done in one line using
+Building spams with openmp deactivated can be done in one line using
 
 ~~~bash
 pip install https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-2.6.zip
 ~~~
 
 which downloads an archive hosted by yours truly.
-You can also go grab a newer version on the original authors [website](http://spams-devel.gforge.inria.fr/downloads.html) if needed/available.
+You can also go grab a newer version on the original authors [website](http://spams-devel.gforge.inria.fr/downloads.html) if needed/available or if you want to build it with openmp support.
 
 ## Installing NLSAM
 

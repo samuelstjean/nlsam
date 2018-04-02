@@ -1,12 +1,12 @@
-# Instruction for installing on Windows
-
+# Installation for Windows
 
 ## Easy way - grab a binary release
 
 + To simply run the algorithm, the easiest way is definitely to download the windows binary from the [release](https://github.com/samuelstjean/nlsam/releases) section as you won't need to install python or anything else.
 Just unzip the archive and start the program from a command line prompt, that's it!
 
-+ If you want to try out a precompiled dev version from master/another branch, you can find automatic builds here https://ci.appveyor.com/project/samuelstjean/nlsam/build/artifacts. Unless you need a feature which is not yet released, I would however not advise to use this method since they are automatically made after each commit and are subject to frequent changes.
++ If you want to try out a precompiled dev version from master/another branch, you can find automatic builds [here](https://ci.appveyor.com/project/samuelstjean/nlsam/build/artifacts).
+Unless you need a fancy feature which is not yet released, I would stick to the released version for simplicity as the automatic builds are subject to frequent changes.
 
 + If you would like to study/modify the code, you will need a python distribution and a compiler as outlined below.
 
@@ -15,10 +15,12 @@ Just unzip the archive and start the program from a command line prompt, that's 
 I suggest using python 2.7 as the installation is much easier on windows. You can install a lightweight version of [Visual C++ Compiler for python 2.7](https://www.microsoft.com/en-us/download/details.aspx?id=44266).
 
 If you would like to install python 3, you will need to install the full visual studio appropriate for your version of python as explained [here](https://wiki.python.org/moin/WindowsCompilers).
+As the whole thing is at least around 20 GB, I would strongly recommend to stick with the easy python 2.7 version for now.
 
 ## Installing python
 
-You will need to get a python distribution and some other stuff. For starters, grabbing a complete distribution such as [Anaconda](https://www.continuum.io/downloads#_windows) is the easiest way to go as it comes with all the usual scientific packages.
+You will need to get a python distribution and some other stuff.
+For starters, grabbing a complete distribution such as [Anaconda](https://www.continuum.io/downloads#_windows) is the easiest way to go as it comes with all the usual scientific packages.
 
 ## Installing NLSAM and dependencies
 
