@@ -77,7 +77,9 @@ matrix:
     - os: osx
       language: generic
       before_install:
-        - virtualenv env -p python
+        - brew update
+        - brew install python@2
+        - virtualenv env -p python2
         - source env/bin/activate
       env:
         - DEPENDS=$DEPENDS_MIN
@@ -85,7 +87,9 @@ matrix:
     - os: osx
       language: generic
       before_install:
-        - virtualenv env -p python
+        - brew update
+        - brew install python@2
+        - virtualenv env -p python2
         - source env/bin/activate
       env:
         - DEPENDS=$DEPENDS_MIN
