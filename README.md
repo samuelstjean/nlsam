@@ -7,6 +7,7 @@
 [nlsam_data]: https://github.com/samuelstjean/nlsam_data
 [spams]: http://spams-devel.gforge.inria.fr/
 [rtd]: https://nlsam.readthedocs.io/en/latest/
+[koay_bias]: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2765718/
 
 The reference implementation for the Non Local Spatial and Angular Matching (NLSAM) denoising algorithm for diffusion MRI.
 
@@ -43,10 +44,6 @@ You can also download the datasets used in the paper over [here][nlsam_data].
 
 ## Using the NLSAM algorithm
 
-Once installed, there is now a single script to do the whole processing.
-Feel free to have a look if you want to build your own python pipeline as it
-wraps the various parts of the algorithm provided inside the python-part library.
-
 The process is to first transform your data to Gaussian distributed signals if your dataset is
 Rician or Noncentral chi distributed and then proceed to the NLSAM denoising part itself.
 
@@ -67,11 +64,19 @@ You can find a detailed usage example and assorted dataset to try out in the
 If you need help or would like more information, don't hesitate to drop me a
 line at firstname@isi.uu.nl, where of course firstname needs to be replaced with samuel.
 
-## Reference
+## References
 
-St-Jean, S., Coupé, P., & Descoteaux, M. (2016).
-"[Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising.][paper]"
-Medical Image Analysis, 32(2016), 115–130. [DOI] [URL]
+The NLSAM denoising algorithm itself is detailed in
+
+> St-Jean, S., Coupé, P., & Descoteaux, M. (2016).
+> "[Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising.][paper]"
+> Medical Image Analysis, 32(2016), 115–130. [DOI] [URL]
+
+The bias correction framework is a reimplementation of
+
+> Koay, CG, Özarslan, E and Basser, PJ
+> [A signal transformational framework for breaking the noise floor and its applications in MRI][koay_bias],
+> Journal of Magnetic Resonance, Volume 197, Issue 2, 2009
 
 And here is a premade bibtex entry.
 
@@ -84,13 +89,3 @@ And here is a premade bibtex entry.
       volume = {32},
       year = {2016}
       }
-
-## License
-
-As the main solver I use [spams][] is GPL licensed and the stabilization script
-uses the GNU GSL library, the NLSAM main codebase is also licensed under the
-GPL v3, see the file LICENSE for more information.
-
-If you would like to reuse parts of this work under another project/license,
-feel free to drop me an email and I will gladly re-license the files you need
-as MIT/BSD/whatever else.
