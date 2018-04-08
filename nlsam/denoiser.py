@@ -23,7 +23,7 @@ logger = logging.getLogger('nlsam')
 
 
 def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
-                  mask=None, is_symmetric=False, n_cores=None, split_b0s=False,
+                  mask=None, is_symmetric=False, n_cores=None, split_b0s=False, split_shell=False,
                   subsample=True, n_iter=10, b0_threshold=10, dtype=np.float64,
                   use_threading=False, verbose=False, mp_method=None):
     """Main nlsam denoising function which sets up everything nicely for the local
@@ -56,6 +56,9 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     split_b0s : bool, default False
         If True and the dataset contains multiple b0s, a different b0 will be used for
         each run of the denoising. If False, the b0s are averaged and the average b0 is used instead.
+    split_shell : bool, default False
+        If True and the dataset contains multiple b-values, eahc shell is processed indepently.
+        If False, all the data is used at the same thing for computing neighbors.
     subsample : bool, default True
         If True, find the smallest subset of indices required to process each
         dwi at least once.
@@ -130,18 +133,60 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     else:
         sym_bvecs = np.vstack((bvecs, -bvecs))
 
-    neighbors = angular_neighbors(sym_bvecs, block_size[-1] - 1) % data.shape[-1]
-    neighbors = neighbors[:data.shape[-1]]  # everything was doubled for symmetry
+    if split_shell:
+        logger.info('Data will be split in neighborhoods for each shells separately.')
+
+        # Round similar bvals together for identifying similar shells
+        rounded_bvals = np.zeros_like(bvals)
+        sorted_bvals = np.sort(np.unique(bvals)).astype(np.int32)
+
+        for unique_bval in sorted_bvals:
+            idx = np.abs(unique_bval - bvals) < 10
+            rounded_bvals[idx] = unique_bval
+
+        non_bzeros = np.sort(np.unique(rounded_bvals)).astype(np.int32)[1:]
+        neighbors = [None] * len(non_bzeros)
+        full_indexes = []
+
+        for shell, unique_bval in enumerate(non_bzeros):
+            shell_bvecs = bvecs[unique_bval == rounded_bvals]
+
+            if is_symmetric:
+                sym_bvecs = shell_bvecs
+            else:
+                sym_bvecs = np.vstack((shell_bvecs, -shell_bvecs))
+
+            neighbors[shell] = angular_neighbors(sym_bvecs, block_size[-1] - 1) % shell_bvecs.shape[0]
+            neighbors[shell] = neighbors[shell][:shell_bvecs.shape[0]]
+
+            # convert to per shell indexes
+            positions = np.arange(shell_bvecs.shape[0])
+            new_positions = np.arange(bvecs.shape[0])[unique_bval == rounded_bvals]
+
+            # this magically works for who knows why
+            # https://stackoverflow.com/questions/13572448/replace-values-of-a-numpy-index-array-with-values-of-a-list?answertab=votes#tab-top
+            index = np.digitize(neighbors[shell].ravel(), positions, right=True)
+            neighbors[shell] = new_positions[index].reshape(neighbors[shell].shape)
+
+            neighbors[shell] = [(dwi,) + tuple(neighbors[shell][pos]) for pos, dwi in enumerate(new_positions) if dwi in dwis]
+            full_indexes.extend(neighbors[shell])
+
+            if subsample:
+                neighbors[shell] = greedy_set_finder(neighbors[shell])
+
+        indexes = [x for shell in neighbors for x in shell]
+    else:
+        neighbors = angular_neighbors(sym_bvecs, block_size[-1] - 1) % data.shape[-1]
+        neighbors = neighbors[:data.shape[-1]]  # everything was doubled for symmetry
+        full_indexes = [(dwi,) + tuple(neighbors[dwi]) for dwi in range(data.shape[-1]) if dwi in dwis]
+
+        if subsample:
+            indexes = greedy_set_finder(full_indexes)
+        else:
+            indexes = full_indexes
 
     # Full overlap for dictionary learning
     overlap = np.array(block_size, dtype=np.int16) - 1
-
-    full_indexes = [(dwi,) + tuple(neighbors[dwi]) for dwi in range(data.shape[-1]) if dwi in dwis]
-
-    if subsample:
-        indexes = greedy_set_finder(full_indexes)
-    else:
-        indexes = full_indexes
 
     # If we have more b0s than indexes, then we have to add a few more blocks since
     # we won't do a full cycle. If we have more b0s than indexes after that, then it breaks.
