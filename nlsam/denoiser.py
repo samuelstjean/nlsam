@@ -58,7 +58,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         each run of the denoising. If False, the b0s are averaged and the average b0 is used instead.
     split_shell : bool, default False
         If True and the dataset contains multiple b-values, eahc shell is processed indepently.
-        If False, all the data is used at the same thing for computing neighbors.
+        If False, all the data is used at the same time for computing angular neighbors.
     subsample : bool, default True
         If True, find the smallest subset of indices required to process each
         dwi at least once.

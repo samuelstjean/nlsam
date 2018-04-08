@@ -90,7 +90,7 @@ def buildArgsParser():
                            'training data.')
 
     optionals.add_argument('--split_shell', action='store_true',
-                           help='If set, each shell is processed separately by itself.')
+                           help='If set, each shell/b-value is processed separately by itself.')
 
     optionals.add_argument('--block_size', dest='spatial_block_size',
                            metavar='tuple', type=literal_eval, default=(3, 3, 3),
