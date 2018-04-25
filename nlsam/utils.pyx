@@ -6,53 +6,11 @@ import numpy as np
 cimport numpy as np
 cimport cython
 
-
-ctypedef bint [:] bint1d
-ctypedef int [:] int1d
-ctypedef float [:] float1d
-ctypedef double [:] double1d
-
-ctypedef fused farray1d:
-    bint1d
-    int1d
-    float1d
-    double1d
-
-ctypedef bint [:,:] bint2d
-ctypedef int [:,:] int2d
-ctypedef float [:,:] float2d
-ctypedef double [:,:] double2d
-
-ctypedef fused farray2d:
-    bint2d
-    int2d
-    float2d
-    double2d
-
-ctypedef bint [:,:,:] bint3d
-ctypedef int [:,:,:] int3d
-ctypedef float [:,:,:] float3d
-ctypedef double [:,:,:] double3d
-
-ctypedef fused farray3d:
-    bint3d
-    int3d
-    float3d
-    double3d
-
-ctypedef bint [:,:,:,:] bint4d
-ctypedef int [:,:,:,:] int4d
-ctypedef float [:,:,:,:] float4d
-ctypedef double [:,:,:,:] double4d
-
-ctypedef fused farray4d:
-    bint4d
-    int4d
-    float4d
-    double4d
+ctypedef cython.floating floating
+ctypedef cython.floating real
 
 
-cdef void _im2col3D(farray3d A, farray2d R, int[:] size) nogil:
+cdef void _im2col3D(real[:,:,:] A, real[:,:] R, int[:] size) nogil:
 
     cdef:
         int k = 0, l = 0
@@ -75,7 +33,7 @@ cdef void _im2col3D(farray3d A, farray2d R, int[:] size) nogil:
                     k += 1
 
 
-cdef void _im2col3D_overlap(farray3d A, farray2d R, int[:] size, int[:] overlap):
+cdef void _im2col3D_overlap(real[:,:,:] A, real[:,:] R, int[:] size, int[:] overlap):
 
     cdef:
         int k = 0, l = 0
@@ -100,7 +58,7 @@ cdef void _im2col3D_overlap(farray3d A, farray2d R, int[:] size, int[:] overlap)
                     k += 1
 
 
-cdef void _im2col4D(farray4d A, farray2d R, int[:] size) nogil:
+cdef void _im2col4D(real[:,:,:,:] A, real[:,:] R, int[:] size) nogil:
 
     cdef:
         int k = 0, l = 0
@@ -163,7 +121,7 @@ def im2col_nd(A,  block_shape, overlap):
     return R
 
 
-cdef void _col2im3D_overlap(farray3d A, farray3d div, farray2d R, farray1d weights, int[:] block_shape, int[:] overlap):
+cdef void _col2im3D_overlap(real[:,:,:] A, real[:,:,:] div, real[:,:] R, real[:] weights, int[:] block_shape, int[:] overlap):
     cdef:
         int k = 0, l = 0
         int a, b, c, m, n, o
@@ -188,7 +146,7 @@ cdef void _col2im3D_overlap(farray3d A, farray3d div, farray2d R, farray1d weigh
                     k += 1
 
 
-cdef void _col2im3D(farray3d A, farray3d div, farray2d R, farray1d weights, int[:] block_shape) nogil:
+cdef void _col2im3D(real[:,:,:] A, real[:,:,:] div, real[:,:] R, real[:] weights, int[:] block_shape) nogil:
 
     cdef:
         int k = 0, l = 0
@@ -213,7 +171,7 @@ cdef void _col2im3D(farray3d A, farray3d div, farray2d R, farray1d weights, int[
                     k += 1
 
 
-cdef void _col2im4D(farray4d A, farray4d div, farray2d R, farray1d weights, int[:] block_shape) nogil:
+cdef void _col2im4D(real[:,:,:,:] A, real[:,:,:,:] div, real[:,:] R, real[:] weights, int[:] block_shape) nogil:
     cdef:
         int k = 0, l = 0
         int a, b, c, d, m, n, o, p
