@@ -58,18 +58,7 @@ matrix:
       language: generic
       before_install:
         # Install Anaconda
-        - if [[ "$ANACONDA_PYTHON_VERSION" == "2.7" ]]; then
-            wget https://repo.continuum.io/miniconda/Miniconda2-latest-MacOSX-x86_64.sh -O miniconda.sh;
-          else
-            wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh;
-          fi
-        - bash miniconda.sh -b -p $HOME/miniconda
-        - export PATH="$HOME/miniconda/bin:$PATH"
-        - hash -r
-        - conda config --set always_yes yes --set changeps1 no
-        - conda update -q conda
-        - conda create -q -n test-environment python=$ANACONDA_PYTHON_VERSION
-        - source activate test-environment
+        - source build_stuff/get_conda.sh
       env:
         - DEPENDS=$DEPENDS
           TESTPART=test_scripts1.sh
@@ -78,18 +67,7 @@ matrix:
       language: generic
       before_install:
         # Install Anaconda
-        - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
-            wget https://repo.continuum.io/miniconda/Miniconda2-latest-MacOSX-x86_64.sh -O miniconda.sh;
-          else
-            wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh;
-          fi
-        - bash miniconda.sh -b -p $HOME/miniconda
-        - export PATH="$HOME/miniconda/bin:$PATH"
-        - hash -r
-        - conda config --set always_yes yes --set changeps1 no
-        - conda update -q conda
-        - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION
-        - source activate test-environment
+        - source build_stuff/get_conda.sh
       env:
         - DEPENDS=$DEPENDS
           TESTPART=test_scripts2.sh
@@ -98,18 +76,7 @@ matrix:
       language: generic
       before_install:
         # Install Anaconda
-        - if [[ "$ANACONDA_PYTHON_VERSION" == "2.7" ]]; then
-            wget https://repo.continuum.io/miniconda/Miniconda2-latest-MacOSX-x86_64.sh -O miniconda.sh;
-          else
-            wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh;
-          fi
-        - bash miniconda.sh -b -p $HOME/miniconda
-        - export PATH="$HOME/miniconda/bin:$PATH"
-        - hash -r
-        - conda config --set always_yes yes --set changeps1 no
-        - conda update -q conda
-        - conda create -q -n test-environment python=$ANACONDA_PYTHON_VERSION
-        - source activate test-environment
+        - source build_stuff/get_conda.sh
       env:
         - DEPENDS=$DEPENDS_MIN
           TESTPART=test_scripts1.sh
@@ -118,18 +85,7 @@ matrix:
       language: generic
       before_install:
         # Install Anaconda
-        - if [[ "$ANACONDA_PYTHON_VERSION" == "2.7" ]]; then
-            wget https://repo.continuum.io/miniconda/Miniconda2-latest-MacOSX-x86_64.sh -O miniconda.sh;
-          else
-            wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O miniconda.sh;
-          fi
-        - bash miniconda.sh -b -p $HOME/miniconda
-        - export PATH="$HOME/miniconda/bin:$PATH"
-        - hash -r
-        - conda config --set always_yes yes --set changeps1 no
-        - conda update -q conda
-        - conda create -q -n test-environment python=$ANACONDA_PYTHON_VERSION
-        - source activate test-environment
+        - source build_stuff/get_conda.sh
       env:
         - DEPENDS=$DEPENDS_MIN
           TESTPART=test_scripts2.sh
