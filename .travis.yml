@@ -8,7 +8,6 @@ cache:
   pip: true
   directories:
     - $HOME/.cache/pip
-    - $HOME/.pyenv_cache
 
 addons:
   apt:
@@ -99,14 +98,14 @@ matrix:
     - os: osx
       language: generic
       before_install:
-        - PYENV_VERSION='3.5.2' PYENV_VERSION_STRING='Python 3.5.2'
-        - if [[ -n "$PYENV_VERSION" ]]; then
-            wget https://raw.githubusercontent.com/praekeltfoundation/travis-pyenv/master/setup-pyenv.sh;
-            PYTHON_CONFIGURE_OPTS='--enable-framework' source setup-pyenv.sh;
-          fi
+        # Install Anaconda
+        - source build_stuff/get_conda.sh
+        - conda install gcc
+        - pip install --index-url https://test.pypi.org/simple/ spams
       env:
         - DEPENDS=$DEPENDS_BUILD
           BUILD_PYINSTALLER=true
+          ANACONDA_PYTHON_VERSION=3.5
 
 notifications:
     email: false
