@@ -100,8 +100,7 @@ matrix:
       before_install:
         # Install Anaconda
         - source build_stuff/get_conda.sh
-        - conda install gcc
-        - pip install --index-url https://test.pypi.org/simple/ spams
+        - conda install -c conda-forge python-spams
       env:
         - DEPENDS=$DEPENDS_BUILD
           BUILD_PYINSTALLER=true
