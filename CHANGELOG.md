@@ -3,10 +3,10 @@
 ## [0.7] Development version
 
 - New command line arguments, now subclassed into categories.
-    + --load_mhat file, to load a volume for initializing the bias correction, the default is to use the data itself.
-    + --save_difference file, to save a volume showing the removed signal parts as abs(original_data - denoised_data)
-    + --save_eta file, to save the result of the estimated underlying signal value for debugging purposes.
-    + Deprecation of options --implausible_signal_fix and --sh_order, use --load_mhat instead for initialization.
+    + __--load_mhat__ file, to load a volume for initializing the bias correction, the default is to use the data itself.
+    + __--save_difference__ file, to save a volume showing the removed signal parts as abs(original_data - denoised_data)
+    + __--save_eta__ file, to save the result of the estimated underlying signal value for debugging purposes.
+    + Deprecation of options __--implausible_signal_fix__ and __--sh_order__, use __--load_mhat__ instead for initialization.
 - Support for non integer values of N
 - New module nlsam.bias_correction, which contains an easier to use interface to the C functions in nlsam.stabilizer
 - New online documentation available at http://nlsam.readthedocs.io/ for the current (and future) versions.
@@ -15,24 +15,24 @@
 - Fixed a numerical issue in the Marcum Q function when computing probabilities used in the stabilizer framework.
 - Scipy >= 0.19.1 is now required.
 - nlsam.stabilizer.stabilization now accepts the keyword clip_eta (default True), which can be used to allow returning negatives values for eta.
-    - The option --no_clip_eta from nlsam_denoising can be used to activate this feature.
+    - The option __--no_clip_eta__ from nlsam_denoising can be used to activate this feature.
     - The previous versions forced negative values to zero and is still the default behavior.
 
 ## [0.6] - 2017-10-22
 
 - PIESNO will now warn if less than 1% of noisy voxels were identified, which might indicate that something has gone wrong during the noise estimation.
-- On python >= 3.4, --mp_method [a_valid_start_method](https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods) can now be used to control behavior in the multiprocessing loop.
-- A new option --split_b0s can be specified to split the b0s equally amongst the training data.
-- A new (kind of experimental) option --use_f32 can be specified to use the float32 mode of spams and reduce ram usage.
-- A new option --use_threading can be specified to disable python multiprocessing and solely rely on threading capabilities of the linear algebra libs during denoising.
-- Fixed crash in option --noise_est local_std when --cores 1 was also supplied.
+- On python >= 3.4, __--mp_method__ [a_valid_start_method](https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods) can now be used to control behavior in the multiprocessing loop.
+- A new option __--split_b0s__ can be specified to split the b0s equally amongst the training data.
+- A new (kind of experimental) option __--use_f32__ can be specified to use the float32 mode of spams and reduce ram usage.
+- A new option __--use_threading__ can be specified to disable python multiprocessing and solely rely on threading capabilities of the linear algebra libs during denoising.
+- Fixed crash in option __--noise_est__ local_std when __--cores__ 1 was also supplied.
 - setup.py and requirements.txt will now fetch spams v2.6, with patches for numpy 1.12 support.
 - The GSL library and associated headers are now bundled for all platforms.
 - Some deprecation fixes and other performance improvements.
 
 ## [0.5.1] - 2016-09-27
 
-- Fixed a bug in local piesno (option --noise_map) where the noise would be underestimated.
+- Fixed a bug in local piesno (option __--noise_map__) where the noise would be underestimated.
 - Fixed a bug introduced in v0.5 where datasets with multiple b0s would be incorrectly reshaped and dropped some volumes. Thanks to Samuel Deslauriers-Gauthier for reporting.
 
 ## [0.5] - 2016-08-30
