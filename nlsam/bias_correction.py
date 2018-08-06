@@ -73,8 +73,8 @@ def multiprocess_stabilization(data, m_hat, mask, sigma, N, clip_eta):
         mask = mask[..., None]
 
     mask = np.logical_and(sigma > 0, mask)
-    out = np.zeros_like(data, dtype=np.float64)
-    eta = np.zeros_like(data, dtype=np.float64)
+    out = np.zeros_like(data, dtype=np.float32)
+    eta = np.zeros_like(data, dtype=np.float32)
 
     eta[mask] = vec_fixed_point_finder(m_hat[mask], sigma[mask], N[mask], clip_eta=clip_eta)
     out[mask] = vec_chi_to_gauss(data[mask], eta[mask], sigma[mask], N[mask])
@@ -93,7 +93,7 @@ def root_finder_sigma(data, sigma, N, mask=None):
 
     Input
     --------
-    eta : ndarray
+    data : ndarray
         Signal intensity
     sigma : ndarray
         Noise magnitude standard deviation
