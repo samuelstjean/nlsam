@@ -1,13 +1,15 @@
 #cython: wraparound=False, cdivision=True, boundscheck=False
 
 cimport cython
-from libc.math cimport sqrt, exp, fabs, M_PI, NAN
+from libc.math cimport sqrt, exp, fabs, M_PI
 from scipy.special.cython_special cimport ndtri, gamma, chndtr
 
 
 # libc.math isnan does not work on windows, it is called _isnan, so we use this one instead
+# same thing for NAN apparently
 cdef extern from "numpy/npy_math.h" nogil:
     bint npy_isnan(double x)
+    double NPY_NAN
 
 cdef extern from "hyp_1f1.h" nogil:
     double gsl_sf_hyperg_1F1(double a, double b, double x)
@@ -57,12 +59,12 @@ cpdef double chi_to_gauss(double m, double eta, double sigma, double N, double a
     # clip cdf between alpha/2 and 1-alpha/2
     if cdf < alpha/2:
         if use_nan:
-            cdf = NAN
+            cdf = NPY_NAN
         else:
             cdf = alpha/2
     elif cdf > 1 - alpha/2:
         if use_nan:
-            cdf = NAN
+            cdf = NPY_NAN
         else:
             cdf = 1 - alpha/2
 
