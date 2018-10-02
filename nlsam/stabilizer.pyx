@@ -121,7 +121,7 @@ cdef double _marcumq_cython(double a, double b, double M, double eps=1e-8) nogil
 
 
 cpdef double fixed_point_finder(double m_hat, double sigma, double N,
-        bint clip_eta=True, int max_iter=100, double eps=1e-6) nogil:
+    bint clip_eta=True, int max_iter=100, double eps=1e-6) nogil:
     """Fixed point formula for finding eta. Table 1 p. 11 of [1]
 
     Input

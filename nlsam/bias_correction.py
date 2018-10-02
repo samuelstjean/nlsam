@@ -77,7 +77,7 @@ def multiprocess_stabilization(data, m_hat, mask, sigma, N, clip_eta):
     eta = np.zeros_like(data, dtype=np.float32)
 
     eta[mask] = vec_fixed_point_finder(m_hat[mask], sigma[mask], N[mask], clip_eta=clip_eta)
-    out[mask] = vec_chi_to_gauss(data[mask], eta[mask], sigma[mask], N[mask])
+    out[mask] = vec_chi_to_gauss(data[mask], eta[mask], sigma[mask], N[mask], use_nan=False)
 
     return out, eta
 
