@@ -141,7 +141,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         sorted_bvals = np.sort(np.unique(bvals)).astype(np.int32)
 
         for unique_bval in sorted_bvals:
-            idx = np.abs(unique_bval - bvals) < 10
+            idx = np.abs(unique_bval - bvals) < 25
             rounded_bvals[idx] = unique_bval
 
         non_bzeros = np.sort(np.unique(rounded_bvals)).astype(np.int32)[1:]

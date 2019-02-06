@@ -59,7 +59,7 @@ def buildArgsParser():
     required.add_argument('output', metavar='output',
                           help='Path for the saved denoised file.')
 
-    required.add_argument('N', metavar='N', type=float,
+    required.add_argument('N', metavar='N', type=str,
                           help='Number of receiver coils of the scanner. \n'
                           'Use N = 1 in the case of a SENSE (Philips) reconstruction and '
                           'N >= 1 for GRAPPA based reconstruction (Siemens).')
@@ -225,7 +225,6 @@ def main():
     args = parser.parse_args()
 
     noise_method = args.noise_method
-    N = args.N
 
     subsample = args.no_subsample
     is_symmetric = args.is_symmetric
@@ -299,6 +298,11 @@ def main():
     header = vol.header
     header.set_data_dtype(np.float32)
     logger.info("Loading data {}".format(os.path.realpath(args.input)))
+
+    try:
+        N = np.asarray(nib.load(args.N).get_data(caching='unchanged'), dtype=np.float32)
+    except FileNotFoundError:
+        N = float(args.N)
 
     if args.mask is not None:
         mask = np.asarray(nib.load(args.mask).get_data(caching='unchanged'), dtype=np.bool)
