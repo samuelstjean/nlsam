@@ -73,11 +73,11 @@ def multiprocess_stabilization(data, m_hat, mask, sigma, N, clip_eta):
         mask = mask[..., None]
 
     mask = np.logical_and(sigma > 0, mask)
-    out = np.zeros_like(data, dtype=np.float64)
-    eta = np.zeros_like(data, dtype=np.float64)
+    out = np.zeros_like(data, dtype=np.float32)
+    eta = np.zeros_like(data, dtype=np.float32)
 
     eta[mask] = vec_fixed_point_finder(m_hat[mask], sigma[mask], N[mask], clip_eta=clip_eta)
-    out[mask] = vec_chi_to_gauss(data[mask], eta[mask], sigma[mask], N[mask])
+    out[mask] = vec_chi_to_gauss(data[mask], eta[mask], sigma[mask], N[mask], use_nan=False)
 
     return out, eta
 
@@ -93,7 +93,7 @@ def root_finder_sigma(data, sigma, N, mask=None):
 
     Input
     --------
-    eta : ndarray
+    data : ndarray
         Signal intensity
     sigma : ndarray
         Noise magnitude standard deviation
@@ -126,7 +126,7 @@ def root_finder_sigma(data, sigma, N, mask=None):
     corrected_sigma = np.zeros_like(data, dtype=np.float32)
 
     # To not murder people ram, we process it slice by slice and reuse the arrays in a for loop
-    gaussian_SNR = np.zeros_like(data[..., 0][mask], dtype=np.float32)
+    gaussian_SNR = np.zeros(mask.size, dtype=np.float32)
     theta = np.zeros_like(gaussian_SNR)
 
     for idx in range(data.shape[-1]):

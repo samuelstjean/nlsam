@@ -3,7 +3,7 @@
 from __future__ import division, print_function
 
 import numpy as np
-from numpy.testing import assert_allclose, run_module_suite
+from numpy.testing import assert_allclose, assert_equal, run_module_suite
 from itertools import product
 
 from nlsam.stabilizer import (_test_marcumq_cython,
@@ -46,6 +46,10 @@ def test_chi_to_gauss():
     assert_allclose(chi_to_gauss(700, 600, 80, 12), 586.5304199340127, rtol=1e-5)
     assert_allclose(chi_to_gauss(700, 600, 80, 1), 695.0548001366581, rtol=1e-5)
     assert_allclose(chi_to_gauss(470, 600, 80, 1), 463.965319619292, rtol=1e-5)
+
+    # test to see if we can return nans for outliers
+    assert_equal(chi_to_gauss(47, 600, 1, 1, use_nan=True), np.nan)
+    assert_equal(chi_to_gauss(4700, 6, 1, 1, use_nan=True), np.nan)
 
 
 def test_marcumq():
