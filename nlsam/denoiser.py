@@ -57,7 +57,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         If True and the dataset contains multiple b0s, a different b0 will be used for
         each run of the denoising. If False, the b0s are averaged and the average b0 is used instead.
     split_shell : bool, default False
-        If True and the dataset contains multiple b-values, eahc shell is processed indepently.
+        If True and the dataset contains multiple b-values, each shell is processed independently.
         If False, all the data is used at the same time for computing angular neighbors.
     subsample : bool, default True
         If True, find the smallest subset of indices required to process each
@@ -68,7 +68,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         A b-value below b0_threshold will be considered as a b0 image.
     dtype : np.float32 or np.float64, default np.float64
         Precision to use for inner computations. Note that np.float32 should only be used for
-        very, very large datasets (that is, your ram starts swappping) as it can lead to numerical precision errors.
+        very, very large datasets (that is, your ram starts swapping) as it can lead to numerical precision errors.
     use_threading : bool, default False
         Do not use multiprocessing, but rather rely on the multithreading capabilities of your numerical solvers.
         While this mode is more memory friendly, it is also slower than using the multiprocessing mode (the default).
