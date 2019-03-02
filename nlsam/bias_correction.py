@@ -126,7 +126,7 @@ def root_finder_sigma(data, sigma, N, mask=None):
     corrected_sigma = np.zeros_like(data, dtype=np.float32)
 
     # To not murder people ram, we process it slice by slice and reuse the arrays in a for loop
-    gaussian_SNR = np.zeros(mask.size, dtype=np.float32)
+    gaussian_SNR = np.zeros(np.count_nonzero(mask), dtype=np.float32)
     theta = np.zeros_like(gaussian_SNR)
 
     for idx in range(data.shape[-1]):
