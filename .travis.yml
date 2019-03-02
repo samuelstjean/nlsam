@@ -1,5 +1,6 @@
 language: python
 sudo: false
+dist: xenial
 
 os:
   - linux
@@ -32,6 +33,7 @@ python:
   - 3.4
   - 3.5
   - 3.6
+  - 3.7
 
 matrix:
   include:
@@ -105,12 +107,6 @@ matrix:
         - DEPENDS=$DEPENDS_BUILD
           BUILD_PYINSTALLER=true
           ANACONDA_PYTHON_VERSION=3.5
-
-    # py37 for now
-    - language: python
-      sudo: required
-      dist: xenial
-      python: "3.7"
 
 notifications:
     email: false
