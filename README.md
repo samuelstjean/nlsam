@@ -8,6 +8,7 @@
 [spams]: http://spams-devel.gforge.inria.fr/
 [rtd]: https://nlsam.readthedocs.io/en/latest/
 [koay_bias]: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2765718/
+[docker]: https://hub.docker.com/search?type=edition&offering=community
 
 The reference implementation for the Non Local Spatial and Angular Matching (NLSAM) denoising algorithm for diffusion MRI.
 
@@ -20,7 +21,9 @@ You can find the latest documentation and installation instructions over [here](
 
 ## How to install
 
-The easiest way is to go grab a [release][], in which case the downloaded zip file contains everything you need (no python installation required,
+The new easy way is to use the ``Dockerfile```. for which you'll need to install [docker][] (probably already available in your favorite linux distribution).
+
+The old easiest way is to go grab a [release][], in which case the downloaded zip file contains everything you need (no python installation required,
 you can use it straight away without installing anything else).
 After extracting the zip file, start a terminal/command line prompt (start button, then type cmd + enter on windows) and navigate to where you extracted the binaries.
 
