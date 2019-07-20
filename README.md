@@ -21,7 +21,7 @@ You can find the latest documentation and installation instructions over [here](
 
 ## How to install
 
-The new easy way is to use the ``Dockerfile```. for which you'll need to install [docker][] (probably already available in your favorite linux distribution).
+The new easy way is to use the ```Dockerfile```. for which you'll need to install [docker][] (probably already available in your favorite linux distribution).
 
 The old easiest way is to go grab a [release][], in which case the downloaded zip file contains everything you need (no python installation required,
 you can use it straight away without installing anything else).
