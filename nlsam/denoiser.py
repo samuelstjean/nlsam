@@ -211,6 +211,7 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     param_D['K'] = int(2 * np.prod(block_size))
     param_D['iter'] = 150
     param_D['batchsize'] = 500
+    param_D['numThreads'] = n_cores
 
     if 'D' in param_alpha:
         param_D['D'] = param_alpha['D']

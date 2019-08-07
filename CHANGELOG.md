@@ -10,6 +10,7 @@
 - Support for non integer values of N
 - New module nlsam.bias_correction, which contains an easier to use interface to the C functions in nlsam.stabilizer
 - New online documentation available at http://nlsam.readthedocs.io/ for the current (and future) versions.
+- The dictionary learning part of the algorithm now respects --cores instead of ignoring it and always using all available processors.
 
 ## [0.6.1] - 2017-11-17
 - Fixed a numerical issue in the Marcum Q function when computing probabilities used in the stabilizer framework.
