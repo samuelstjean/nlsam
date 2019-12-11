@@ -30,10 +30,10 @@ env:
 
 python:
   - 2.7
-  - 3.4
   - 3.5
   - 3.6
   - 3.7
+  - 3.8
 
 matrix:
   include:
@@ -45,11 +45,11 @@ matrix:
       env:
         - DEPENDS=$DEPENDS_MIN
           TESTPART=test_scripts2.sh
-    - python: 3.4
+    - python: 3.5
       env:
         - DEPENDS=$DEPENDS_MIN
           TESTPART=test_scripts1.sh
-    - python: 3.4
+    - python: 3.5
       env:
         - DEPENDS=$DEPENDS_MIN
           TESTPART=test_scripts2.sh
