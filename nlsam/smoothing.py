@@ -7,12 +7,8 @@ from joblib import Parallel, delayed
 
 from dipy.core.geometry import cart2sphere
 from dipy.reconst.shm import sph_harm_ind_list, real_sph_harm, smooth_pinv
-from dipy.denoise.noise_estimate import piesno
 
 from scipy.ndimage.filters import convolve, gaussian_filter
-from scipy.ndimage.interpolation import zoom
-
-from autodmri.blocks import extract_patches
 
 
 logger = logging.getLogger('nlsam')
@@ -165,33 +161,3 @@ def local_standard_deviation(arr, n_cores=-1, verbose=False):
     blur = full_width_at_half_max / np.sqrt(8 * np.log(2))
 
     return gaussian_filter(sigma, blur, mode='reflect')
-
-
-def local_piesno(data, N, size=5, return_mask=True):
-
-    m_out = np.zeros(data.shape[:-1], dtype=np.bool)
-    window_size = size, size, size, data.shape[-1]
-    reshaped_maps = extract_patches(data, window_size, window_size)
-
-    sigma = np.zeros(reshaped_maps.shape[0], dtype=np.float32)
-    mask = np.zeros((reshaped_maps.shape[0], size**3), dtype=np.bool)
-
-    for i in range(reshaped_maps.shape[0]):
-        cur_map = reshaped_maps[i].reshape(size**3, 1, -1)
-        sigma[i], m = piesno(cur_map, N=N, return_mask=True)
-        mask[i] = np.squeeze(m)
-
-    s_out = sigma.reshape(data.shape[0] // size, data.shape[1] // size, data.shape[2] // size)
-
-    for n, i in enumerate(np.ndindex(s_out.shape)):
-        i = np.array(i) * size
-        j = i + size
-        m_out[i[0]:j[0], i[1]:j[1], i[2]:j[2]] = mask[n].reshape(size, size, size)
-
-    interpolated = np.zeros_like(data[..., 0], dtype=np.float32)
-    x, y, z = np.array(s_out.shape) * size
-    interpolated[:x, :y, :z] = zoom(s_out, size, order=1)
-
-    if return_mask:
-        return interpolated, m_out
-    return interpolated

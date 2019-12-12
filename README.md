@@ -86,7 +86,7 @@ The automatic estimation of the noise distribution is computed with
 
 > St-Jean, S., , De Luca A., Viergever M. A., Leemans A. (2018)
 > "[Automatic, fast and robust characterization of noise distributions for diffusion MRI][autodmri_paper]"
-> MICCAI 2018 [DOI](https://dx.doi.org/doi:10.1007/978-3-030-00928-1_35) [URL](https://link.springer.com/chapter/10.1007%2F978-3-030-00928-1_35)
+> MICCAI 2018. Lecture Notes in Computer Science, vol 11070. Springer, Cham [DOI](https://dx.doi.org/doi:10.1007/978-3-030-00928-1_35) [URL](https://link.springer.com/chapter/10.1007%2F978-3-030-00928-1_35)
 
 And here is a premade bibtex entry.
 
