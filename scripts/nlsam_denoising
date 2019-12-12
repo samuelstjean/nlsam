@@ -2,14 +2,10 @@
 
 from __future__ import division, print_function
 
-# Has to be called before importing numpy
-from nlsam.multiprocess import multiprocessing_hanging_workaround
-multiprocessing_hanging_workaround()
-
 import os
 import argparse
 import logging
-from multiprocessing import cpu_count, freeze_support
+from multiprocessing import cpu_count
 from ast import literal_eval
 
 import nibabel as nib
@@ -184,12 +180,6 @@ def buildArgsParser():
                       help='If supplied, use float32 for inner computations. This option lowers ram usage, but\n'
                       'could lead to numerical precision issues, so use carefully and inspect the final output.')
 
-    misc.add_argument('--mp_method', metavar='string',
-                      help='Dispatch method for multiprocessing, see\n'
-                      'https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods for more information.\n'
-                      'Default : None, use the default, platform dependent method to run multiprocessing.\n'
-                      'Only available in python 3.4 and later.')
-
     misc.add_argument('-f', '--force', action='store_true', dest='overwrite',
                       help='If set, the output denoised volume will be overwritten '
                       'if it already exists.')
@@ -212,6 +202,9 @@ def buildArgsParser():
                             help='This option has been removed and has no effect.')
 
     deprecated.add_argument('--sh_order', metavar='int', default=0, type=int, choices=[0, 2, 4, 6, 8],
+                            help='This option has been removed and has no effect.')
+
+    deprecated.add_argument('--mp_method', metavar='string',
                             help='This option has been removed and has no effect.')
 
     return p
@@ -270,6 +263,9 @@ def main():
 
     if args.sh_order:
         logger.warning('Option --sh_order has been deprecated')
+
+    if args.mp_method:
+        logger.warning('Option --mp_method has been deprecated')
 
     ##########################################
     #  Load up data and do some sanity checks
@@ -379,7 +375,7 @@ def main():
 
     elif noise_method == 'local_std':
         logger.info("Estimating noise with method {}".format(noise_method))
-        sigma = local_standard_deviation(data, n_cores=n_cores, mp_method=mp_method)
+        sigma = local_standard_deviation(data, n_cores=n_cores)
 
         # Compute the corrected value for each 3D volume
         if N > 0:
@@ -406,8 +402,7 @@ def main():
                                              mask=mask,
                                              clip_eta=clip_eta,
                                              return_eta=True,
-                                             n_cores=n_cores,
-                                             mp_method=mp_method)
+                                             n_cores=n_cores)
 
         if args.save_eta is not None:
             nib.save(nib.Nifti1Image(eta, affine), args.save_eta)
@@ -442,8 +437,7 @@ def main():
                                       n_iter=n_iter,
                                       b0_threshold=b0_threshold,
                                       dtype=dtype,
-                                      use_threading=use_threading,
-                                      mp_method=mp_method)
+                                      use_threading=use_threading)
 
         nib.save(nib.Nifti1Image(data_denoised.astype(np.float32), affine, header), args.output)
         logger.info("Denoised data saved as {}".format(os.path.realpath(args.output)))
@@ -454,5 +448,4 @@ def main():
 
 
 if __name__ == "__main__":
-    freeze_support()
     main()

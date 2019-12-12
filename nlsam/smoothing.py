@@ -1,9 +1,10 @@
 from __future__ import division
 
+import logging
 import numpy as np
 from numpy.lib.stride_tricks import as_strided as ast
 
-from nlsam.multiprocess import multiprocesser
+from joblib import Parallel, delayed
 
 from dipy.core.geometry import cart2sphere
 from dipy.reconst.shm import sph_harm_ind_list, real_sph_harm, smooth_pinv
@@ -11,6 +12,8 @@ from dipy.denoise.noise_estimate import piesno
 
 from scipy.ndimage.filters import convolve, gaussian_filter
 from scipy.ndimage.interpolation import zoom
+
+logger = logging.getLogger('nlsam')
 
 
 def sh_smooth(data, bvals, bvecs, sh_order=4, similarity_threshold=50, regul=0.006):
@@ -115,7 +118,7 @@ def _local_standard_deviation(arr):
     return np.sqrt(mean_squared_high_freq - mean_high_freq**2)
 
 
-def local_standard_deviation(arr, n_cores=None, mp_method=None):
+def local_standard_deviation(arr, n_cores=-1, verbose=False):
     """Standard deviation estimation from local patches.
 
     The noise field is estimated by subtracting the data from it's low pass
@@ -130,6 +133,9 @@ def local_standard_deviation(arr, n_cores=None, mp_method=None):
     n_cores : int
         Number of cores to use for multiprocessing, default : all of them
 
+    verbose: int
+        If True, prints progress information. A higher number prints more often
+
     Returns
     -------
     sigma : ndarray
@@ -140,9 +146,12 @@ def local_standard_deviation(arr, n_cores=None, mp_method=None):
     if arr.ndim == 3:
         sigma = _local_standard_deviation(arr)
     else:
-        list_arr = [[arr[..., i]] for i in range(arr.shape[-1])]
-        parallel_local_standard_deviation = multiprocesser(_local_standard_deviation, n_cores=n_cores, mp_method=mp_method)
-        result = parallel_local_standard_deviation(list_arr)
+        # Did we ask for verbose at the module level?
+        if not verbose:
+            verbose = logger.getEffectiveLevel() <= 20  # Info or debug level
+
+        result = Parallel(n_jobs=n_cores,
+                          verbose=verbose)(delayed(_local_standard_deviation)(arr[..., i]) for i in range(arr.shape[-1]))
 
         # Reshape the multiprocessed list as an array
         result = np.rollaxis(np.asarray(result), 0, arr.ndim)

@@ -9,9 +9,9 @@ from itertools import cycle, starmap
 
 from nlsam.utils import im2col_nd, col2im_nd
 from nlsam.angular_tools import angular_neighbors
-from nlsam.multiprocess import multiprocesser
 
 from scipy.sparse import lil_matrix
+from joblib import Parallel, delayed
 
 try:
     import spams
@@ -23,9 +23,9 @@ logger = logging.getLogger('nlsam')
 
 
 def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
-                  mask=None, is_symmetric=False, n_cores=None, split_b0s=False,
+                  mask=None, is_symmetric=False, n_cores=-1, split_b0s=False,
                   subsample=True, n_iter=10, b0_threshold=10, dtype=np.float64,
-                  use_threading=False, verbose=False, mp_method=None):
+                  use_threading=False, verbose=False):
     """Main nlsam denoising function which sets up everything nicely for the local
     block denoising.
 
@@ -50,7 +50,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     is_symmetric : bool, default False
         If True, assumes that for each coordinate (x, y, z) in bvecs,
         (-x, -y, -z) was also acquired.
-    n_cores : int, default None
+    n_cores : int, default -1
         Number of processes to use for the denoising. Default is to use
         all available cores.
     split_b0s : bool, default False
@@ -73,8 +73,6 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         that your computer is using multiple cores or the algorithm will just take much longer to complete.
     verbose : bool, default False
         print useful messages.
-    mp_method : string
-        Dispatch method for multiprocessing,
 
     Output
     -----------
@@ -178,15 +176,14 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                                                           dtype=dtype,
                                                           n_cores=n_cores,
                                                           use_threading=use_threading,
-                                                          verbose=verbose,
-                                                          mp_method=mp_method)
+                                                          verbose=verbose)
 
     data_denoised /= divider
     return data_denoised
 
 
 def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
-                  dtype=np.float64, n_cores=None, use_threading=False, verbose=False, mp_method=None):
+                  dtype=np.float64, n_cores=-1, use_threading=False, verbose=False):
     if verbose:
         logger.setLevel(logging.INFO)
 
@@ -251,8 +248,9 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
         data_denoised = starmap(processer, arglist)
     else:
         time_multi = time()
-        parallel_processer = multiprocesser(processer, n_cores=n_cores, mp_method=mp_method)
-        data_denoised = parallel_processer(arglist)
+
+        data_denoised = Parallel(n_jobs=n_cores,
+                                 verbose=verbose)(delayed(processer)(*args) for args in arglist)
         logger.info('Multiprocessing done in {0:.2f} mins.'.format((time() - time_multi) / 60.))
 
     # Put together the multiprocessed results
