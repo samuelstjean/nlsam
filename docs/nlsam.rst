@@ -28,14 +28,6 @@ nlsam\.denoiser module
     :undoc-members:
     :show-inheritance:
 
-nlsam\.multiprocess module
---------------------------
-
-.. automodule:: nlsam.multiprocess
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 nlsam\.smoothing module
 -----------------------
 
