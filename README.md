@@ -4,6 +4,7 @@
 [DOI]: http://dx.doi.org/doi:10.1016/j.media.2016.02.010
 [URL]: http://www.sciencedirect.com/science/article/pii/S1361841516000335
 [paper]: https://arxiv.org/pdf/1606.07239.pdf
+[autodmri_paper]: https://arxiv.org/abs/1805.12071
 [nlsam_data]: https://github.com/samuelstjean/nlsam_data
 [spams]: http://spams-devel.gforge.inria.fr/
 [rtd]: https://nlsam.readthedocs.io/en/latest/
@@ -72,7 +73,7 @@ line at firstname@isi.uu.nl, where of course firstname needs to be replaced with
 The NLSAM denoising algorithm itself is detailed in
 
 > St-Jean, S., Coupé, P., & Descoteaux, M. (2016).
-> "[Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising.][paper]"
+> "[Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising][paper]"
 > Medical Image Analysis, 32(2016), 115–130. [DOI] [URL]
 
 The bias correction framework is a reimplementation of
@@ -80,6 +81,12 @@ The bias correction framework is a reimplementation of
 > Koay, CG, Özarslan, E and Basser, PJ
 > [A signal transformational framework for breaking the noise floor and its applications in MRI][koay_bias],
 > Journal of Magnetic Resonance, Volume 197, Issue 2, 2009
+
+The automatic estimation of the noise distribution is computed with
+
+> St-Jean, S., , De Luca A., Viergever M. A., Leemans A. (2018)
+> "[Automatic, fast and robust characterization of noise distributions for diffusion MRI][autodmri_paper]"
+> MICCAI 2018 [DOI](https://dx.doi.org/doi:10.1007/978-3-030-00928-1_35) [URL](https://link.springer.com/chapter/10.1007%2F978-3-030-00928-1_35)
 
 And here is a premade bibtex entry.
 
