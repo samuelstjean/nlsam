@@ -20,10 +20,10 @@ addons:
 
 env:
   global:
-    - DEPENDS="cython numpy scipy dipy nibabel"
-    - DEPENDS_MIN="cython==0.21 numpy==1.10.4 scipy==0.19.1 nibabel==2.0.1 dipy==0.11"
+    - DEPENDS="cython numpy scipy dipy nibabel joblib"
+    - DEPENDS_MIN="cython==0.21 numpy==1.10.4 scipy==0.19.1 nibabel==2.0.1 dipy==0.11 joblib==0.14.1"
     - SPAMS='https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-2.6.zip'
-    - DEPENDS_BUILD="cython==0.23 numpy==1.11.3 scipy==0.19.1 nibabel==2.1 dipy==0.11"\ ${SPAMS}
+    - DEPENDS_BUILD="cython==0.23 numpy==1.11.3 scipy==0.19.1 nibabel==2.1 dipy==0.11 joblib==0.14.1"\ ${SPAMS}
   matrix:
     - TESTPART=test_scripts1.sh
     - TESTPART=test_scripts2.sh

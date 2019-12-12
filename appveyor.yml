@@ -24,11 +24,11 @@ init:
 install:
   # - powershell .\\appveyor\\install.ps1
   - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
-  
+
   - "conda config --set always_yes yes --set changeps1 no"
   # - "conda update -q conda"
   - "conda info -a"
-  - "conda create -q -n buildfarm python=%PYTHON_VERSION% numpy==1.11.3 scipy==0.19.1 cython pip"
+  - "conda create -q -n buildfarm python=%PYTHON_VERSION% numpy==1.11.3 scipy==0.19.1 joblib==0.14.1 cython pip"
   - "activate buildfarm"
 
   - "pip install --upgrade --upgrade-strategy only-if-needed nibabel==2.1"
