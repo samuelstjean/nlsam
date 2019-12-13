@@ -9,7 +9,6 @@ from itertools import cycle, starmap
 
 from nlsam.utils import im2col_nd, col2im_nd
 from nlsam.angular_tools import angular_neighbors
-from autodmri.blocks import extract_patches
 
 from scipy.sparse import lil_matrix
 from joblib import Parallel, delayed
@@ -191,7 +190,7 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     if mask is None:
         mask = np.ones(data.shape[:-1], dtype=np.bool)
 
-    X = extract_patches(data, block_size, [1, 1, 1, block_size[-1]]).reshape(-1, np.prod(block_size)).T
+    X = im2col_nd(data, block_size, overlap)
 
     # Solving for D
     param_alpha = {}
@@ -212,9 +211,8 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     if 'D' in param_alpha:
         param_D['D'] = param_alpha['D']
 
-    mask_col = extract_patches(mask, block_size[:-1], (1, 1, 1), flatten=False)
-    axis = tuple(range(mask_col.ndim//2, mask_col.ndim))
-    train_idx = np.sum(mask_col, axis=axis).ravel() > (np.prod(block_size[:-1]) / 2.)
+    mask_col = im2col_nd(mask, block_size[:-1], overlap[:-1])
+    train_idx = np.sum(mask_col, axis=0) > (np.prod(block_size[:-1]) / 2.)
 
     train_data = np.asfortranarray(X[:, train_idx])
     train_data /= np.sqrt(np.sum(train_data**2, axis=0, keepdims=True), dtype=dtype)
