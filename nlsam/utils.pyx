@@ -18,6 +18,8 @@ def im2col_nd(A, block_shape, overlap):
     block_shape = np.array(block_shape, dtype=np.int32)
     overlap = np.array(overlap, dtype=np.int32)
     step = block_shape - overlap
+    step = np.where(step == 10, 1, step)
+    print(block_shape, overlap, step)
 
     if (overlap.any() < 0) or ((block_shape < overlap).any()):
         raise ValueError('Invalid overlap value, it must lie between 0 and min(block_size)-1', overlap, block_shape)
