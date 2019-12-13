@@ -31,56 +31,6 @@ def im2col_nd(A, block_shape, overlap):
     return out
 
 
-cdef void _col2im3D_overlap(double[::1,:,:] A, double[::1,:,:] div, double[:,:] R, double[:] weights, int[:] block_shape, int[:] overlap):
-    cdef:
-        int k = 0, l = 0
-        int a, b, c, m, n, o
-        int x = A.shape[0], y = A.shape[1], z = A.shape[2]
-        int s0 = block_shape[0], s1 = block_shape[1], s2 = block_shape[2]
-        int over0 = overlap[0], over1 = overlap[1], over2 = overlap[2]
-
-    for a in range(0, x - over0, s0 - over0):
-        for b in range(0, y - over1, s1 - over1):
-            for c in range(0, z - over2, s2 - over2):
-
-                with nogil:
-                    l = 0
-
-                    for m in range(s0):
-                        for n in range(s1):
-                            for o in range(s2):
-
-                                A[a+m, b+n, c+o] += R[l, k] * weights[k]
-                                div[a+m, b+n, c+o] += weights[k]
-                                l += 1
-                    k += 1
-
-
-cdef void _col2im3D(double[::1,:,:] A, double[::1,:,:] div, double[::1,:] R, double[:] weights, int[:] block_shape) nogil:
-
-    cdef:
-        int k = 0, l = 0
-        int a, b, c, m, n, o
-        int x = A.shape[0], y = A.shape[1], z =  A.shape[2]
-        int s0 = block_shape[0], s1 = block_shape[1], s2 = block_shape[2]
-
-    with nogil:
-        for a in range(x - s0 + 1):
-            for b in range(y - s1 + 1):
-                for c in range(z - s2 + 1):
-
-                    l = 0
-
-                    for m in range(s0):
-                        for n in range(s1):
-                            for o in range(s2):
-
-                                A[a+m, b+n, c+o] += R[l, k] * weights[k]
-                                div[a+m, b+n, c+o] += weights[k]
-                                l += 1
-                    k += 1
-
-
 cdef void _col2im4D(double[::1,:,:,:] A, double[::1,:,:] div, double[::1,:] R, double[:] weights, int[:] block_shape) nogil:
     cdef:
         int k = 0, l = 0
@@ -134,15 +84,7 @@ def col2im_nd(R, block_shape, end_shape, overlap, weights=None, order='F'):
     if not np.any(R):
         return A
 
-    if len(A.shape) == 3:
-        block_shape = block_shape[:3]
-        overlap = overlap[:3]
-
-        if np.sum(block_shape - overlap) > len(A.shape):
-            _col2im3D_overlap(A, div, R, weights, block_shape, overlap)
-        else:
-            _col2im3D(A, div, R, weights, block_shape)
-    elif len(A.shape) == 4:
+    if len(A.shape) == 4:
         _col2im4D(A, div, R, weights, block_shape)
         div = div[..., None]
     else:
