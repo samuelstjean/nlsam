@@ -313,11 +313,12 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
     D = param_alpha['D']
 
     alpha = lil_matrix((D.shape[1], X.shape[1]))
-    W = np.ones(alpha.shape, dtype=dtype, order='F')
+    W = np.ones(alpha.shape, dtype=dtype)
 
     DtD = np.asfortranarray(np.dot(D.T, D))
     DtX = np.dot(D.T, X)
     DtXW = np.empty_like(DtX, order='F')
+    DtDW = np.empty_like(DtD, order='F')
 
     alpha_old = np.ones(alpha.shape, dtype=dtype)
     has_converged = np.zeros(alpha.shape[1], dtype=np.bool)
@@ -334,7 +335,7 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
         for i in range(alpha.shape[1]):
             if not has_converged[i]:
                 param_alpha['lambda1'] = var_mat[i]
-                DtDW = (1. / W[..., None, i]) * DtD * (1. / W[:, i])
+                DtDW[:] = (1. / W[..., None, i]) * DtD * (1. / W[:, i])
                 alpha[:, i:i + 1] = spams.lasso(X[:, i:i + 1], Q=DtDW, q=DtXW[:, i:i + 1], **param_alpha)
 
         alpha.toarray(out=arr)
