@@ -81,7 +81,7 @@ cdef void _im2col4D(double[::1,:,:,:] A, double[::1,:] R, int[:] size) nogil:
                     k += 1
 
 
-def im2col_nd(A,  block_shape, overlap, order='F'):
+def im2col_nd(A, block_shape, overlap, order='F'):
     """
     Returns a 2d array of shape flat(block_shape) by A.shape/block_shape made
     from blocks of a nd array.

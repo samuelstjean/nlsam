@@ -9,6 +9,7 @@ from itertools import cycle, starmap
 
 from nlsam.utils import im2col_nd, col2im_nd
 from nlsam.angular_tools import angular_neighbors
+from autodmri.blocks import extract_patches
 
 from scipy.sparse import lil_matrix
 from joblib import Parallel, delayed
@@ -190,9 +191,7 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     if mask is None:
         mask = np.ones(data.shape[:-1], dtype=np.bool)
 
-    # no overlapping blocks for training
-    no_over = (0, 0, 0, 0)
-    X = im2col_nd(data, block_size, no_over)
+    X = extract_patches(data, block_size, [1, 1, 1, block_size[-1]]).reshape(-1, np.prod(block_size)).T
 
     # Solving for D
     param_alpha = {}
@@ -213,18 +212,18 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     if 'D' in param_alpha:
         param_D['D'] = param_alpha['D']
 
-    mask_col = im2col_nd(np.broadcast_to(mask[..., None], data.shape), block_size, no_over)
-    train_idx = np.sum(mask_col, axis=0) > (mask_col.shape[0] / 2.)
+    mask_col = extract_patches(mask, block_size[:-1], (1, 1, 1), flatten=False)
+    axis = tuple(range(mask_col.ndim//2, mask_col.ndim))
+    train_idx = np.sum(mask_col, axis=axis).ravel() > (np.prod(block_size[:-1]) / 2.)
 
-    train_data = X[:, train_idx]
-    train_data = np.asfortranarray(train_data[:, np.any(train_data != 0, axis=0)], dtype=dtype)
+    train_data = np.asfortranarray(X[:, train_idx])
     train_data /= np.sqrt(np.sum(train_data**2, axis=0, keepdims=True), dtype=dtype)
 
     param_alpha['D'] = spams.trainDL(train_data, **param_D)
     param_alpha['D'] /= np.sqrt(np.sum(param_alpha['D']**2, axis=0, keepdims=True, dtype=dtype))
     param_D['D'] = param_alpha['D']
 
-    del train_data, X, mask_col
+    del train_idx, train_data, X, mask_col
 
     if use_threading or (n_cores == 1):
         param_alpha['numThreads'] = n_cores
@@ -318,7 +317,7 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
     alpha = lil_matrix((D.shape[1], X.shape[1]))
     W = np.ones(alpha.shape, dtype=dtype, order='F')
 
-    DtD = np.dot(D.T, D)
+    DtD = np.asfortranarray(np.dot(D.T, D))
     DtX = np.dot(D.T, X)
     DtXW = np.empty_like(DtX, order='F')
 
@@ -327,6 +326,7 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
     arr = np.empty(alpha.shape)
 
     xi = np.random.randn(X.shape[0], X.shape[1]) * var_mat
+    var_mat *= (X.shape[0] + gamma * np.sqrt(2 * X.shape[0]))
     eps = np.max(np.abs(np.dot(D.T, xi)), axis=0)
 
     for _ in range(n_iter):
@@ -335,9 +335,9 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
 
         for i in range(alpha.shape[1]):
             if not has_converged[i]:
-                param_alpha['lambda1'] = var_mat[i] * (X.shape[0] + gamma * np.sqrt(2 * X.shape[0]))
+                param_alpha['lambda1'] = var_mat[i]
                 DtDW = (1. / W[..., None, i]) * DtD * (1. / W[:, i])
-                alpha[:, i:i + 1] = spams.lasso(X[:, i:i + 1], Q=np.asfortranarray(DtDW), q=DtXW[:, i:i + 1], **param_alpha)
+                alpha[:, i:i + 1] = spams.lasso(X[:, i:i + 1], Q=DtDW, q=DtXW[:, i:i + 1], **param_alpha)
 
         alpha.toarray(out=arr)
         nonzero_ind = arr != 0

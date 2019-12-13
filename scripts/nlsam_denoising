@@ -478,6 +478,7 @@ def main():
                                       n_iter=n_iter,
                                       b0_threshold=b0_threshold,
                                       dtype=dtype,
+                                      verbose=args.verbose,
                                       use_threading=use_threading)
 
         nib.save(nib.Nifti1Image(data_denoised.astype(np.float32), affine, header), args.output)
