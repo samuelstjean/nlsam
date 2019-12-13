@@ -363,6 +363,10 @@ def main():
         noise_maps = np.asarray(nib.load(args.noise_maps).get_data(caching='unchanged'), dtype=np.float32)
         logger.info("Loading {} as a noise map".format(os.path.realpath(args.noise_maps)))
 
+        # Needs to be 4D
+        if noise_maps.ndim != 4:
+            noise_maps = noise_maps[..., None]
+
         sigma, N, mask_noise = estimate_from_nmaps(noise_maps, ncores=n_cores, verbose=args.verbose)
 
         if args.save_piesno_mask is not None:
