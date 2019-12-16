@@ -116,8 +116,8 @@ install:
     - pip install -U pip
     - pip install pytest coverage coveralls
     - pip install --upgrade --upgrade-strategy only-if-needed $DEPENDS
-    - python setup.py build_ext -i
-    - python setup.py install
+    - pip install .
+
     # this breaks the pyinstaller builds on linux
     - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then pip uninstall mock -y; fi
     - if [[ "$BUILD_PYINSTALLER" ]];
@@ -135,7 +135,7 @@ before_script:
 script:
     - mkdir tester
     - cd tester
-    - pytest ../nlsam/tests/ --verbose
+    - pytest --pyargs nlsam --verbose
     - if [[ "$TESTPART" ]];
         then echo 'Running tests $TESTPART';
         chmod +x ../nlsam/tests/$TESTPART;
