@@ -21,15 +21,14 @@ addons:
 env:
   global:
     - DEPENDS="cython numpy scipy dipy nibabel joblib autodmri"
-    - DEPENDS_MIN="cython==0.21 numpy==1.10.4 scipy==0.19.1 nibabel==2.0.1 dipy==0.11 joblib==0.14.1 autodmri==0.2.1"
+    - DEPENDS_MIN="cython==0.21 numpy==1.10.4 scipy==0.19.1 nibabel==2.2 dipy==0.11 joblib==0.14.1 autodmri==0.2.1"
     - SPAMS='https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-2.6.zip'
-    - DEPENDS_BUILD="cython==0.23 numpy==1.11.3 scipy==0.19.1 nibabel==2.1 dipy==0.11 joblib==0.14.1 autodmri==0.2.1"\ ${SPAMS}
+    - DEPENDS_BUILD="cython==0.23 numpy==1.11.3 scipy==0.19.1 nibabel==2.2 dipy==0.11 joblib==0.14.1 autodmri==0.2.1"\ ${SPAMS}
   matrix:
     - TESTPART=test_scripts1.sh
     - TESTPART=test_scripts2.sh
 
 python:
-  - 2.7
   - 3.5
   - 3.6
   - 3.7
@@ -37,14 +36,6 @@ python:
 
 matrix:
   include:
-    - python: 2.7
-      env:
-        - DEPENDS=$DEPENDS_MIN
-          TESTPART=test_scripts1.sh
-    - python: 2.7
-      env:
-        - DEPENDS=$DEPENDS_MIN
-          TESTPART=test_scripts2.sh
     - python: 3.5
       env:
         - DEPENDS=$DEPENDS_MIN
@@ -55,24 +46,6 @@ matrix:
           TESTPART=test_scripts2.sh
 
     # test only on a few mac osx bots
-    - os: osx
-      language: generic
-      before_install:
-        # Install Anaconda
-        - source build_stuff/get_conda.sh
-      env:
-        - DEPENDS=$DEPENDS
-          TESTPART=test_scripts1.sh
-          ANACONDA_PYTHON_VERSION=2.7
-    - os: osx
-      language: generic
-      before_install:
-        # Install Anaconda
-        - source build_stuff/get_conda.sh
-      env:
-        - DEPENDS=$DEPENDS
-          TESTPART=test_scripts2.sh
-          ANACONDA_PYTHON_VERSION=2.7
     - os: osx
       language: generic
       before_install:
