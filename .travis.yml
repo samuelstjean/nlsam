@@ -20,10 +20,10 @@ addons:
 
 env:
   global:
+    - SPAMS='https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-2.6.zip'
     - DEPENDS="cython numpy scipy dipy nibabel joblib autodmri"
     - DEPENDS_MIN="cython==0.21 numpy==1.10.4 scipy==0.19.1 nibabel==2.2 dipy==0.11 joblib==0.14.1 autodmri==0.2.1"
-    - SPAMS='https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-2.6.zip'
-    - DEPENDS_BUILD="cython==0.23 numpy==1.11.3 scipy==0.19.1 nibabel==2.2 dipy==0.11 joblib==0.14.1 autodmri==0.2.1"\ ${SPAMS}
+    - DEPENDS_BUILD="cython==0.23 numpy==1.11.3 scipy==0.19.1 nibabel==2.2 dipy==0.11 joblib==0.14.1 autodmri==0.2.1"
   matrix:
     - TESTPART=test_scripts1.sh
     - TESTPART=test_scripts2.sh
@@ -51,6 +51,7 @@ matrix:
       before_install:
         # Install Anaconda
         - source build_stuff/get_conda.sh
+        - conda install -c conda-forge python-spams==2.6.1
       env:
         - DEPENDS=$DEPENDS_MIN
           TESTPART=test_scripts1.sh
@@ -60,6 +61,7 @@ matrix:
       before_install:
         # Install Anaconda
         - source build_stuff/get_conda.sh
+        - conda install -c conda-forge python-spams==2.6.1
       env:
         - DEPENDS=$DEPENDS_MIN
           TESTPART=test_scripts2.sh
@@ -75,7 +77,7 @@ matrix:
       before_install:
         # Install Anaconda
         - source build_stuff/get_conda.sh
-        - conda install -c conda-forge python-spams
+        - conda install -c conda-forge python-spams==2.6.1
       env:
         - DEPENDS=$DEPENDS_BUILD
           BUILD_PYINSTALLER=true
@@ -89,6 +91,7 @@ install:
     - pip install -U pip
     - pip install pytest coverage coveralls
     - pip install --upgrade --upgrade-strategy only-if-needed $DEPENDS
+    - pip install --upgrade --upgrade-strategy only-if-needed $SPAMS
     - pip install .
 
     # this breaks the pyinstaller builds on linux
