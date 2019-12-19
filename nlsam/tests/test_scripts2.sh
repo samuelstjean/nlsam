@@ -25,7 +25,7 @@ check_return_code $?
 nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --sh_order 0 --load_sigma sigma.nii.gz --no_subsample --fix_implausible --no_clip_eta
 check_return_code $?
 
-nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --sh_order 0 --noise_map noise.nii.gz --noise_mask pmask.nii.gz --use_f32
+nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz auto bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --sh_order 0 --noise_map noise.nii.gz --noise_mask pmask.nii.gz --use_f32
 check_return_code $?
 
 nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --sh_order 0 --load_sigma sigma.nii.gz --no_stabilization --no_denoising
@@ -35,6 +35,10 @@ nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.ni
 check_return_code $?
 
 nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --sh_order 0 --noise_est local_std --no_denoising
+check_return_code $?
+
+
+nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz auto bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --sh_order 0 --noise_est auto --no_denoising --cores 4
 check_return_code $?
 
 nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --sh_order 0 --no_denoising

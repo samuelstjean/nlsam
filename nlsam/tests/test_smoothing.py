@@ -6,7 +6,7 @@ import numpy as np
 from numpy.testing import assert_array_less, run_module_suite
 
 from nlsam.bias_correction import xi
-from nlsam.smoothing import local_standard_deviation, local_piesno
+from nlsam.smoothing import local_standard_deviation
 
 
 def test_local_standard_deviation():
@@ -44,22 +44,6 @@ def test_local_standard_deviation():
 
         # everything less than 10% error of real value?
         assert_array_less(np.abs(std - corrected_std.mean()) / std, 0.1)
-
-
-def test_local_piesno():
-
-    std = 50
-    shape = (30, 30, 30, 3)
-
-    for N in [1, 4, 8, 12]:
-        noise = 0
-        for _ in range(N):
-            noise += np.random.normal(0, std, shape)**2 + np.random.normal(0, std, shape)**2
-
-        noise = np.sqrt(noise)
-
-        # everything less than 3% error of real value on average?
-        assert_array_less(np.abs(std - local_piesno(noise, N, return_mask=False).mean()) / std, 0.03)
 
 
 if __name__ == "__main__":

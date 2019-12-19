@@ -20,16 +20,15 @@ addons:
 
 env:
   global:
-    - DEPENDS="cython numpy scipy dipy nibabel joblib"
-    - DEPENDS_MIN="cython==0.21 numpy==1.10.4 scipy==0.19.1 nibabel==2.0.1 dipy==0.11 joblib==0.14.1"
     - SPAMS='https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-2.6.zip'
-    - DEPENDS_BUILD="cython==0.23 numpy==1.11.3 scipy==0.19.1 nibabel==2.1 dipy==0.11 joblib==0.14.1"\ ${SPAMS}
+    - DEPENDS="cython numpy scipy dipy nibabel joblib autodmri"
+    - DEPENDS_MIN="cython==0.21 numpy==1.10.4 scipy==0.19.1 nibabel==2.2 dipy==0.11 joblib==0.14.1 autodmri==0.2.1"
+    - DEPENDS_BUILD="cython==0.23 numpy==1.11.3 scipy==0.19.1 nibabel==2.2 dipy==0.11 joblib==0.14.1 autodmri==0.2.1"
   matrix:
     - TESTPART=test_scripts1.sh
     - TESTPART=test_scripts2.sh
 
 python:
-  - 2.7
   - 3.5
   - 3.6
   - 3.7
@@ -37,14 +36,6 @@ python:
 
 matrix:
   include:
-    - python: 2.7
-      env:
-        - DEPENDS=$DEPENDS_MIN
-          TESTPART=test_scripts1.sh
-    - python: 2.7
-      env:
-        - DEPENDS=$DEPENDS_MIN
-          TESTPART=test_scripts2.sh
     - python: 3.5
       env:
         - DEPENDS=$DEPENDS_MIN
@@ -60,24 +51,7 @@ matrix:
       before_install:
         # Install Anaconda
         - source build_stuff/get_conda.sh
-      env:
-        - DEPENDS=$DEPENDS
-          TESTPART=test_scripts1.sh
-          ANACONDA_PYTHON_VERSION=2.7
-    - os: osx
-      language: generic
-      before_install:
-        # Install Anaconda
-        - source build_stuff/get_conda.sh
-      env:
-        - DEPENDS=$DEPENDS
-          TESTPART=test_scripts2.sh
-          ANACONDA_PYTHON_VERSION=2.7
-    - os: osx
-      language: generic
-      before_install:
-        # Install Anaconda
-        - source build_stuff/get_conda.sh
+        - conda install -c conda-forge python-spams==2.6.1
       env:
         - DEPENDS=$DEPENDS_MIN
           TESTPART=test_scripts1.sh
@@ -87,6 +61,7 @@ matrix:
       before_install:
         # Install Anaconda
         - source build_stuff/get_conda.sh
+        - conda install -c conda-forge python-spams==2.6.1
       env:
         - DEPENDS=$DEPENDS_MIN
           TESTPART=test_scripts2.sh
@@ -102,7 +77,7 @@ matrix:
       before_install:
         # Install Anaconda
         - source build_stuff/get_conda.sh
-        - conda install -c conda-forge python-spams
+        - conda install -c conda-forge python-spams==2.6.1
       env:
         - DEPENDS=$DEPENDS_BUILD
           BUILD_PYINSTALLER=true
@@ -115,9 +90,10 @@ install:
     - python --version # just to check
     - pip install -U pip
     - pip install pytest coverage coveralls
-    - pip install $DEPENDS --upgrade --upgrade-strategy only-if-needed
-    - python setup.py build_ext -i
-    - python setup.py install
+    - pip install --upgrade --upgrade-strategy only-if-needed $DEPENDS
+    - pip install --upgrade --upgrade-strategy only-if-needed $SPAMS
+    - pip install .
+
     # this breaks the pyinstaller builds on linux
     - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then pip uninstall mock -y; fi
     - if [[ "$BUILD_PYINSTALLER" ]];
@@ -135,7 +111,7 @@ before_script:
 script:
     - mkdir tester
     - cd tester
-    - pytest ../nlsam/tests/ --verbose
+    - pytest --pyargs nlsam --verbose
     - if [[ "$TESTPART" ]];
         then echo 'Running tests $TESTPART';
         chmod +x ../nlsam/tests/$TESTPART;

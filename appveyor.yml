@@ -3,7 +3,7 @@ build: false
 environment:
   global:
       # SDK v7.0 MSVC Express 2008's SetEnv.cmd script will fail if the
-      # /E:ON and /V:ON options are not enabled in the batch script intepreter
+      # /E:ON and /V:ON options are not enabled in the batch script interpreter
       # See: http://stackoverflow.com/a/13751649/163740
       CMD_IN_ENV: "cmd /E:ON /V:ON /C .\\appveyor\\run_with_env.cmd"
   matrix:
@@ -33,12 +33,11 @@ install:
 
   - "pip install --upgrade --upgrade-strategy only-if-needed nibabel==2.1"
   - "pip install --upgrade --upgrade-strategy only-if-needed dipy==0.11"
-  - "pip install --upgrade --upgrade-strategy only-if-needed joblib==0.14.1 cython==0.23"
+  - "pip install --upgrade --upgrade-strategy only-if-needed joblib==0.14.1 cython==0.23 autodmri==0.2.1"
   - "pip install pytest"
   - 'pip install https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-2.4-cp27-none-win_amd64.whl'
 
-  - "%CMD_IN_ENV% python setup.py build_ext --inplace"
-  - "pip install -e ."
+  - "%CMD_IN_ENV% pip install ."
 
 # build_script:
 #   - pip install cibuildwheel
@@ -48,7 +47,7 @@ cache:
   - C:\Users\appveyor\AppData\Local\pip\Cache\
 
 test_script:
-  - "cd C:\\projects\\nlsam\\nlsam"
+  - "cd C:\\"
   - pytest --pyargs nlsam --verbose
 
 after_test:
