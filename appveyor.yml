@@ -24,14 +24,14 @@ init:
 install:
   # - powershell .\\appveyor\\install.ps1
   - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
-  
+
   - "conda config --set always_yes yes --set changeps1 no"
   # - "conda update -q conda"
   - "conda info -a"
   - "conda create -q -n buildfarm python=%PYTHON_VERSION% numpy==1.11.3 scipy==0.19.1 cython pip"
   - "activate buildfarm"
 
-  - "pip install --upgrade --upgrade-strategy only-if-needed nibabel==2.1"
+  - "pip install --upgrade --upgrade-strategy only-if-needed nibabel==2.2"
   - "pip install --upgrade --upgrade-strategy only-if-needed dipy==0.11"
   - "pip install pytest"
   - 'pip install https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-2.4-cp27-none-win_amd64.whl'
