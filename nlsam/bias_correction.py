@@ -3,8 +3,8 @@ from __future__ import division
 import numpy as np
 import logging
 
-from nlsam.multiprocess import multiprocesser
 from nlsam.stabilizer import fixed_point_finder, chi_to_gauss, root_finder, xi
+from joblib import Parallel, delayed
 
 logger = logging.getLogger('nlsam')
 
@@ -15,7 +15,7 @@ vec_xi = np.vectorize(xi, [np.float64])
 vec_root_finder = np.vectorize(root_finder, [np.float64])
 
 
-def stabilization(data, m_hat, sigma, N, mask=None, clip_eta=True, return_eta=False, n_cores=None, mp_method=None):
+def stabilization(data, m_hat, sigma, N, mask=None, clip_eta=True, return_eta=False, n_cores=-1, verbose=False):
 
     data = np.asarray(data)
     m_hat = np.asarray(m_hat)
@@ -51,8 +51,12 @@ def stabilization(data, m_hat, sigma, N, mask=None, clip_eta=True, return_eta=Fa
                 clip_eta)
                for idx in range(data.shape[-2]))
 
-    parallel_stabilization = multiprocesser(multiprocess_stabilization, n_cores=n_cores, mp_method=mp_method)
-    output = parallel_stabilization(arglist)
+    # Did we ask for verbose at the module level?
+    if not verbose:
+        verbose = logger.getEffectiveLevel() <= 20  # Info or debug level
+
+    output = Parallel(n_jobs=n_cores,
+                      verbose=verbose)(delayed(multiprocess_stabilization)(*args) for args in arglist)
 
     data_stabilized = np.zeros_like(data, dtype=np.float32)
     eta = np.zeros_like(data, dtype=np.float32)
