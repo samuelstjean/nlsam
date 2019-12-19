@@ -25,6 +25,9 @@ check_return_code $?
 nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --noise_est local_std --sh_order 6 --iterations 5 --verbose --save_sigma sigma.nii.gz
 check_return_code $?
 
+nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz auto bvals bvecs 5 -m mask_crop.nii.gz -f --noise_est auto --sh_order 6 --iterations 5 --verbose --save_sigma sigma.nii.gz --save_N N.nii.gz
+check_return_code $?
+
 nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --sh_order 0 --b0_threshold 10 --noise_mask pmask.nii.gz
 check_return_code $?
 

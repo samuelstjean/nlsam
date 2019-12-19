@@ -9,7 +9,9 @@ def get_setup_params():
     params['install_requires'] = ['numpy>=1.10.4',
                                   'scipy>=0.19.1',
                                   'cython>=0.21',
-                                  'nibabel>=2.2',
+                                  'nibabel>=2.0',
+                                  'joblib>=0.14.1',
+                                  'autodmri>=0.2.1',
                                   'spams>=2.4']
     params['dependency_links'] = ['https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-2.6.zip#egg=spams-2.6']
 

@@ -5,6 +5,7 @@ from __future__ import division, print_function
 import os
 import argparse
 import logging
+
 from multiprocessing import cpu_count
 from ast import literal_eval
 
@@ -12,8 +13,10 @@ import nibabel as nib
 import numpy as np
 
 from nlsam.denoiser import nlsam_denoise
-from nlsam.smoothing import local_standard_deviation, local_piesno
+from nlsam.smoothing import local_standard_deviation
 from nlsam.bias_correction import stabilization, root_finder_sigma
+
+from autodmri.estimator import estimate_from_nmaps, estimate_from_dwis
 
 from dipy.io.gradients import read_bvals_bvecs
 from dipy.denoise.noise_estimate import piesno
@@ -33,6 +36,10 @@ Medical Image Analysis, 32(2016), 115-130.
 [2] Koay CG, Ozarslan E and Basser PJ.
 A signal transformational framework for breaking the noise floor and its applications in MRI.
 Journal of Magnetic Resonance 2009; 197: 108-119.
+
+[3] St-Jean, S., De Luca A., Viergever M. A., Leemans A. (2018)
+Automatic, fast and robust characterization of noise distributions for diffusion MRI
+MICCAI 2018. Lecture Notes in Computer Science, vol 11070. Springer, Cham
 """
 
 
@@ -55,10 +62,11 @@ def buildArgsParser():
     required.add_argument('output', metavar='output',
                           help='Path for the saved denoised file.')
 
-    required.add_argument('N', metavar='N', type=float,
+    required.add_argument('N', metavar='N',
                           help='Number of receiver coils of the scanner. \n'
                           'Use N = 1 in the case of a SENSE (Philips) reconstruction and '
-                          'N >= 1 for GRAPPA based reconstruction (Siemens).')
+                          'N >= 1 for GRAPPA based reconstruction (Siemens).\n'
+                          'You can also pass "auto" to estimate it automatically.')
 
     required.add_argument('bvals', metavar='bvals',
                           help='Path of the bvals file, in FSL format.')
@@ -112,12 +120,13 @@ def buildArgsParser():
 
     g.add_argument('--noise_est', dest='noise_method',
                    metavar='string', default='piesno',
-                   choices=['local_std', 'piesno'],
+                   choices=['local_std', 'piesno', 'auto'],
                    help='Noise estimation method used for estimating sigma.\n'
                    'local_std : Compute local noise standard deviation '
                    'with correction factor. No a priori needed.\n'
                    'piesno (default): Use PIESNO estimation, assumes the presence of '
-                   'background in the data.')
+                   'background in the data.\n'
+                   'auto: Automatically estimate sigma and N from background in the data.')
 
     g.add_argument('--load_sigma', metavar='file',
                    help='Load this file as the standard deviation volume.\n'
@@ -130,20 +139,24 @@ def buildArgsParser():
     advanced = p.add_argument_group('Advanced noise estimation')
 
     advanced.add_argument('--noise_maps', metavar='file',
-                          help='Path of the noise map(s) volume for local piesno.\n'
+                          help='Path of the noise map(s) volume for automatic estimation.\n'
                           'Either supply a 3D noise map or a stack of 3D maps as a 4D volume.\n'
                           'This is intended for noise maps collected by the scanner (so that there is no signal in those measurements)\n'
                           'which are properly scaled with the rest of the data you collected.\n'
-                          'If in doubt, it is safer to use another estimation method with --noise_est')
+                          'If in doubt, it is safer to use another estimation method with --noise_est\n'
+                          'Note that you also need to pass "auto" as a value for N since it also gets estimated')
 
     advanced.add_argument('--noise_mask', dest='save_piesno_mask', metavar='file',
-                          help='If supplied, output filename for saving the mask of noisy voxels found by PIESNO.')
+                          help='If supplied, output filename for saving the mask of noisy voxels found by PIESNO or the automatic estimation.')
 
     advanced.add_argument('--save_stab', metavar='file',
                           help='Path to save the intermediate noisy bias corrected volume.')
 
     advanced.add_argument('--save_sigma', metavar='file',
                           help='Path to save the intermediate standard deviation volume.')
+
+    advanced.add_argument('--save_N', metavar='file',
+                          help='Path to save the intermediate N (degree of freedoms) volume.')
 
     advanced.add_argument('--save_difference', metavar='file',
                           help='Path to save the absolute difference volume, abs(noisy - denoised).')
@@ -215,14 +228,17 @@ def main():
     args = parser.parse_args()
 
     noise_method = args.noise_method
-    N = args.N
+
+    try:
+        N = float(args.N)
+    except ValueError:
+        N = args.N
 
     subsample = args.no_subsample
     is_symmetric = args.is_symmetric
     n_iter = args.iterations
     b0_threshold = args.b0_threshold
     split_b0s = args.split_b0s
-    mp_method = args.mp_method
     use_threading = args.use_threading
     block_size = np.array(args.spatial_block_size + (args.angular_block_size,))
     clip_eta = args.no_clip_eta
@@ -285,6 +301,12 @@ def main():
             else:
                 parser.error('{} already exists! Use -f or --force to overwrite it.'.format(f))
 
+    if N != 'auto' and args.noise_maps is not None:
+        parser.error('You need to pass N = auto when using noise maps, but you passed {}.'.format(N))
+
+    if N != 'auto' and noise_method == 'auto':
+        parser.error('You need to pass N = auto when using --noise_est, but you passed {}.'.format(N))
+
     vol = nib.load(args.input)
     data = vol.get_fdata(caching='unchanged', dtype=np.float32)
     affine = vol.affine
@@ -341,15 +363,19 @@ def main():
         noise_maps = nib.load(args.noise_maps).get_fdata(caching='unchanged', dtype=np.float32)
         logger.info("Loading {} as a noise map".format(os.path.realpath(args.noise_maps)))
 
-        # Local piesno works on 4D, so we need to broadcast before
-        if noise_maps.ndim == 3:
+        # Needs to be 4D
+        if noise_maps.ndim != 4:
             noise_maps = noise_maps[..., None]
 
-        sigma, mask_noise = local_piesno(noise_maps, N=N, return_mask=True)
+        sigma, N, mask_noise = estimate_from_nmaps(noise_maps, ncores=n_cores, verbose=args.verbose)
 
         if args.save_piesno_mask is not None:
             nib.save(nib.Nifti1Image(mask_noise.astype(np.int16), affine), args.save_piesno_mask)
-            logger.info("Piesno mask saved as {}".format(os.path.realpath(args.save_piesno_mask)))
+            logger.info("Mask of noisy voxels saved as {}".format(os.path.realpath(args.save_piesno_mask)))
+
+        if args.save_N is not None:
+            nib.save(nib.Nifti1Image(N, affine), args.save_N)
+            logger.info("N map saved as {}".format(os.path.realpath(args.save_N)))
 
     elif noise_method == 'piesno':
         logger.info("Estimating noise with method {}".format(noise_method))
@@ -358,7 +384,7 @@ def main():
 
         if args.save_piesno_mask is not None:
             nib.save(nib.Nifti1Image(mask_noise.astype(np.int16), affine), args.save_piesno_mask)
-            logger.info("Piesno mask saved as {}".format(os.path.realpath(args.save_piesno_mask)))
+            logger.info("Mask of noisy voxels saved as {}".format(os.path.realpath(args.save_piesno_mask)))
 
         # If the detected noise standard deviation is low and the noise mask has few voxels,
         # maybe something went wrong. We check here that at least 1% of noisy voxels
@@ -380,6 +406,21 @@ def main():
         # Compute the corrected value for each 3D volume
         if N > 0:
             sigma = root_finder_sigma(data, sigma, N, mask=mask)
+
+    elif noise_method == 'auto':
+        logger.info("Estimating noise with method {}".format(noise_method))
+
+        sigma_1D, N_1D, mask_noise = estimate_from_dwis(data, return_mask=True, ncores=n_cores, verbose=args.verbose)
+        sigma = np.broadcast_to(sigma_1D[None, None, :, None], data.shape)
+        N = np.broadcast_to(N_1D[None, None, :, None], data.shape)
+
+        if args.save_piesno_mask is not None:
+            nib.save(nib.Nifti1Image(mask_noise.astype(np.int16), affine), args.save_piesno_mask)
+            logger.info("Mask of noisy voxels saved as {}".format(os.path.realpath(args.save_piesno_mask)))
+
+        if args.save_N is not None:
+            nib.save(nib.Nifti1Image(N, affine), args.save_N)
+            logger.info("N map saved as {}".format(os.path.realpath(args.save_N)))
 
     if args.save_sigma is not None:
         nib.save(nib.Nifti1Image(sigma, affine), args.save_sigma)
@@ -428,7 +469,11 @@ def main():
         if args.save_difference is None:
             del data
 
-        data_denoised = nlsam_denoise(data_stabilized, sigma, bvals, bvecs, block_size,
+        data_denoised = nlsam_denoise(data_stabilized,
+                                      sigma,
+                                      bvals,
+                                      bvecs,
+                                      block_size,
                                       mask=mask,
                                       is_symmetric=is_symmetric,
                                       n_cores=n_cores,
@@ -437,6 +482,7 @@ def main():
                                       n_iter=n_iter,
                                       b0_threshold=b0_threshold,
                                       dtype=dtype,
+                                      verbose=args.verbose,
                                       use_threading=use_threading)
 
         nib.save(nib.Nifti1Image(data_denoised.astype(np.float32), affine, header), args.output)

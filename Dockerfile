@@ -1,6 +1,6 @@
 FROM python:3.5-buster
 
-ENV DEPENDS='cython==0.29 nibabel==2.4 dipy==0.15 numpy==1.16.4 scipy==1.2.2 joblib==0.14.1' \
+ENV DEPENDS='cython==0.29 nibabel==2.4 dipy==0.15 numpy==1.16.4 scipy==1.2.2 joblib==0.14.1 autodmri==0.2.1' \
     # this one is for py3.6, which is what ubuntu 18.04 is using. Feel free to change for a different version as appropriate.
     DEPENDS_spams='https://github.com/samuelstjean/spams-python/releases/download/v2.6/spams-2.6-cp35-cp35m-linux_x86_64.whl' \
     nlsam_version='0.6.1'
