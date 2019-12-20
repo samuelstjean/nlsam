@@ -308,21 +308,21 @@ def main():
         parser.error('You need to pass N = auto when using --noise_est, but you passed {}.'.format(N))
 
     vol = nib.load(args.input)
-    data = np.asarray(vol.get_data(caching='unchanged'), dtype=np.float32)
+    data = vol.get_fdata(caching='unchanged', dtype=np.float32)
     affine = vol.affine
     header = vol.header
     header.set_data_dtype(np.float32)
     logger.info("Loading data {}".format(os.path.realpath(args.input)))
 
     if args.mask is not None:
-        mask = np.asarray(nib.load(args.mask).get_data(caching='unchanged'), dtype=np.bool)
+        mask = nib.load(args.mask).get_fdata(caching='unchanged').astype(np.bool)
         logger.info("Loading mask {}".format(os.path.realpath(args.mask)))
     else:
         mask = np.ones(data.shape[:-1], dtype=np.bool)
 
     # load m_hat if we supplied the argument
     if args.load_mhat is not None:
-        m_hat = np.asarray(nib.load(args.load_mhat).get_data(caching='unchanged'), dtype=np.float32)
+        m_hat = nib.load(args.load_mhat).get_fdata(caching='unchanged', dtype=np.float32)
         logger.info("Loading m_hat {}".format(os.path.realpath(args.load_mhat)))
         if m_hat.shape != data.shape:
             raise ValueError('m_hat shape {} is different from data shape {}!'.format(m_hat.shape, data.shape))
@@ -348,7 +348,7 @@ def main():
     #########################
 
     if args.load_sigma is not None:
-        sigma = np.asarray(nib.load(args.load_sigma).get_data(caching='unchanged'), dtype=np.float32)
+        sigma = nib.load(args.load_sigma).get_fdata(caching='unchanged', dtype=np.float32)
         logger.info("Loading sigma {}".format(os.path.realpath(args.load_sigma)))
 
         # If we have a bunch of 4D views, we only want a 3D array
@@ -360,7 +360,7 @@ def main():
             raise ValueError('data shape is {}, but sigma shape {} is different!'.format(data.shape, sigma.shape))
 
     elif args.noise_maps is not None:
-        noise_maps = np.asarray(nib.load(args.noise_maps).get_data(caching='unchanged'), dtype=np.float32)
+        noise_maps = nib.load(args.noise_maps).get_fdata(caching='unchanged', dtype=np.float32)
         logger.info("Loading {} as a noise map".format(os.path.realpath(args.noise_maps)))
 
         # Needs to be 4D
