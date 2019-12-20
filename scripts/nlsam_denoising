@@ -184,11 +184,6 @@ def buildArgsParser():
     misc.add_argument('--cores', metavar='int', type=int,
                       help='Number of cores to use for multithreading.')
 
-    misc.add_argument('--use_threading', action='store_true',
-                      help='If set, rely on your blas/lapack/spams multithreading capabilities instead of python multiprocessing.\n'
-                      'This mode uses less ram, but is slower than multiprocessing and should only be used for very large datasets\n'
-                      'or in cases where the amount of available ram is limited.')
-
     misc.add_argument('--use_f32', action='store_true',
                       help='If supplied, use float32 for inner computations. This option lowers ram usage, but\n'
                       'could lead to numerical precision issues, so use carefully and inspect the final output.')
@@ -220,6 +215,9 @@ def buildArgsParser():
     deprecated.add_argument('--mp_method', metavar='string',
                             help='This option has been removed and has no effect.')
 
+    deprecated.add_argument('--use_threading', action='store_true',
+                            help='This option has been removed and has no effect.')
+
     return p
 
 
@@ -233,7 +231,6 @@ def main():
     n_iter = args.iterations
     b0_threshold = args.b0_threshold
     split_b0s = args.split_b0s
-    use_threading = args.use_threading
     block_size = np.array(args.spatial_block_size + (args.angular_block_size,))
     clip_eta = args.no_clip_eta
     logger = logging.getLogger('nlsam')
@@ -264,10 +261,6 @@ def main():
     else:
         dtype = np.float64
 
-    if args.use_threading:
-        logger.info('Using multithreading instead of multiprocessing, please make sure your blas/lapack/spams '
-                    'libraries are built with multithreading support!')
-
     if args.implausible_signal_fix:
         logger.warning('Option --implausible_signal_fix has been deprecated')
 
@@ -276,6 +269,9 @@ def main():
 
     if args.mp_method:
         logger.warning('Option --mp_method has been deprecated')
+
+    if args.use_threading:
+        logger.warning('Option --use_threading has been deprecated')
 
     ##########################################
     #  Load up data and do some sanity checks
@@ -496,8 +492,7 @@ def main():
                                       n_iter=n_iter,
                                       b0_threshold=b0_threshold,
                                       dtype=dtype,
-                                      verbose=args.verbose,
-                                      use_threading=use_threading)
+                                      verbose=args.verbose)
 
         nib.save(nib.Nifti1Image(data_denoised.astype(np.float32), affine, header), args.output)
         logger.info("Denoised data saved as {}".format(os.path.realpath(args.output)))
