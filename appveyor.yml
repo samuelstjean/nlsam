@@ -31,7 +31,7 @@ install:
   - "conda create -q -n buildfarm python=%PYTHON_VERSION% numpy==1.11.3 scipy==0.19.1 pip"
   - "activate buildfarm"
 
-  - "pip install --upgrade --upgrade-strategy only-if-needed nibabel==2.1"
+  - "pip install --upgrade --upgrade-strategy only-if-needed nibabel==2.2"
   - "pip install --upgrade --upgrade-strategy only-if-needed dipy==0.11"
   - "pip install --upgrade --upgrade-strategy only-if-needed joblib==0.14.1 cython==0.23 autodmri==0.2.1"
   - "pip install pytest"
