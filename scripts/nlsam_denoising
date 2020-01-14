@@ -305,7 +305,10 @@ def main():
         parser.error('You need to pass N = auto when using noise maps, but you passed {}.'.format(N))
 
     if N != 'auto' and noise_method == 'auto':
-        parser.error('You need to pass N = auto when using --noise_est, but you passed {}.'.format(N))
+        parser.error('You need to pass N = auto when using --noise_est auto, but you passed {}.'.format(N))
+
+    if N == 'auto' and noise_method != 'auto':
+        parser.error('You need to pass --noise_est auto when using N = auto, but you passed {}.'.format(noise_method))
 
     vol = nib.load(args.input)
     data = vol.get_fdata(caching='unchanged', dtype=np.float32)
