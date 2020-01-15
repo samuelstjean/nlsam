@@ -66,7 +66,7 @@ def buildArgsParser():
                           help='Number of receiver coils of the scanner. \n'
                           'Use N = 1 in the case of a SENSE (Philips) reconstruction and '
                           'N >= 1 for GRAPPA based reconstruction (Siemens).\n'
-                          'You can also pass "auto" to estimate it automatically.')
+                          'You can also pass "auto" to estimate it automatically or a filename to load it as a volume.')
 
     required.add_argument('bvals', metavar='bvals',
                           help='Path of the bvals file, in FSL format.')
@@ -119,7 +119,7 @@ def buildArgsParser():
     g = optionals.add_mutually_exclusive_group()
 
     g.add_argument('--noise_est', dest='noise_method',
-                   metavar='string', default='piesno',
+                   metavar='string', default=None,
                    choices=['local_std', 'piesno', 'auto'],
                    help='Noise estimation method used for estimating sigma.\n'
                    'local_std : Compute local noise standard deviation '
@@ -228,12 +228,6 @@ def main():
     args = parser.parse_args()
 
     noise_method = args.noise_method
-
-    try:
-        N = float(args.N)
-    except ValueError:
-        N = args.N
-
     subsample = args.no_subsample
     is_symmetric = args.is_symmetric
     n_iter = args.iterations
@@ -301,11 +295,27 @@ def main():
             else:
                 parser.error('{} already exists! Use -f or --force to overwrite it.'.format(f))
 
-    if N != 'auto' and args.noise_maps is not None:
-        parser.error('You need to pass N = auto when using noise maps, but you passed {}.'.format(N))
+    # Load up N or turn it into a number if it fails
+    if args.N == 'auto':
+        N = 'auto'
+    else:
+        try:
+            N = nib.load(args.N).get_fdata(caching='unchanged', dtype=np.float32)
+        except FileNotFoundError:
+            N = float(args.N)
 
-    if N != 'auto' and noise_method == 'auto':
-        parser.error('You need to pass N = auto when using --noise_est, but you passed {}.'.format(N))
+    if args.N != 'auto' and args.noise_maps is not None:
+        parser.error('You need to pass N = auto when using noise maps, but you passed {}.'.format(args.N))
+
+    if args.N != 'auto' and noise_method == 'auto':
+        parser.error('You need to pass N = auto when using --noise_est auto, but you passed {}.'.format(args.N))
+
+    if args.noise_maps is None:
+        if args.N == 'auto' and noise_method != 'auto':
+            parser.error('You need to pass --noise_est auto *explicitly* when using N = auto, but you passed {}.'.format(noise_method))
+
+    if isinstance(N, np.ndarray) and args.load_sigma is None:
+        parser.error('You need to pass --load_sigma sigma.nii.gz when loading N as a volume, but you passed {}.'.format(args.N))
 
     vol = nib.load(args.input)
     data = vol.get_fdata(caching='unchanged', dtype=np.float32)
@@ -346,6 +356,10 @@ def main():
     #########################
     #  Noise estimation part
     #########################
+
+    # Assign default to noise method if needed
+    if noise_method is None:
+        noise_method = 'piesno'
 
     if args.load_sigma is not None:
         sigma = nib.load(args.load_sigma).get_fdata(caching='unchanged', dtype=np.float32)
