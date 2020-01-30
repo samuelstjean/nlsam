@@ -5,7 +5,7 @@ import warnings
 import logging
 
 from time import time
-from itertools import cycle, starmap
+from itertools import cycle
 
 from nlsam.utils import im2col_nd, col2im_nd
 from nlsam.angular_tools import angular_neighbors
@@ -25,8 +25,7 @@ logger = logging.getLogger('nlsam')
 
 def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                   mask=None, is_symmetric=False, n_cores=-1, split_b0s=False,
-                  subsample=True, n_iter=10, b0_threshold=10, dtype=np.float64,
-                  use_threading=False, verbose=False):
+                  subsample=True, n_iter=10, b0_threshold=10, dtype=np.float64, verbose=False):
     """Main nlsam denoising function which sets up everything nicely for the local
     block denoising.
 
@@ -67,11 +66,6 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     dtype : np.float32 or np.float64, default np.float64
         Precision to use for inner computations. Note that np.float32 should only be used for
         very, very large datasets (that is, your ram starts swappping) as it can lead to numerical precision errors.
-    use_threading : bool, default False
-        Do not use multiprocessing, but rather rely on the multithreading capabilities of your numerical solvers.
-        While this mode is more memory friendly, it is also slower than using the multiprocessing mode (the default).
-        Moreover, it also assumes that your blas/lapack/spams library are built with multithreading, so be sure to check
-        that your computer is using multiple cores or the algorithm will just take much longer to complete.
     verbose : bool, default False
         print useful messages.
 
@@ -176,7 +170,6 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                                                           mask=mask,
                                                           dtype=dtype,
                                                           n_cores=n_cores,
-                                                          use_threading=use_threading,
                                                           verbose=verbose)
 
     data_denoised /= divider
@@ -184,7 +177,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
 
 def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
-                  dtype=np.float64, n_cores=-1, use_threading=False, verbose=False):
+                  dtype=np.float64, n_cores=-1, verbose=False):
     if verbose:
         logger.setLevel(logging.INFO)
 
@@ -225,12 +218,8 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
 
     del train_idx, train_data, X, mask_col
 
-    if use_threading or (n_cores == 1):
-        param_alpha['numThreads'] = n_cores
-        param_D['numThreads'] = n_cores
-    else:
-        param_alpha['numThreads'] = 1
-        param_D['numThreads'] = 1
+    param_alpha['numThreads'] = 1
+    param_D['numThreads'] = 1
 
     arglist = ((data[:, :, k:k + block_size[2]],
                 mask[:, :, k:k + block_size[2]],
@@ -243,14 +232,10 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
                 n_iter)
                for k in range(data.shape[2] - block_size[2] + 1))
 
-    if use_threading:
-        data_denoised = starmap(processer, arglist)
-    else:
-        time_multi = time()
-
-        data_denoised = Parallel(n_jobs=n_cores,
-                                 verbose=verbose)(delayed(processer)(*args) for args in arglist)
-        logger.info('Multiprocessing done in {0:.2f} mins.'.format((time() - time_multi) / 60.))
+    time_multi = time()
+    data_denoised = Parallel(n_jobs=n_cores,
+                             verbose=verbose)(delayed(processer)(*args) for args in arglist)
+    logger.info('Multiprocessing done in {0:.2f} mins.'.format((time() - time_multi) / 60.))
 
     # Put together the multiprocessed results
     data_subset = np.zeros_like(data, dtype=np.float32)
@@ -315,11 +300,12 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
     D = param_alpha['D']
 
     alpha = lil_matrix((D.shape[1], X.shape[1]))
-    W = np.ones(alpha.shape, dtype=dtype, order='F')
+    W = np.ones(alpha.shape, dtype=dtype)
 
     DtD = np.asfortranarray(np.dot(D.T, D))
     DtX = np.dot(D.T, X)
     DtXW = np.empty_like(DtX, order='F')
+    DtDW = np.empty_like(DtD, order='F')
 
     alpha_old = np.ones(alpha.shape, dtype=dtype)
     has_converged = np.zeros(alpha.shape[1], dtype=np.bool)
@@ -336,7 +322,7 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
         for i in range(alpha.shape[1]):
             if not has_converged[i]:
                 param_alpha['lambda1'] = var_mat[i]
-                DtDW = (1. / W[..., None, i]) * DtD * (1. / W[:, i])
+                DtDW[:] = (1. / W[..., None, i]) * DtD * (1. / W[:, i])
                 alpha[:, i:i + 1] = spams.lasso(X[:, i:i + 1], Q=DtDW, q=DtXW[:, i:i + 1], **param_alpha)
 
         alpha.toarray(out=arr)
