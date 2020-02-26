@@ -42,8 +42,8 @@ install:
 #   - pip install cibuildwheel
 #   - "%CMD_IN_ENV% cibuildwheel --output-dir wheelhouse"
 
- cache:
-   - C:\Users\appveyor\AppData\Local\pip\Cache\wheels\*
+cache:
+  - C:\Users\appveyor\AppData\Local\pip\Cache\wheels\*
 
 test_script:
   - "cd C:\\"
@@ -57,7 +57,7 @@ after_test:
   - 7z a nlsam_%APPVEYOR_REPO_TAG_NAME%_windows_x64.zip ./dist/nlsam_denoising.exe LICENSE README.md CHANGELOG.md example/ docs/
 
 artifacts:
-  - path: dist/*.tar.gz 
+  - path: dist/*.tar.gz
   - path: dist/*.whl
   - path: nlsam*windows_x64.zip
 
