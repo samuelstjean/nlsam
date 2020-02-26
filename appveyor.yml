@@ -58,7 +58,8 @@ after_test:
   - 7z a nlsam_%APPVEYOR_REPO_TAG_NAME%_windows_x64.zip ./dist/nlsam_denoising.exe LICENSE README.md CHANGELOG.md example/ docs/
 
 artifacts:
-  - path: dist/*.tar.gz dist/*.whl
+  - path: dist/*.tar.gz 
+  - path: dist/*.whl
   - path: nlsam*windows_x64.zip
 
 deploy:
