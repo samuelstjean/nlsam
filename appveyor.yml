@@ -42,8 +42,8 @@ install:
 #   - pip install cibuildwheel
 #   - "%CMD_IN_ENV% cibuildwheel --output-dir wheelhouse"
 
-# cache:
-#   - C:\Users\appveyor\AppData\Local\pip\Cache\
+ cache:
+   - C:\Users\appveyor\AppData\Local\pip\Cache\wheels\*
 
 test_script:
   - "cd C:\\"
