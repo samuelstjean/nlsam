@@ -5,7 +5,8 @@ import sys
 import subprocess
 import numpy
 
-from setuptools import setup, find_packages, Extension
+from setuptools import setup, find_packages
+from Cython.Distutils import Extension
 from nlsam import get_setup_params
 
 # BEFORE importing distutils, remove MANIFEST. distutils doesn't properly
