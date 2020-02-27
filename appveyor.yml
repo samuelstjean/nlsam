@@ -24,7 +24,7 @@ install:
 
   - "conda config --set always_yes yes --set changeps1 no"
   - "conda info -a"
-  - "conda create -q -n buildfarm python=%PYTHON_VERSION% numpy==1.15.4 scipy==0.19.1 pip"
+  - "conda create -q -n buildfarm python=%PYTHON_VERSION% numpy==1.15.4 scipy==1.0 pip"
   - "activate buildfarm"
 
   - "pip install --upgrade --upgrade-strategy only-if-needed nibabel==2.2"
