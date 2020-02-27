@@ -53,7 +53,7 @@ test_script:
 after_test:
   - "cd C:\\projects\\nlsam"
   - python setup.py sdist --formats=gztar bdist_wheel
-  - pip install pyinstaller==3.5 pypiwin32
+  - pip install pyinstaller==3.6 pypiwin32
   - pyinstaller nlsam_denoising.spec --onefile
   - 7z a nlsam_%APPVEYOR_REPO_TAG_NAME%_windows_x64.zip ./dist/nlsam_denoising.exe LICENSE README.md CHANGELOG.md example/ docs/
 
