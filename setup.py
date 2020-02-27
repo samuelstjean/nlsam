@@ -8,8 +8,6 @@ import numpy
 from setuptools import setup, find_packages
 from Cython.Distutils import Extension, build_ext
 
-from nlsam import get_setup_params
-
 # BEFORE importing distutils, remove MANIFEST. distutils doesn't properly
 # update it when the contents of directories change.
 if os.path.exists('MANIFEST'):
@@ -44,7 +42,22 @@ else:
 
 gsl_libraries_ext = [os.path.join(gsl_path, lib + libext) for lib in libs]
 
-params = get_setup_params()
+params = {}
+params['scripts'] = ['scripts/nlsam_denoising']
+params['name'] = 'nlsam'
+params['author'] = 'Samuel St-Jean'
+params['author_email'] = 'samuel@isi.uu.nl'
+params['url'] = 'https://github.com/samuelstjean/nlsam'
+params['version'] = '0.6.1'
+params['install_requires'] = ['numpy>=1.15.4',
+                              'scipy>=0.19.1',
+                              'cython>=0.21',
+                              'nibabel>=2.0',
+                              'joblib>=0.14.1',
+                              'autodmri>=0.2.1',
+                              'dipy>=0.11',
+                              'spams>=2.4']
+params['dependency_links'] = ['https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-2.6.zip#egg=spams-2.6']
 params['include_dirs'] = [gsl_path]
 params['packages'] = find_packages()
 params['cmdclass'] = {'build_ext': build_ext}
