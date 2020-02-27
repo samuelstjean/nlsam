@@ -6,7 +6,7 @@ def get_setup_params():
     params['author_email'] = 'samuel@isi.uu.nl'
     params['url'] = 'https://github.com/samuelstjean/nlsam'
     params['version'] = '0.6.1'
-    params['install_requires'] = ['numpy>=1.10.4',
+    params['install_requires'] = ['numpy>=1.15.4',
                                   'scipy>=0.19.1',
                                   'cython>=0.21',
                                   'nibabel>=2.0',
