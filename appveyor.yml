@@ -12,6 +12,7 @@ environment:
       PYTHON_ARCH: "64"
       CONDA_PY: "27"
       CONDA_NPY: "110"
+    - WHEELS: 1
 
     # - PYTHON: "C:\\Python36_64"
     #   PYTHON_VERSION: "3.6"
@@ -39,6 +40,8 @@ install:
 
   - "%CMD_IN_ENV% pip install ."
 
+  - if defined WHEELS ( pip install cibuildwheel==1.1.0 && cibuildwheel --output-dir wheelhouse)
+
 # build_script:
 #   - pip install cibuildwheel
 #   - "%CMD_IN_ENV% cibuildwheel --output-dir wheelhouse"
@@ -60,6 +63,8 @@ after_test:
 artifacts:
   - path: dist/*.tar.gz
   - path: nlsam*windows_x64.zip
+  - path: "wheelhouse\\*.whl"
+    name: Wheels
 
 deploy:
   description: 'Release description'
