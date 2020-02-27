@@ -5,8 +5,9 @@ import sys
 import subprocess
 import numpy
 
-from setuptools import setup, find_packages, Extension
-from Cython.Build import cythonize
+from setuptools import setup, find_packages
+from Cython.Distutils import Extension, build_ext
+
 from nlsam import get_setup_params
 
 # BEFORE importing distutils, remove MANIFEST. distutils doesn't properly
@@ -46,6 +47,7 @@ gsl_libraries_ext = [os.path.join(gsl_path, lib + libext) for lib in libs]
 params = get_setup_params()
 params['include_dirs'] = [gsl_path]
 params['packages'] = find_packages()
+params['cmdclass'] = {'build_ext': build_ext}
 
 # list of pyx modules to compile
 modules = ['nlsam.utils',
@@ -67,5 +69,5 @@ for pyxfile in modules:
 
     ext_modules.append(ext)
 
-params['ext_modules'] = cythonize(ext_modules)
+params['ext_modules'] = ext_modules
 setup(**params)
