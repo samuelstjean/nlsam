@@ -1,4 +1,7 @@
-build: false
+build:
+  parallel: true
+
+platform: x64
 
 environment:
   global:
@@ -12,7 +15,7 @@ environment:
       PYTHON_ARCH: "64"
       CONDA_PY: "27"
       CONDA_NPY: "110"
-    - WHEELS: 1
+      CIBW_SKIP: "*-win32 *-manylinux_i686"
 
     # - PYTHON: "C:\\Python36_64"
     #   PYTHON_VERSION: "3.6"
@@ -40,8 +43,6 @@ install:
 
   - "%CMD_IN_ENV% pip install ."
 
-  - if defined WHEELS ( pip install cibuildwheel==1.1.0 && cibuildwheel --output-dir wheelhouse)
-
 # build_script:
 #   - pip install cibuildwheel
 #   - "%CMD_IN_ENV% cibuildwheel --output-dir wheelhouse"
@@ -59,6 +60,10 @@ after_test:
   - pip install pyinstaller
   - pyinstaller nlsam_denoising.spec --onefile
   - 7z a nlsam_%APPVEYOR_REPO_TAG_NAME%_windows_x64.zip ./dist/nlsam_denoising.exe LICENSE README.md CHANGELOG.md example/ docs/
+
+  # Build the wheels
+  - pip install cibuildwheel==1.1.0
+  - cibuildwheel --output-dir wheelhouse
 
 artifacts:
   - path: dist/*.tar.gz
