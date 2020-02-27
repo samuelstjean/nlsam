@@ -103,7 +103,7 @@ install:
     - pip install pytest coverage coveralls
     - pip install --upgrade --upgrade-strategy only-if-needed $DEPENDS
     - pip install --upgrade --upgrade-strategy only-if-needed $SPAMS
-    - pip install .
+    - pip install .  --no-build-isolation
 
     # this breaks the pyinstaller builds on linux
     - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then pip uninstall mock -y; fi
