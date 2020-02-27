@@ -6,7 +6,7 @@ import os
 import argparse
 import logging
 
-from multiprocessing import cpu_count
+from multiprocessing import cpu_count, freeze_support
 from ast import literal_eval
 
 import nibabel as nib
@@ -297,7 +297,7 @@ def main():
     else:
         try:
             N = nib.load(args.N).get_fdata(caching='unchanged', dtype=np.float32)
-        except FileNotFoundError:
+        except IOError:
             N = float(args.N)
 
     if args.N != 'auto' and args.noise_maps is not None:
@@ -503,4 +503,5 @@ def main():
 
 
 if __name__ == "__main__":
+    freeze_support()
     main()
