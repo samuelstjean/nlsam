@@ -1,7 +1,4 @@
-build:
-  parallel: true
-
-platform: x64
+build: false
 
 environment:
   global:
