@@ -25,7 +25,6 @@ env:
     - DEPENDS_MIN="cython==0.21 numpy==1.15.4 scipy==0.19.1 nibabel==2.2 dipy==0.11 joblib==0.14.1 autodmri==0.2.1"
     - DEPENDS_BUILD="cython==0.23 numpy==1.15.4 scipy==0.19.1 nibabel==2.2 dipy==0.11 joblib==0.14.1 autodmri==0.2.1"
     - CIBW_SKIP: "*-win32 *-manylinux_i686"
-    - PIP_NO_BUILD_ISOLATION: True
   matrix:
     - TESTPART=test_scripts1.sh
     - TESTPART=test_scripts2.sh
