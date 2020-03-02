@@ -23,7 +23,7 @@ env:
     - DEPENDS="cython numpy scipy dipy nibabel joblib autodmri"
     - DEPENDS_MIN="cython==0.21 numpy==1.15.4 scipy==0.19.1 nibabel==2.2 dipy==0.11 joblib==0.14.1 autodmri==0.2.1"
     - DEPENDS_BUILD="cython==0.23 numpy==1.15.4 scipy==0.19.1 nibabel==2.2 dipy==0.11 joblib==0.14.1 autodmri==0.2.1"
-    - CIBW_SKIP="*-win32 *-manylinux_i686"
+    - CIBW_SKIP="*-win32 *-manylinux_i686 cp27-*"
     - CIBW_TEST_REQUIRES='pytest'
     - CIBW_TEST_COMMAND='pytest --pyargs nlsam --verbose'
   jobs:
@@ -69,31 +69,33 @@ jobs:
           TESTPART=test_scripts2.sh
           ANACONDA_PYTHON_VERSION=3.5
 
-    # pyinstaller builds
-    - python: 3.5
-      env:
-        - DEPENDS=$DEPENDS_BUILD
-          BUILD_PYINSTALLER=true
-    - os: osx
-      language: generic
-      before_install:
-        # Install Anaconda
-        - source build_stuff/get_conda.sh
-        - conda install -c conda-forge python-spams==2.6.1
-      env:
-        - DEPENDS=$DEPENDS_BUILD
-          BUILD_PYINSTALLER=true
-          ANACONDA_PYTHON_VERSION=3.5
+    # # pyinstaller builds
+    # - python: 3.5
+    #   env:
+    #     - DEPENDS=$DEPENDS_BUILD
+    #       BUILD_PYINSTALLER=true
+    # - os: osx
+    #   language: generic
+    #   before_install:
+    #     # Install Anaconda
+    #     - source build_stuff/get_conda.sh
+    #     - conda install -c conda-forge python-spams==2.6.1
+    #   env:
+    #     - DEPENDS=$DEPENDS_BUILD
+    #       BUILD_PYINSTALLER=true
+    #       ANACONDA_PYTHON_VERSION=3.5
 
     # perform a linux build
     - services: docker
       install: pip install cibuildwheel==1.1.0
       script: cibuildwheel --output-dir wheelhouse
+      env: CIBW_BEFORE_BUILD='yum install -y lapack-devel blas-devel'
     # and a mac build
     - os: osx
       language: shell
       install: pip install cibuildwheel==1.1.0
       script: cibuildwheel --output-dir wheelhouse
+      env: CIBW_BEFORE_BUILD='brew install openblas'
     #  # and a windows build
     # - os: windows
     #   language: shell

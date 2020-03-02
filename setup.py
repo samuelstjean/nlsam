@@ -72,7 +72,7 @@ install_requires = ['numpy>=1.15.4',
                     'nibabel>=2.0',
                     'joblib>=0.14.1',
                     'autodmri>=0.2.1',
-                    'spams @ https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-2.6.zip#egg=spams-2.6 ; platform_system!="Windows"',
+                    'spams @ https://github.com/samuelstjean/spams-python/releases/download/v2.6/spams-2.6.zip#egg=spams-2.6 ; platform_system!="Windows"',
                     'spams @ https://github.com/samuelstjean/spams-python/releases/download/v2.6/spams-2.4+mkl-cp27-cp27m-win_amd64.whl#egg=spams-2.4 ; platform_system=="Windows"',
                     'dipy>=0.11']
 
