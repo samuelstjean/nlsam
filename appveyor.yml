@@ -8,6 +8,8 @@ environment:
       CMD_IN_ENV: "cmd /E:ON /V:ON /C .\\appveyor\\run_with_env.cmd"
       # CIBW_SKIP: "*-win32 *-manylinux_i686"
       CIBW_BUILD: 'cp27-win_amd64'
+      CIBW_TEST_REQUIRES: 'pytest'
+      CIBW_TEST_COMMAND: 'pytest --pyargs nlsam --verbose'
   matrix:
     - PYTHON: "C:\\Miniconda-x64"
       PYTHON_VERSION: "2.7"
