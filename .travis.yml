@@ -1,5 +1,4 @@
 language: python
-sudo: false
 dist: xenial
 
 os:
@@ -22,9 +21,12 @@ env:
   global:
     - SPAMS='https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-2.6.zip'
     - DEPENDS="cython numpy scipy dipy nibabel joblib autodmri"
-    - DEPENDS_MIN="cython==0.21 numpy==1.10.4 scipy==0.19.1 nibabel==2.2 dipy==0.11 joblib==0.14.1 autodmri==0.2.1"
-    - DEPENDS_BUILD="cython==0.23 numpy==1.11.3 scipy==0.19.1 nibabel==2.2 dipy==0.11 joblib==0.14.1 autodmri==0.2.1"
-  matrix:
+    - DEPENDS_MIN="cython==0.21 numpy==1.15.4 scipy==0.19.1 nibabel==2.2 dipy==0.11 joblib==0.14.1 autodmri==0.2.1"
+    - DEPENDS_BUILD="cython==0.23 numpy==1.15.4 scipy==0.19.1 nibabel==2.2 dipy==0.11 joblib==0.14.1 autodmri==0.2.1"
+    - CIBW_SKIP="*-win32 *-manylinux_i686 cp27-*"
+    - CIBW_TEST_REQUIRES='pytest'
+    - CIBW_TEST_COMMAND='pytest --pyargs nlsam --verbose'
+  jobs:
     - TESTPART=test_scripts1.sh
     - TESTPART=test_scripts2.sh
 
@@ -34,7 +36,7 @@ python:
   - 3.7
   - 3.8
 
-matrix:
+jobs:
   include:
     - python: 3.5
       env:
@@ -67,21 +69,41 @@ matrix:
           TESTPART=test_scripts2.sh
           ANACONDA_PYTHON_VERSION=3.5
 
-    # pyinstaller builds
-    - python: 3.5
-      env:
-        - DEPENDS=$DEPENDS_BUILD
-          BUILD_PYINSTALLER=true
+    # # pyinstaller builds
+    # - python: 3.5
+    #   env:
+    #     - DEPENDS=$DEPENDS_BUILD
+    #       BUILD_PYINSTALLER=true
+    # - os: osx
+    #   language: generic
+    #   before_install:
+    #     # Install Anaconda
+    #     - source build_stuff/get_conda.sh
+    #     - conda install -c conda-forge python-spams==2.6.1
+    #   env:
+    #     - DEPENDS=$DEPENDS_BUILD
+    #       BUILD_PYINSTALLER=true
+    #       ANACONDA_PYTHON_VERSION=3.5
+
+    # perform a linux build
+    - services: docker
+      install: pip install cibuildwheel==1.1.0
+      script: cibuildwheel --output-dir wheelhouse
+      env: CIBW_BEFORE_BUILD='yum install -y lapack-devel blas-devel'
+    # and a mac build
     - os: osx
-      language: generic
-      before_install:
-        # Install Anaconda
-        - source build_stuff/get_conda.sh
-        - conda install -c conda-forge python-spams==2.6.1
-      env:
-        - DEPENDS=$DEPENDS_BUILD
-          BUILD_PYINSTALLER=true
-          ANACONDA_PYTHON_VERSION=3.5
+      language: shell
+      install: pip install cibuildwheel==1.1.0
+      script: cibuildwheel --output-dir wheelhouse
+      env: CIBW_BEFORE_BUILD='brew install openblas'
+    #  # and a windows build
+    # - os: windows
+    #   language: shell
+    #   before_install:
+    #     - choco install python --version 3.8.0
+    #     - export PATH="/c/Python38:/c/Python38/Scripts:$PATH"
+    #   install: pip install cibuildwheel==1.1.0
+    #   script: cibuildwheel --output-dir wheelhouse
 
 notifications:
     email: false
@@ -94,15 +116,15 @@ install:
     - pip install --upgrade --upgrade-strategy only-if-needed $SPAMS
     - pip install .
 
-    # this breaks the pyinstaller builds on linux
-    - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then pip uninstall mock -y; fi
-    - if [[ "$BUILD_PYINSTALLER" ]];
-        then pip install pyinstaller;
-        pyinstaller nlsam_denoising.spec --onefile;
-        zip -j nlsam_${TRAVIS_TAG}_${TRAVIS_OS_NAME}_x64.zip dist/nlsam_denoising LICENSE README.md CHANGELOG.md;
-        zip -r nlsam_${TRAVIS_TAG}_${TRAVIS_OS_NAME}_x64.zip example/*;
-        zip -r nlsam_${TRAVIS_TAG}_${TRAVIS_OS_NAME}_x64.zip docs/*;
-      fi
+    # # this breaks the pyinstaller builds on linux
+    # - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then pip uninstall mock -y; fi
+    # - if [[ "$BUILD_PYINSTALLER" ]];
+    #     then pip install pyinstaller;
+    #     pyinstaller nlsam_denoising.spec --onefile;
+    #     zip -j nlsam_${TRAVIS_TAG}_${TRAVIS_OS_NAME}_x64.zip dist/nlsam_denoising LICENSE README.md CHANGELOG.md;
+    #     zip -r nlsam_${TRAVIS_TAG}_${TRAVIS_OS_NAME}_x64.zip example/*;
+    #     zip -r nlsam_${TRAVIS_TAG}_${TRAVIS_OS_NAME}_x64.zip docs/*;
+    #   fi
 
 before_script:
     - mkdir $HOME/.python-eggs
@@ -119,15 +141,11 @@ script:
       fi
     - cd ..
 
-#after_success:
-#    - coveralls
-
 deploy:
   provider: releases
-  api_key:
+  token:
     - secure: "HgpgpOHK38IV2ctAAEkvEWmCvLcL3hClZOuqz+JQ+vaHL7G3DtRiig0xGKc3ggkd3wP+ic9FaueFJBIrw/QAsNrCwjwT1cd5X4XZIccpXAh81mLUtk147Y5XUGes5uQB8krejj9mIb7G8n2KrpDURi8p9tDr/jmyFk/E76Hrg+JsxqruXfHvMqyc4qZ/T+bO3nczkP25PXPkeKUtuTxhlVEN31L6WYPvNM/kdev3QU0584saraD2Ex6K+eua4BoKuBA7dUPjLd0n+HEIXeAVxhPU0LoNSj6pM2+WAKRJj+7FWWgKml2vIkttcy2G2DIfQWnZjD/Z9K+owG1le0fROrvMttfd5bmSBxun3AB4CSfs6wjIeB8pNQ4D1Y5tqPydy9rkKSBZ4C5HIT8a23nZYnXmSAL440WtFPtDfSco0xW23Wmyx9NmKN8X/bFCFdd5KRV+w/rq0wBOz5grYkkffix3N7cxAwPZKc3tkJb+mTkTeMAJpEQ2SHPakjvH0kB4TkpDvAE06BJZm3DRGLeCOpV5SF/Bb06TvrOSNmgyHZ35STyAXuUjX0iFQKc2717BXnMNL+u+5FGlGIlyjsngPcGBWj7dI8Dv+Ci9+s7Qw6zmwV+eMUyjyCBggk05PZTcXHSv7pFyMFKpjXtNrRN2nylHDDUwTMx2vu0ai0ecKpU="
   file_glob: true
   file: nlsam_*_x64.zip
-  skip_cleanup: true
   on:
     tags: true

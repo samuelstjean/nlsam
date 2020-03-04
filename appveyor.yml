@@ -6,6 +6,10 @@ environment:
       # /E:ON and /V:ON options are not enabled in the batch script interpreter
       # See: http://stackoverflow.com/a/13751649/163740
       CMD_IN_ENV: "cmd /E:ON /V:ON /C .\\appveyor\\run_with_env.cmd"
+      # CIBW_SKIP: "*-win32 *-manylinux_i686"
+      CIBW_BUILD: 'cp27-win_amd64'
+      CIBW_TEST_REQUIRES: 'pytest'
+      CIBW_TEST_COMMAND: 'pytest --pyargs nlsam --verbose'
   matrix:
     - PYTHON: "C:\\Miniconda-x64"
       PYTHON_VERSION: "2.7"
@@ -13,11 +17,6 @@ environment:
       CONDA_PY: "27"
       CONDA_NPY: "110"
 
-    # - PYTHON: "C:\\Python36_64"
-    #   PYTHON_VERSION: "3.6"
-    #   PYTHON_ARCH: "64"
-    #   CONDA_PY: "36"
-    #   CONDA_NPY: "110"
 init:
   - "ECHO %PYTHON% %PYTHON_VERSION% %PYTHON_ARCH% %MINICONDA"
 
@@ -26,22 +25,17 @@ install:
   - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
 
   - "conda config --set always_yes yes --set changeps1 no"
-  # - "conda update -q conda"
   - "conda info -a"
-  - "conda create -q -n buildfarm python=%PYTHON_VERSION% numpy==1.11.3 scipy==0.19.1 pip"
+  - "conda create -q -n buildfarm python=%PYTHON_VERSION% numpy==1.15.4 scipy==0.19.1 pip"
   - "activate buildfarm"
 
   - "pip install --upgrade --upgrade-strategy only-if-needed nibabel==2.2"
   - "pip install --upgrade --upgrade-strategy only-if-needed dipy==0.11"
   - "pip install --upgrade --upgrade-strategy only-if-needed joblib==0.14.1 cython==0.23 autodmri==0.2.1"
   - "pip install pytest"
-  - 'pip install https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-2.4-cp27-none-win_amd64.whl'
+  - 'pip install https://github.com/samuelstjean/spams-python/releases/download/v2.6/spams-2.4+mkl-cp27-cp27m-win_amd64.whl'
 
   - "%CMD_IN_ENV% pip install ."
-
-# build_script:
-#   - pip install cibuildwheel
-#   - "%CMD_IN_ENV% cibuildwheel --output-dir wheelhouse"
 
 cache:
   - C:\Users\appveyor\AppData\Local\pip\Cache\
@@ -53,13 +47,19 @@ test_script:
 after_test:
   - "cd C:\\projects\\nlsam"
   - python setup.py sdist --formats=gztar
-  - pip install pyinstaller
-  - pyinstaller nlsam_denoising.spec --onefile
-  - 7z a nlsam_%APPVEYOR_REPO_TAG_NAME%_windows_x64.zip ./dist/nlsam_denoising.exe LICENSE README.md CHANGELOG.md example/ docs/
+  # - pip install pyinstaller
+  # - pyinstaller nlsam_denoising.spec --onefile
+  # - 7z a nlsam_%APPVEYOR_REPO_TAG_NAME%_windows_x64.zip ./dist/nlsam_denoising.exe LICENSE README.md CHANGELOG.md example/ docs/
+
+  # Build the wheels
+  - pip install cibuildwheel==1.1.0
+  - cibuildwheel --output-dir wheelhouse
 
 artifacts:
   - path: dist/*.tar.gz
-  - path: nlsam*windows_x64.zip
+  # - path: nlsam*windows_x64.zip
+  - path: "wheelhouse\\*.whl"
+    name: Wheels
 
 deploy:
   description: 'Release description'
