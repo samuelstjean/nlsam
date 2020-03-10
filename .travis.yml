@@ -21,8 +21,8 @@ env:
   global:
     - SPAMS='https://github.com/samuelstjean/spams-python/releases/download/0.1/spams-2.6.zip'
     - DEPENDS="cython numpy scipy dipy nibabel joblib autodmri"
-    - DEPENDS_MIN="cython==0.21 numpy==1.15.4 scipy==0.19.1 nibabel==2.2 dipy==0.11 joblib==0.14.1 autodmri==0.2.1"
-    - DEPENDS_BUILD="cython==0.23 numpy==1.15.4 scipy==0.19.1 nibabel==2.2 dipy==0.11 joblib==0.14.1 autodmri==0.2.1"
+    - DEPENDS_MIN="cython==0.21 numpy==1.15.4 scipy==0.19.1 nibabel==2.2.1 dipy==0.11 joblib==0.14.1 autodmri==0.2.1"
+    - DEPENDS_BUILD="cython==0.23 numpy==1.15.4 scipy==0.19.1 nibabel==2.2.1 dipy==0.11 joblib==0.14.1 autodmri==0.2.1"
     - CIBW_SKIP="*-win32 *-manylinux_i686 cp27-*"
     - CIBW_TEST_REQUIRES='pytest'
     - CIBW_TEST_COMMAND='pytest --pyargs nlsam --verbose'
