@@ -3,5 +3,3 @@ scipy>=0.19.1
 cython>=0.21
 nibabel>=2.2
 dipy>=0.11
---find-links https://github.com/samuelstjean/spams-python/releases/download/v2.6/spams-2.6-cp27-cp27mu-linux_x86_64.whl#egg=spams-2.6
-spams>=2.4
