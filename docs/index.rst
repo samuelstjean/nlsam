@@ -15,10 +15,9 @@ Which you can grab a copy from the publisher website_ or from arxiv_.
 You can find below the documentation for each modules and a few instructions on topics such as noise estimation and detailed installation instructions.
 
 .. toctree::
-   :maxdepth: 3
-   :caption: Modules
 
-   modules
+    autoapi/nlsam/index
+
 
 .. toctree::
    :maxdepth: 1
