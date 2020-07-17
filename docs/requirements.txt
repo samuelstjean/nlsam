@@ -1,5 +1,3 @@
 numpy>=1.15.4
 scipy>=0.19.1
 cython>=0.21
-nibabel>=2.2
-dipy>=0.11
