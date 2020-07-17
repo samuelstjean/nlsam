@@ -22,11 +22,7 @@ import sys
 sys.path.insert(0, os.path.abspath('../'))
 
 # -- General configuration ------------------------------------------------
-from recommonmark.parser import CommonMarkParser
-
-source_parsers = {
-    '.md': CommonMarkParser,
-}
+# from recommonmark.parser import CommonMarkParser
 
 MOCK_MODULES = ["scipy, spams, dipy, nibabel"]
 autodoc_mock_imports = MOCK_MODULES
@@ -39,21 +35,17 @@ needs_sphinx = '3.0'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = ['autoapi.extension',
+              'recommonmark',
               'sphinx.ext.mathjax',
               'sphinx.ext.viewcode']
 
 
 autoapi_type = 'python'
 autoapi_dirs = ['../nlsam']
-autoapi_ignore = ['test_*']
+autoapi_ignore = ["*/test_*.py"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
-
-# The suffix(es) of source filenames.
-# You can specify multiple suffix as a list of string:
-#
-source_suffix = ['.rst', '.md']
 
 # The master toctree document.
 master_doc = 'index'
