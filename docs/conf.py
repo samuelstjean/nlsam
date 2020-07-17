@@ -19,6 +19,7 @@
 
 import os
 import sys
+sys.path.insert(0, os.path.abspath('../'))
 
 # -- General configuration ------------------------------------------------
 from recommonmark.parser import CommonMarkParser
@@ -32,14 +33,19 @@ autodoc_mock_imports = MOCK_MODULES
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #
-# needs_sphinx = '1.0'
+needs_sphinx = '3.0'
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['sphinx.ext.autodoc',
-    'sphinx.ext.mathjax',
-    'sphinx.ext.viewcode']
+extensions = ['autoapi.extension',
+              'sphinx.ext.mathjax',
+              'sphinx.ext.viewcode']
+
+
+autoapi_type = 'python'
+autoapi_dirs = ['../nlsam']
+autoapi_ignore = ['*test*']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -48,14 +54,13 @@ templates_path = ['_templates']
 # You can specify multiple suffix as a list of string:
 #
 source_suffix = ['.rst', '.md']
-#source_suffix = '.rst'
 
 # The master toctree document.
 master_doc = 'index'
 
 # General information about the project.
 project = 'NLSAM'
-copyright = '2018, Samuel St-Jean'
+copyright = '2020, Samuel St-Jean'
 author = 'Samuel St-Jean'
 
 # The version info for the project you're documenting, acts as replacement for
