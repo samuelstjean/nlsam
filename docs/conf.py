@@ -45,7 +45,7 @@ extensions = ['autoapi.extension',
 
 autoapi_type = 'python'
 autoapi_dirs = ['../nlsam']
-autoapi_ignore = ['*test*']
+autoapi_ignore = ['test_*']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
