@@ -1,3 +1,4 @@
 numpy>=1.15.4
 scipy>=0.19.1
 cython>=0.21
+https://github.com/samuelstjean/spams-python/releases/download/v2.6.1/spams-2.6-cp37-cp37m-manylinux2010_x86_64.whl
