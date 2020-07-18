@@ -10,8 +10,11 @@ RUN apt update && \
     # get python deps
     pip3 install --no-cache-dir $DEPENDS $DEPENDS_spams && \
     # install nlsam itself
-    # if you want to run the latest master instead use this link instead https://github.com/samuelstjean/nlsam/archive/master.zip
-   pip3 install --no-cache-dir https://github.com/samuelstjean/nlsam/releases/download/v${nlsam_version}/nlsam-${nlsam_version}.tar.gz
+   if [ "$nlsam_version" = "master" ]; \
+        then pip install --no-cache-dir https://github.com/samuelstjean/nlsam/archive/master.zip; \
+        else pip3 install --no-cache-dir https://github.com/samuelstjean/nlsam/releases/download/v${nlsam_version}/nlsam-${nlsam_version}.tar.gz; \
+    fi;
 
 # default command that will be run
-CMD ["nlsam_denoising","--help"]
+ENTRYPOINT ["nlsam_denoising"]
+CMD ["--help"]

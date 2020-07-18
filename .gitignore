@@ -59,3 +59,4 @@ docs/_templates/
 target/
 
 nlsam.zip
+*.code-workspace
