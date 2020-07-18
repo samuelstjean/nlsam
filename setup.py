@@ -48,7 +48,7 @@ gsl_libraries_ext = [os.path.join(gsl_path, lib + libext) for lib in libs]
 
 # fix for visual studio >=2015
 if sys.platform.startswith('win'):
-    gsl_libraries += ['legacy_stdio_definitions.lib']
+    gsl_libraries += ['legacy_stdio_definitions']
 
 # list of pyx modules to compile
 modules = ['nlsam.utils',
