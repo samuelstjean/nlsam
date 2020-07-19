@@ -4,7 +4,7 @@
 [DOI]: http://dx.doi.org/doi:10.1016/j.media.2016.02.010
 [URL]: http://www.sciencedirect.com/science/article/pii/S1361841516000335
 [paper]: https://arxiv.org/pdf/1606.07239.pdf
-[autodmri_paper]: https://arxiv.org/abs/1805.12071
+[autodmri_paper]: https://www.sciencedirect.com/science/article/pii/S1361841520301225
 [nlsam_data]: https://github.com/samuelstjean/nlsam_data
 [spams]: http://spams-devel.gforge.inria.fr/
 [rtd]: https://nlsam.readthedocs.io/en/latest/
@@ -84,9 +84,9 @@ The bias correction framework is a reimplementation of
 
 The automatic estimation of the noise distribution is computed with
 
-> St-Jean, S., , De Luca A., Viergever M. A., Leemans A. (2018)
-> "[Automatic, fast and robust characterization of noise distributions for diffusion MRI][autodmri_paper]"
-> MICCAI 2018. Lecture Notes in Computer Science, vol 11070. Springer, Cham [DOI](https://dx.doi.org/doi:10.1007/978-3-030-00928-1_35) [URL](https://link.springer.com/chapter/10.1007%2F978-3-030-00928-1_35)
+> St-Jean S, De Luca A, Tax C.M.W., Viergever M.A, Leemans A. (2020)
+> "[Automated characterization of noise distributions in diffusion MRI data.][autodmri_paper]"
+> Medical Image Analysis, October 2020:101758. doi:10.1016/j.media.2020.101758
 
 And here is a premade bibtex entry.
 
