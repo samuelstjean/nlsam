@@ -29,7 +29,7 @@ jobs:
           CIBW_BEFORE_BUILD_LINUX: yum install openblas-devel lapack-devel -y
           CIBW_BEFORE_BUILD_MACOS: brew install openblas
           CIBW_TEST_REQUIRES: pytest
-          CIBW_TEST_COMMAND: pytest {package}/tests
+          CIBW_TEST_COMMAND: pytest --pyargs nlsam # python -m pip install {package} &&  pytest .
           # CIBW_TEST_COMMAND_WINDOWS: '' # Because it requires the mkl dll, seems like we can't run it since it gets separated when testing from the build env :/
         run: |
           python -m cibuildwheel --output-dir wheelhouse
