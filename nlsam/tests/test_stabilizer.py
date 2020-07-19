@@ -25,7 +25,7 @@ def test_beta():
 
 def test_xi():
     # Values taken from hispeed.SignalFixedPointFinder.xi
-    assert_allclose(xi(50, 2, 2), 0.9976038446303619)
+    assert_allclose(xi(50, 2, 2), 1.0)
     assert_allclose(xi(100, 25, 12), 0.697674262651006)
     assert_allclose(xi(4, 1, 12), 0.697674262651006)
 
