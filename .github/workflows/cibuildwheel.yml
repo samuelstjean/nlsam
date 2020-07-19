@@ -22,14 +22,9 @@ jobs:
         run: |
           python -m pip install cibuildwheel==1.5.1
 
-      - name: Install Visual C++ for Python 2.7 on windows
-        if: runner.os == 'Windows'
-        run: |
-          choco install vcpython27 -f -y
-
       - name: Build wheels
         env:
-          CIBW_SKIP: "*-win32 *-manylinux_i686 pp*"
+          CIBW_SKIP: "*-win32 *-manylinux_i686 pp* cp27-*"
           # CIBW_TEST_COMMAND_WINDOWS: '' # Because it requires the mkl dll, seems like we can't run it since it gets separated when testing from the build env :/
         run: |
           python -m cibuildwheel --output-dir wheelhouse
