@@ -156,12 +156,12 @@ cpdef double fixed_point_finder(double m_hat, double sigma, double N,
     # If m_hat is below the noise floor, return 0 instead of negatives
     # as per Bai 2014
     if clip_eta and (m_hat < sqrt(0.5 * M_PI) * sigma):
-        return 0
+        return 0.0
 
     delta = _beta(N) * sigma - m_hat
 
     if fabs(delta) < 1e-15:
-        return 0
+        return 0.0
 
     if delta > 0:
         m = _beta(N) * sigma + delta
@@ -180,9 +180,9 @@ cpdef double fixed_point_finder(double m_hat, double sigma, double N,
         t0 = t1
 
     if npy_isnan(t1):  # Should not happen unless numerically unstable
-        t1 = 0
+        t1 = 0.0
 
-    if delta > 0 and not clip_eta:
+    if (delta > 0) and (not clip_eta):
         return -t1
     else:
         return t1
@@ -246,21 +246,23 @@ cpdef double xi(double eta, double sigma, double N) nogil:
         The correction factor xi, where sigma_gaussian**2 = sigma**2 / xi
     """
 
-    cdef double h1f1, out
+    cdef:
+        double h1f1, out
+        double eta2sigma = eta**2/sigma**2
 
-    if fabs(sigma) < 1e-15 or (eta / sigma) > 1000:
+    if fabs(sigma) < 1e-15 or check_high_SNR(eta, sigma, N):
         return 1.
 
-    h1f1 = hyp1f1(-0.5, N, -eta**2/(2*sigma**2))
-    out = 2*N + eta**2/sigma**2 - (_beta(N) * h1f1)**2
+    h1f1 = hyp1f1(-0.5, N, -eta2sigma/2)
+    out = 2*N + eta2sigma - (_beta(N) * h1f1)**2
 
     # Ridiculous SNR > 1e15 returns nonsense high numbers (positive or negative in the order of 1e30).
     # due to floating point precision issues, but the function is bounded between 0 and 1.
     # It starts to accumulate error around SNR ~ 1e4 though,
-    # so we clip it to 1 to stay on the safe side.
+    # so we clip it to 1 (if needed) to stay on the safe side.
 
     if fabs(out) > 1:
-        out = 1.
+        out = 1.0
 
     return out
 
@@ -286,6 +288,7 @@ cdef double k(double theta, double N, double r) nogil:
 cpdef double root_finder(double r, double N, int max_iter=500, double eps=1e-6) nogil:
     cdef:
         double lower_bound = sqrt((2*N / xi(0, 1, N)) - 1)
+        double t0, t1
 
     if r < lower_bound:
         return 0
@@ -302,6 +305,24 @@ cpdef double root_finder(double r, double N, int max_iter=500, double eps=1e-6) 
             break
 
     return t1
+
+
+cdef double check_high_SNR(double eta, double sigma, double N) nogil:
+    '''If the SNR is high enough against N, these corrections factors change basically nothing, so may as well return early.'''
+    cdef:
+        double SNR = eta / sigma
+
+    if N < 4.0:
+        # xi = 0.991358489912443
+        return SNR > 20.0
+    elif (N > 4.0) and (N < 12.0):
+        # xi = 0.9929057132635535
+        return SNR > 40.0
+    elif (N > 12.0) and (N < 48.0):
+        # xi = 0.9952937754769664
+        return SNR > 100.0
+    else:
+        return False
 
 
 # Test for cython functions

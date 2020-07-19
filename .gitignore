@@ -25,6 +25,7 @@ var/
 *.egg
 .ipynb_checkpoints
 .DS_Store
+pip-wheel-metadata/*
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -59,3 +60,4 @@ docs/_templates/
 target/
 
 nlsam.zip
+*.code-workspace

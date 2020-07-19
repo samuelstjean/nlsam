@@ -7,18 +7,14 @@ import logging
 from time import time
 from itertools import cycle
 
-from nlsam.utils import im2col_nd, col2im_nd
+from nlsam.utils import im2col_nd, col2im_nd, greedy_set_finder
 from nlsam.angular_tools import angular_neighbors
 from autodmri.blocks import extract_patches
 
 from scipy.sparse import lil_matrix
 from joblib import Parallel, delayed
 
-try:
-    import spams
-    warnings.filterwarnings("ignore", category=FutureWarning, module='spams')
-except ImportError:
-    raise ImportError("Couldn't find spams library, is the package correctly installed?")
+import spams
 
 logger = logging.getLogger('nlsam')
 
@@ -247,36 +243,6 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
 
     data_subset /= divider
     return data_subset
-
-
-def greedy_set_finder(sets):
-    """Returns a list of subsets that spans the input sets with a greedy algorithm
-    http://en.wikipedia.org/wiki/Set_cover_problem#Greedy_algorithm"""
-
-    sets = [set(s) for s in sets]
-    universe = set()
-
-    for s in sets:
-        universe = universe.union(s)
-
-    output = []
-
-    while len(universe) != 0:
-
-        max_intersect = 0
-
-        for i, s in enumerate(sets):
-
-            n_intersect = len(s.intersection(universe))
-
-            if n_intersect > max_intersect:
-                max_intersect = n_intersect
-                element = i
-
-        output.append(tuple(sets[element]))
-        universe = universe.difference(sets[element])
-
-    return output
 
 
 def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
