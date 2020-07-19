@@ -1,72 +1,72 @@
-build: false
+# build: false
 
-environment:
-  global:
-      # SDK v7.0 MSVC Express 2008's SetEnv.cmd script will fail if the
-      # /E:ON and /V:ON options are not enabled in the batch script interpreter
-      # See: http://stackoverflow.com/a/13751649/163740
-      CMD_IN_ENV: "cmd /E:ON /V:ON /C .\\appveyor\\run_with_env.cmd"
-      # CIBW_SKIP: "*-win32 *-manylinux_i686"
-      # CIBW_BUILD: 'cp27-win_amd64'
-      # CIBW_TEST_REQUIRES: 'pytest'
-      # CIBW_TEST_COMMAND: 'pytest --pyargs nlsam --verbose'
-  matrix:
-    - PYTHON: "C:\\Miniconda-x64"
-      PYTHON_VERSION: "2.7"
-      PYTHON_ARCH: "64"
-      CONDA_PY: "27"
-      CONDA_NPY: "110"
+# environment:
+#   global:
+#       # SDK v7.0 MSVC Express 2008's SetEnv.cmd script will fail if the
+#       # /E:ON and /V:ON options are not enabled in the batch script interpreter
+#       # See: http://stackoverflow.com/a/13751649/163740
+#       CMD_IN_ENV: "cmd /E:ON /V:ON /C .\\appveyor\\run_with_env.cmd"
+#       # CIBW_SKIP: "*-win32 *-manylinux_i686"
+#       # CIBW_BUILD: 'cp27-win_amd64'
+#       # CIBW_TEST_REQUIRES: 'pytest'
+#       # CIBW_TEST_COMMAND: 'pytest --pyargs nlsam --verbose'
+#   matrix:
+#     - PYTHON: "C:\\Miniconda-x64"
+#       PYTHON_VERSION: "2.7"
+#       PYTHON_ARCH: "64"
+#       CONDA_PY: "27"
+#       CONDA_NPY: "110"
 
-init:
-  - "ECHO %PYTHON% %PYTHON_VERSION% %PYTHON_ARCH% %MINICONDA"
+# init:
+#   - "ECHO %PYTHON% %PYTHON_VERSION% %PYTHON_ARCH% %MINICONDA"
 
-install:
-  # - powershell .\\appveyor\\install.ps1
-  - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
+# install:
+#   # - powershell .\\appveyor\\install.ps1
+#   - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
 
-  - "conda config --set always_yes yes --set changeps1 no"
-  - "conda info -a"
-  - "conda create -q -n buildfarm python=%PYTHON_VERSION% numpy==1.15.4 scipy==0.19.1 pip"
-  - "activate buildfarm"
+#   - "conda config --set always_yes yes --set changeps1 no"
+#   - "conda info -a"
+#   - "conda create -q -n buildfarm python=%PYTHON_VERSION% numpy==1.15.4 scipy==0.19.1 pip"
+#   - "activate buildfarm"
 
-  - "pip install --upgrade --upgrade-strategy only-if-needed nibabel==2.2.1"
-  - "pip install --upgrade --upgrade-strategy only-if-needed dipy==0.11"
-  - "pip install --upgrade --upgrade-strategy only-if-needed joblib==0.14.1 cython==0.23 autodmri==0.2.1"
-  - "pip install pytest"
-  - 'pip install https://github.com/samuelstjean/spams-python/releases/download/v2.6.1/spams-2.6-cp27-cp27m-win_amd64.whl'
+#   - "pip install --upgrade --upgrade-strategy only-if-needed nibabel==2.2.1"
+#   - "pip install --upgrade --upgrade-strategy only-if-needed dipy==0.11"
+#   - "pip install --upgrade --upgrade-strategy only-if-needed joblib==0.14.1 cython==0.23 autodmri==0.2.1"
+#   - "pip install pytest"
+#   - 'pip install https://github.com/samuelstjean/spams-python/releases/download/v2.6.1/spams-2.6-cp27-cp27m-win_amd64.whl'
 
-  - "%CMD_IN_ENV% pip install ."
+#   - "%CMD_IN_ENV% pip install ."
 
-cache:
-  - C:\Users\appveyor\AppData\Local\pip\Cache\
+# cache:
+#   - C:\Users\appveyor\AppData\Local\pip\Cache\
 
-test_script:
-  - "cd C:\\"
-  - pytest --pyargs nlsam --verbose
+# test_script:
+#   - "cd C:\\"
+#   - pytest --pyargs nlsam --verbose
 
-after_test:
-  - "cd C:\\projects\\nlsam"
-  - python setup.py sdist --formats=gztar
-  # - pip install pyinstaller
-  # - pyinstaller nlsam_denoising.spec --onefile
-  # - 7z a nlsam_%APPVEYOR_REPO_TAG_NAME%_windows_x64.zip ./dist/nlsam_denoising.exe LICENSE README.md CHANGELOG.md example/ docs/
+# after_test:
+#   - "cd C:\\projects\\nlsam"
+#   - python setup.py sdist --formats=gztar
+#   # - pip install pyinstaller
+#   # - pyinstaller nlsam_denoising.spec --onefile
+#   # - 7z a nlsam_%APPVEYOR_REPO_TAG_NAME%_windows_x64.zip ./dist/nlsam_denoising.exe LICENSE README.md CHANGELOG.md example/ docs/
 
-  # Build the wheels
-  # - pip install cibuildwheel==1.1.0
-  # - cibuildwheel --output-dir wheelhouse
+#   # Build the wheels
+#   # - pip install cibuildwheel==1.1.0
+#   # - cibuildwheel --output-dir wheelhouse
 
-artifacts:
-  - path: dist/*.tar.gz
-  # - path: nlsam*windows_x64.zip
-  - path: "wheelhouse\\*.whl"
-    name: Wheels
+# artifacts:
+#   - path: dist/*.tar.gz
+#   # - path: nlsam*windows_x64.zip
+#   - path: "wheelhouse\\*.whl"
+#     name: Wheels
 
-deploy:
-  description: 'Release description'
-  provider: GitHub
-  auth_token:
-    secure: CQNO3VUc9HHSetiBExiUYsL7xZDr3x+/GnlEQtPfDpkXafs0Ghui10pks7GTIyyD
-  artifact: dist/*.tar.gz, *.tar.gz # nlsam*windows_x64.zip,
-  on:
-    branch: master                 # release from master branch only
-    appveyor_repo_tag: true        # deploy on tag push only
+# deploy:
+#   description: 'Release description'
+#   provider: GitHub
+#   auth_token:
+#     secure: CQNO3VUc9HHSetiBExiUYsL7xZDr3x+/GnlEQtPfDpkXafs0Ghui10pks7GTIyyD
+#   artifact: dist/*.tar.gz, *.tar.gz # nlsam*windows_x64.zip,
+#   on:
+#     branch: master                 # release from master branch only
+#     appveyor_repo_tag: true        # deploy on tag push only
