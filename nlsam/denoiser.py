@@ -14,6 +14,8 @@ from autodmri.blocks import extract_patches
 from scipy.sparse import lil_matrix
 from joblib import Parallel, delayed
 
+import spams
+
 logger = logging.getLogger('nlsam')
 
 
