@@ -1,6 +1,6 @@
 numpy>=1.15.4
 scipy>=0.19.1
-cython>=0.21
+cython>=0.29
 nibabel>=2.2
 dipy>=0.11
 joblib>=0.14.1

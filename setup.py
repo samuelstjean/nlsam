@@ -68,7 +68,7 @@ for pyxfile in modules:
 
 install_requires = ['numpy>=1.15.4',
                     'scipy>=0.19.1',
-                    'cython>=0.21',
+                    'cython>=0.29',
                     'nibabel>=2.0',
                     'joblib>=0.14.1',
                     'autodmri>=0.2.1',
@@ -79,6 +79,9 @@ install_requires = ['numpy>=1.15.4',
                     'spams @ https://github.com/samuelstjean/spams-python/releases/download/v2.6.1/spams-2.6-cp37-cp37m-win_amd64.whl ; platform_system=="Windows" and python_version=="3.7"',
                     'spams @ https://github.com/samuelstjean/spams-python/releases/download/v2.6.1/spams-2.6-cp38-cp38-win_amd64.whl ; platform_system=="Windows" and python_version=="3.8"',
                     'dipy>=0.11']
+
+compiler_directives = {'embedsignature': True,
+                       'language_level': 3}
 
 setup(name='nlsam',
       author='Samuel St-Jean',
@@ -93,5 +96,6 @@ setup(name='nlsam',
       install_requires=install_requires,
       include_dirs=[gsl_path],
       packages=find_packages(),
+      compiler_directives=compiler_directives,
       cmdclass={'build_ext': build_ext},
       ext_modules=ext_modules)
