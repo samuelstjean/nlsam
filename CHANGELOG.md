@@ -18,6 +18,7 @@
 - Binary wheels are now available for all platforms instead.
 - Dockerfiles are also available with either openblas or the intel MKL.
 - A new option to estimate automatically the noise distribution (sigma and N) is now available by passing **auto** to both N and **--noise_est**.
+- A new option to process each shell separately is now available with **--split_shell**.
 
 ## [0.6.1] - 2017-11-17
 - Fixed a numerical issue in the Marcum Q function when computing probabilities used in the stabilizer framework.
