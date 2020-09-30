@@ -261,33 +261,3 @@ def padding(A, block_shape, overlap):
     padded[:A.shape[0], :A.shape[1], :A.shape[2], ...] = A
 
     return padded
-
-
-def greedy_set_finder(sets):
-    """Returns a list of subsets that spans the input sets with a greedy algorithm
-    http://en.wikipedia.org/wiki/Set_cover_problem#Greedy_algorithm"""
-
-    sets = [set(s) for s in sets]
-    universe = set()
-
-    for s in sets:
-        universe = universe.union(s)
-
-    output = []
-
-    while len(universe) != 0:
-
-        max_intersect = 0
-
-        for i, s in enumerate(sets):
-
-            n_intersect = len(s.intersection(universe))
-
-            if n_intersect > max_intersect:
-                max_intersect = n_intersect
-                element = i
-
-        output.append(tuple(sets[element]))
-        universe = universe.difference(sets[element])
-
-    return output

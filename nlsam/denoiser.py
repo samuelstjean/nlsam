@@ -7,8 +7,8 @@ import logging
 from time import time
 from itertools import cycle
 
-from nlsam.utils import im2col_nd, col2im_nd, greedy_set_finder
-from nlsam.angular_tools import angular_neighbors
+from nlsam.utils import im2col_nd, col2im_nd
+from nlsam.angular_tools import angular_neighbors, split_shell, greedy_set_finder
 from autodmri.blocks import extract_patches
 
 from scipy.sparse import lil_matrix
