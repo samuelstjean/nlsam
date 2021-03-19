@@ -1,4 +1,4 @@
-#cython: wraparound=False, cdivision=True, boundscheck=False
+#cython: wraparound=False, cdivision=True, boundscheck=False, language_level=3, embedsignature=True
 
 from __future__ import print_function, division
 
