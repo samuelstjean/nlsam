@@ -78,7 +78,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         logger.setLevel(logging.INFO)
 
     if mask is None:
-        mask = np.ones(data.shape[:-1], dtype=np.bool)
+        mask = np.ones(data.shape[:-1], dtype=bool)
 
     if data.shape[:-1] != mask.shape:
         raise ValueError('data shape is {}, but mask shape {} is different!'.format(data.shape, mask.shape))
@@ -181,7 +181,7 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
         logger.setLevel(logging.INFO)
 
     if mask is None:
-        mask = np.ones(data.shape[:-1], dtype=np.bool)
+        mask = np.ones(data.shape[:-1], dtype=bool)
 
     X = extract_patches(data, block_size, [1, 1, 1, block_size[-1]]).reshape(-1, np.prod(block_size)).T
 
@@ -277,8 +277,8 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
     DtDW = np.empty_like(DtD, order='F')
 
     alpha_old = np.ones(alpha.shape, dtype=dtype)
-    not_converged = np.ones(alpha.shape[1], dtype=np.bool)
-    nonzero_ind = np.zeros(alpha.shape, dtype=np.bool)
+    not_converged = np.ones(alpha.shape[1], dtype=bool)
+    nonzero_ind = np.zeros(alpha.shape, dtype=bool)
     arr = np.empty(alpha.shape)
 
     xi = np.random.randn(X.shape[0], X.shape[1]) * var_mat

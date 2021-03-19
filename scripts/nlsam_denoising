@@ -325,10 +325,10 @@ def main():
     logger.info("Loading data {}".format(os.path.realpath(args.input)))
 
     if args.mask is not None:
-        mask = nib.load(args.mask).get_fdata(caching='unchanged').astype(np.bool)
+        mask = nib.load(args.mask).get_fdata(caching='unchanged').astype(bool)
         logger.info("Loading mask {}".format(os.path.realpath(args.mask)))
     else:
-        mask = np.ones(data.shape[:-1], dtype=np.bool)
+        mask = np.ones(data.shape[:-1], dtype=bool)
 
     # load m_hat if we supplied the argument
     if args.load_mhat is not None:

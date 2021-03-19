@@ -59,7 +59,7 @@ def test_stabilization():
     noisySI = np.array(noisySI)
     sigma = 20 * np.ones_like(noisySI)
     N = 1 * np.ones_like(noisySI)
-    mask = np.ones_like(noisySI, dtype=np.bool)
+    mask = np.ones_like(noisySI, dtype=bool)
 
     # this is my mhat value
     # mhat = noiseFloorBreaker.getSmoothedNoisyY();
