@@ -68,7 +68,7 @@ The correction for Rician or Noncentral chi distributed noise would then be left
 
 #### 2.1a Advanced techniques for estimating N (optional topic)
 
-See the [wiki](https://github.com/samuelstjean/nlsam/wiki/Advanced-noise-estimation)
+See the [documentation](https://nlsam.readthedocs.io/en/latest/wiki/advanced_estimation.html)
 for a discussion on the subject.
 
 #### 2.2 Algorithms for noise estimation
