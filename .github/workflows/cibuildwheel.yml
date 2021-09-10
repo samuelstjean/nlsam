@@ -1,6 +1,11 @@
-name: Build
+name: Build and upload to PyPI
 
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  release:
+    types:
+      - published
 
 jobs:
   build_wheels:
@@ -24,11 +29,17 @@ jobs:
 
       - name: Build wheels
         env:
-          CIBW_SKIP: "*-win32 *-manylinux_i686 pp* cp36-* cp310-*"
-          CIBW_BEFORE_BUILD_LINUX: yum install openblas-devel lapack-devel -y
-          CIBW_BEFORE_BUILD_MACOS: brew install openblas
+          CIBW_SKIP: "*-win32 *-manylinux_i686 pp* cp310-*"
+
           CIBW_TEST_REQUIRES: pytest
-          CIBW_TEST_COMMAND: pytest --pyargs nlsam
+          CIBW_TEST_COMMAND: pytest --pyargs nlsam --verbose
+          CIBW_TEST_COMMAND_LINUX: >
+            pytest --pyargs nlsam --verbose &&
+            cd {package}/example &&
+            chmod +x  {package}/nlsam/tests/test_scripts1.sh &&
+            bash {package}/nlsam/tests/test_scripts1.sh &&
+            chmod +x  {package}/nlsam/tests/test_scripts2.sh &&
+            bash {package}/nlsam/tests/test_scripts2.sh
         run: |
           python -m cibuildwheel --output-dir wheelhouse
 
@@ -70,8 +81,9 @@ jobs:
           name: artifact
           path: dist
 
-      - uses: pypa/gh-action-pypi-publish@v1.3.1
+      - uses: pypa/gh-action-pypi-publish@v1.4.1
         with:
           user: ${{ secrets.PYPI_USERNAME }}
           password: ${{ secrets.PYPI_PASSWORD }}
-          # To test: repository_url: https://test.pypi.org/legacy/
+          # password: ${{ secrets.testpypi_password }}
+          # repository_url: https://test.pypi.org/legacy/
