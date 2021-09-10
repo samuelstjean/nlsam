@@ -3,7 +3,10 @@ Denoising a small example dataset
 
 This tutorial shows how to denoise a crop of the 1.2 mm dataset
 [(Full dataset also available)](https://github.com/samuelstjean/nlsam_data).
-I also assume you have installed NLSAM and everything is running fine beforehand.
+I also assume you have installed NLSAM and everything is running fine beforehand and have a brain mask for your data handy.
+It makes processing far faster by skipping unnecessary voxels and more robust since we do not try to reconstruct noise in the process.
+Also strongly suggested for your body or phantom experiments, since the sampling process only uses whatever is inside the mask.
+Using the full extent of the data will likely pick up noise and lead to a poor(er) reconstruction.
 
 This example will walk you through the required step to go from a noisy image like this
 
@@ -24,35 +27,14 @@ everyday processing the default options should work just fine.
 <a name="prerequisite"></a>
 ## 1. Prerequisite
 
-#### 1.1 Get a binary mask of the brain
-
-This will reduce the computation time by only denoising the voxels which are included inside the mask.
-For this example, I used bet2 from fsl to create mask.nii.gz using only the b0 image, but feel free to use your favorite tool of course.
-
-```bash
-bet2 b0.nii.gz brain -m -f 0.1
-```
-
-#### 1.2 Minimally required data for processing
+#### 1.1 Minimally required data for processing
 
 You will need a set of diffusion weighted images and the associated bvals/bvecs files as used by FSL.
 
-If your data is not in the bvals/bvecs format, you will first need to convert it.
-Your favorite diffusion MRI processing tool probably has a function to help you with the conversion
-(Scilpy, MRtrix3 and ExploreDTI all offer options for this conversion for example).
+#### 1.2 Required command line inputs
 
-#### 1.3 Required command line inputs
-
-A typical example call requires only a diffusion weighted dataset (dwi.nii.gz), the bvals/bvecs file
-and the number of coils from the acquisition (N),
-but it is recommended to also have a brain mask (mask.nii.gz) to greatly reduce computation time.
-
-For this example dataset, we used a SENSE reconstruction (Philips, GE), which leads to spatially varying Rician noise, so we set N = 1.
-If your scanner instead implements a GRAPPA reconstruction (Siemens), you would need to specify N as the number of coils in the acquisition.
-While this value can be difficult to estimate, asking help from your friendly MR physicist is advised (or check subsection 2.1a).
-
-In the meantime, you can still run the algorithm with N = 1 to use a Rician correction and check the result, in which case there would be a slight intensity
-bias left in the image, but which would be lower than not correcting it in the first place.
+In ye olden days, we needed to know stuff about our acquisition. You can now pass the option **auto** to estimate automatically the noise distribution instead.
+It is still possible to also pass a number (not necessarily an integer) for N if you wish to do so.
 
 <a name="steps"></a>
 ## 2. Processing steps
@@ -66,23 +48,12 @@ Of course if your dataset is already bias corrected or you would like to use ano
 you can skip this step and proceed to the denoising itself by passing the option **--no_stabilization**.
 The correction for Rician or Noncentral chi distributed noise would then be left to any other method of your choosing.
 
-#### 2.1a Advanced techniques for estimating N (optional topic)
+#### 2.2 Advanced techniques for estimating N (optional topic)
 
 See the [documentation](https://nlsam.readthedocs.io/en/latest/wiki/advanced_estimation.html)
 for a discussion on the subject.
 
-#### 2.2 Algorithms for noise estimation
-
-To initialize the estimation for the stabilization algorithm, we will use a spherical harmonics fit (which is the default),
-to remove extreme/implausible signals. In case you have few directions (per shell), you can deactivate this option
-by passing **--sh_order 0** or lowering the order if your data does not have enough dwi volumes (the script will warn you in that case).
-
-The default is to use a noise estimation based on piesno, but since this dataset is fairly noisy and has no background,
-we will instead use an estimation based on the local standard deviation with the option **--noise_est local_std**
-
-If you data is really noisy and the S0 signal is low, you might want to use the option
-**--fix_implausible** which will ensure that the b0 image always has the highest value through the volume.
-This option was implicitly used in NLSAM versions before 0.5 and now need to be activated if needed.
+Probably obsoleted now by the option to automatically estimate the noise, but I'll keep it for historical purposes for now.
 
 #### 2.3 Required command line inputs
 
@@ -90,13 +61,12 @@ There are 6 required command line inputs (their order is important) which are
 
 + The input dataset (dwi.nii.gz)
 + The output dataset (dwi_nlsam.nii.gz)
-+ The effective number of coils for our acquisition (see section 2.1a)
++ The effective number of coils for our acquisition (see section 2.2) or 'auto' to estimate it automatically
 + The b-values file for our input dataset (bvals)
 + The b-vectors file for our input dataset (bvecs)
 + The number of angular neighbors (N)
 
-The bvals/bvecs files are needed for identifying
-the angular neighbors and we need to choose how many we want to denoise at once.
+The bvals/bvecs files are needed for identifying the angular neighbors and we need to choose how many we want to denoise at once.
 
 Here I selected 5 as it is the number of dwis which are roughly equidistant on the sphere.
 Using a larger number could mean more blurring if we mix q-space points which are too far part.
@@ -104,6 +74,8 @@ Using a larger number could mean more blurring if we mix q-space points which ar
 For a multishell acquisition, only the direction (as opposed to the norm)
 of the b-vector is taken into account, so you can freely mix dwi from different
 shells to favor picking radial decay in the denoising.
+
+There is also a new option called **--split_shell** to process each shell by itself separately and **--split_b0s** to process the b0s separately in each block.
 
 #### 2.4 Advanced options
 
@@ -119,16 +91,12 @@ Feel free to check them out if you want finer grained controls over the denoisin
 Finally, the required call to the nlsam_denoising script for this example would be
 
 ```bash
-nlsam_denoising dwi.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask.nii.gz --noise_est local_std --fix_implausible  --verbose
+nlsam_denoising dwi.nii.gz dwi_nlsam.nii.gz auto bvals bvecs 5 -m mask.nii.gz --noise_est auto --verbose
 ```
 
 The script will output the time taken at each denoising iterations so you can ballpark estimate the total time required.
-On my current computer (an intel xeon quad core at 3.5 GHz, much faster than the one reported originally in the paper),
+On my old computer (an intel xeon quad core at 3.5 GHz, much faster than the one reported originally in the paper),
 it took around 40 s per iteration for this example, for a total of 8 minutes.
-
-The full dataset required 23 mins per iteration, for a total processing time of 276 mins.
-As a side note, using piesno for the noise estimation (which is the default) resulted in an iteration taking only 8 mins,
-so the whole dataset could be denoised in around ~100 mins with the default options.
 
 <a name="result"></a>
 ## 3. The result
