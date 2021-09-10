@@ -22,27 +22,13 @@ You can find the latest documentation and installation instructions over [here](
 
 ## How to install
 
-The new easy way is to use the ```Dockerfile```. for which you'll need to install [docker][] (probably already available in your favorite linux distribution).
-
-The old easiest way is to go grab a [release][], in which case the downloaded zip file contains everything you need (no python installation required,
-you can use it straight away without installing anything else).
-After extracting the zip file, start a terminal/command line prompt (start button, then type cmd + enter on windows) and navigate to where you extracted the binaries.
-
-Since the tools are command line only, double-clicking it will open and immediately close a dos-like window, hence the need for opening a command line prompt.
-
 If you have a working python setup already, the next command should give you everything you need.
 
 ```shell
-pip install https://github.com/samuelstjean/nlsam/archive/master.zip --user --process-dependency-links
+pip install nlsam
 ```
 
-If you would like to look at the code and modify it, you can also clone it locally
-and then install everything through pip after grabbing some dependencies
-
-```shell
-git clone https://github.com/samuelstjean/nlsam.git
-pip install -e nlsam
-```
+There are also ```Dockerfile```s in the [folder](Dockerfiles), for which you'll need to install [docker][] if you want to build upon it for pipeline processing.
 
 You can also download the datasets used in the paper over [here][nlsam_data].
 
