@@ -1,8 +1,3 @@
-# We should be in the tester subdir
-cd ../example
-pwd
-
-
 check_return_code ()
 {
     if [ $1 -ne 0 ]; then

@@ -1,8 +1,5 @@
 name: Build and upload to PyPI
 
-# Build on every branch push, tag push, and pull request change:
-# on: [push, pull_request]
-# Alternatively, to publish when a (published) GitHub Release is created, use the following:
 on:
   push:
   pull_request:
@@ -33,11 +30,16 @@ jobs:
       - name: Build wheels
         env:
           CIBW_SKIP: "*-win32 *-manylinux_i686 pp* cp310-*"
-          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: delvewheel repair -w {dest_dir} {wheel}
-          CIBW_BEFORE_BUILD_WINDOWS: pip install delvewheel
 
           CIBW_TEST_REQUIRES: pytest
-          CIBW_TEST_COMMAND: pytest --pyargs nlsam
+          CIBW_TEST_COMMAND: pytest --pyargs nlsam --verbose
+          CIBW_TEST_COMMAND_LINUX: >
+            pytest --pyargs nlsam --verbose &&
+            cd {package}/example &&
+            chmod +x  {package}/nlsam/tests/test_scripts1.sh &&
+            bash {package}/nlsam/tests/test_scripts1.sh &&
+            chmod +x  {package}/nlsam/tests/test_scripts2.sh &&
+            bash {package}/nlsam/tests/test_scripts2.sh
         run: |
           python -m cibuildwheel --output-dir wheelhouse
 

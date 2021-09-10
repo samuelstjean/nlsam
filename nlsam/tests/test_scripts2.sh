@@ -1,8 +1,3 @@
-# We should be in the tester subdir
-cd ../example
-pwd
-
-
 check_return_code ()
 {
     if [ $1 -ne 0 ]; then
@@ -36,7 +31,6 @@ check_return_code $?
 
 nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --sh_order 0 --noise_est local_std --no_denoising
 check_return_code $?
-
 
 nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz auto bvals bvecs 5 -m mask_crop.nii.gz -f --verbose --sh_order 0 --noise_est auto --no_denoising --cores 4
 check_return_code $?
