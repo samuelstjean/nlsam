@@ -1,6 +1,14 @@
-name: Build
+name: Build and upload to PyPI
 
-on: [push, pull_request]
+# Build on every branch push, tag push, and pull request change:
+# on: [push, pull_request]
+# Alternatively, to publish when a (published) GitHub Release is created, use the following:
+on:
+  push:
+  pull_request:
+  release:
+    types:
+      - published
 
 jobs:
   build_wheels:
@@ -25,6 +33,9 @@ jobs:
       - name: Build wheels
         env:
           CIBW_SKIP: "*-win32 *-manylinux_i686 pp* cp310-*"
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: delvewheel repair -w {dest_dir} {wheel}
+          CIBW_BEFORE_BUILD_WINDOWS: pip install delvewheel
+
           CIBW_TEST_REQUIRES: pytest
           CIBW_TEST_COMMAND: pytest --pyargs nlsam
         run: |
@@ -68,8 +79,9 @@ jobs:
           name: artifact
           path: dist
 
-      - uses: pypa/gh-action-pypi-publish@v1.3.1
+      - uses: pypa/gh-action-pypi-publish@v1.4.1
         with:
           user: ${{ secrets.PYPI_USERNAME }}
           password: ${{ secrets.PYPI_PASSWORD }}
-          # To test: repository_url: https://test.pypi.org/legacy/
+          # password: ${{ secrets.testpypi_password }}
+          # repository_url: https://test.pypi.org/legacy/
