@@ -1,4 +1,4 @@
-#cython: wraparound=False, cdivision=True, boundscheck=False
+#cython: wraparound=False, cdivision=True, boundscheck=False, language_level=3, embedsignature=True
 
 cimport cython
 from libc.math cimport sqrt, exp, fabs, M_PI

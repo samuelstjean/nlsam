@@ -23,9 +23,9 @@ def stabilization(data, m_hat, sigma, N, mask=None, clip_eta=True, return_eta=Fa
     N = np.atleast_3d(N)
 
     if mask is None:
-        mask = np.ones(data.shape[:-1], dtype=np.bool)
+        mask = np.ones(data.shape[:-1], dtype=bool)
     else:
-        mask = np.asarray(mask, dtype=np.bool)
+        mask = np.asarray(mask, dtype=bool)
 
     if N.ndim < data.ndim:
         N = np.broadcast_to(N[..., None], data.shape)
@@ -116,9 +116,9 @@ def root_finder_sigma(data, sigma, N, mask=None):
     N = np.array(N)
 
     if mask is None:
-        mask = np.ones_like(sigma, dtype=np.bool)
+        mask = np.ones_like(sigma, dtype=bool)
     else:
-        mask = np.array(mask, dtype=np.bool)
+        mask = np.array(mask, dtype=bool)
 
     # Force 3D/4D broadcasting if needed
     if sigma.ndim == (data.ndim - 1):

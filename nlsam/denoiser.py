@@ -7,8 +7,8 @@ import logging
 from time import time
 from itertools import cycle
 
-from nlsam.utils import im2col_nd, col2im_nd, greedy_set_finder
-from nlsam.angular_tools import angular_neighbors
+from nlsam.utils import im2col_nd, col2im_nd
+from nlsam.angular_tools import angular_neighbors, split_shell, greedy_set_finder
 from autodmri.blocks import extract_patches
 
 from scipy.sparse import lil_matrix
@@ -20,7 +20,7 @@ logger = logging.getLogger('nlsam')
 
 
 def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
-                  mask=None, is_symmetric=False, n_cores=-1, split_b0s=False,
+                  mask=None, is_symmetric=False, n_cores=-1, split_b0s=False, split_shell=False,
                   subsample=True, n_iter=10, b0_threshold=10, dtype=np.float64, verbose=False):
     """Main nlsam denoising function which sets up everything nicely for the local
     block denoising.
@@ -52,6 +52,9 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     split_b0s : bool, default False
         If True and the dataset contains multiple b0s, a different b0 will be used for
         each run of the denoising. If False, the b0s are averaged and the average b0 is used instead.
+    split_shell : bool, default False
+        If True and the dataset contains multiple b-values, each shell is processed independently.
+        If False, all the data is used at the same time for computing angular neighbors.
     subsample : bool, default True
         If True, find the smallest subset of indices required to process each
         dwi at least once.
@@ -61,7 +64,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         A b-value below b0_threshold will be considered as a b0 image.
     dtype : np.float32 or np.float64, default np.float64
         Precision to use for inner computations. Note that np.float32 should only be used for
-        very, very large datasets (that is, your ram starts swappping) as it can lead to numerical precision errors.
+        very, very large datasets (that is, your ram starts swapping) as it can lead to numerical precision errors.
     verbose : bool, default False
         print useful messages.
 
@@ -75,7 +78,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         logger.setLevel(logging.INFO)
 
     if mask is None:
-        mask = np.ones(data.shape[:-1], dtype=np.bool)
+        mask = np.ones(data.shape[:-1], dtype=bool)
 
     if data.shape[:-1] != mask.shape:
         raise ValueError('data shape is {}, but mask shape {} is different!'.format(data.shape, mask.shape))
@@ -178,7 +181,7 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
         logger.setLevel(logging.INFO)
 
     if mask is None:
-        mask = np.ones(data.shape[:-1], dtype=np.bool)
+        mask = np.ones(data.shape[:-1], dtype=bool)
 
     X = extract_patches(data, block_size, [1, 1, 1, block_size[-1]]).reshape(-1, np.prod(block_size)).T
 
@@ -274,7 +277,8 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
     DtDW = np.empty_like(DtD, order='F')
 
     alpha_old = np.ones(alpha.shape, dtype=dtype)
-    has_converged = np.zeros(alpha.shape[1], dtype=np.bool)
+    not_converged = np.ones(alpha.shape[1], dtype=bool)
+    nonzero_ind = np.zeros(alpha.shape, dtype=bool)
     arr = np.empty(alpha.shape)
 
     xi = np.random.randn(X.shape[0], X.shape[1]) * var_mat
@@ -282,21 +286,20 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
     eps = np.max(np.abs(np.dot(D.T, xi)), axis=0)
 
     for _ in range(n_iter):
-        not_converged = np.equal(has_converged, False)
         DtXW[:, not_converged] = DtX[:, not_converged] / W[:, not_converged]
 
         for i in range(alpha.shape[1]):
-            if not has_converged[i]:
+            if not_converged[i]:
                 param_alpha['lambda1'] = var_mat[i]
                 DtDW[:] = (1. / W[..., None, i]) * DtD * (1. / W[:, i])
                 alpha[:, i:i + 1] = spams.lasso(X[:, i:i + 1], Q=DtDW, q=DtXW[:, i:i + 1], **param_alpha)
 
         alpha.toarray(out=arr)
-        nonzero_ind = arr != 0
+        nonzero_ind[:] = arr != 0
         arr[nonzero_ind] /= W[nonzero_ind]
-        has_converged = np.max(np.abs(alpha_old - arr), axis=0) < tolerance
+        not_converged[:] = np.max(np.abs(alpha_old - arr), axis=0) > tolerance
 
-        if np.all(has_converged):
+        if not np.any(not_converged):
             break
 
         alpha_old[:] = arr

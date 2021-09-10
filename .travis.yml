@@ -29,18 +29,17 @@ env:
     - TESTPART=test_scripts2.sh
 
 python:
-  - 3.5
   - 3.6
   - 3.7
   - 3.8
 
 jobs:
   include:
-    - python: 3.5
+    - python: 3.6
       env:
         - DEPENDS=$DEPENDS_MIN
           TESTPART=test_scripts1.sh
-    - python: 3.5
+    - python: 3.6
       env:
         - DEPENDS=$DEPENDS_MIN
           TESTPART=test_scripts2.sh
@@ -55,7 +54,7 @@ jobs:
       env:
         - DEPENDS=$DEPENDS_MIN
           TESTPART=test_scripts1.sh
-          ANACONDA_PYTHON_VERSION=3.5
+          ANACONDA_PYTHON_VERSION=3.6
     - os: osx
       language: generic
       before_install:
@@ -65,10 +64,10 @@ jobs:
       env:
         - DEPENDS=$DEPENDS_MIN
           TESTPART=test_scripts2.sh
-          ANACONDA_PYTHON_VERSION=3.5
+          ANACONDA_PYTHON_VERSION=3.6
 
     # # pyinstaller builds
-    # - python: 3.5
+    # - python: 3.6
     #   env:
     #     - DEPENDS=$DEPENDS_BUILD
     #       BUILD_PYINSTALLER=true
@@ -81,7 +80,7 @@ jobs:
     #   env:
     #     - DEPENDS=$DEPENDS_BUILD
     #       BUILD_PYINSTALLER=true
-    #       ANACONDA_PYTHON_VERSION=3.5
+    #       ANACONDA_PYTHON_VERSION=3.6
 
     # # perform a linux build
     # - services: docker

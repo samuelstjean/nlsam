@@ -6,7 +6,7 @@ import os
 import argparse
 import logging
 
-from multiprocessing import cpu_count, freeze_support
+from multiprocessing import cpu_count
 from ast import literal_eval
 
 import nibabel as nib
@@ -40,7 +40,6 @@ Journal of Magnetic Resonance 2009; 197: 108-119.
 [3] St-Jean S, De Luca A, Tax C.M.W., Viergever M.A, Leemans A.
 Automated characterization of noise distributions in diffusion MRI data.
 Medical Image Analysis, June 2020:101758. doi:10.1016/j.media.2020.101758
-
 """
 
 
@@ -93,6 +92,9 @@ def buildArgsParser():
     optionals.add_argument('--split_b0s', action='store_true',
                            help='If set and multiple b0s are present, they are split amongst the '
                            'training data.')
+
+    optionals.add_argument('--split_shell', action='store_true',
+                           help='If set, each shell/b-value is processed separately by itself.')
 
     optionals.add_argument('--block_size', dest='spatial_block_size',
                            metavar='tuple', type=literal_eval, default=(3, 3, 3),
@@ -232,6 +234,7 @@ def main():
     n_iter = args.iterations
     b0_threshold = args.b0_threshold
     split_b0s = args.split_b0s
+    split_shell = args.split_shell
     block_size = np.array(args.spatial_block_size + (args.angular_block_size,))
     clip_eta = args.no_clip_eta
     logger = logging.getLogger('nlsam')
@@ -322,10 +325,10 @@ def main():
     logger.info("Loading data {}".format(os.path.realpath(args.input)))
 
     if args.mask is not None:
-        mask = nib.load(args.mask).get_fdata(caching='unchanged').astype(np.bool)
+        mask = nib.load(args.mask).get_fdata(caching='unchanged').astype(bool)
         logger.info("Loading mask {}".format(os.path.realpath(args.mask)))
     else:
-        mask = np.ones(data.shape[:-1], dtype=np.bool)
+        mask = np.ones(data.shape[:-1], dtype=bool)
 
     # load m_hat if we supplied the argument
     if args.load_mhat is not None:
@@ -492,6 +495,7 @@ def main():
                                       is_symmetric=is_symmetric,
                                       n_cores=n_cores,
                                       split_b0s=split_b0s,
+                                      split_shell=split_shell,
                                       subsample=subsample,
                                       n_iter=n_iter,
                                       b0_threshold=b0_threshold,
@@ -507,5 +511,4 @@ def main():
 
 
 if __name__ == "__main__":
-    freeze_support()
     main()
