@@ -1,5 +1,3 @@
-from __future__ import division
-
 import logging
 import numpy as np
 
@@ -10,16 +8,18 @@ from dipy.reconst.shm import sph_harm_ind_list, real_sph_harm, smooth_pinv
 
 from scipy.ndimage.filters import convolve, gaussian_filter
 
-
 logger = logging.getLogger('nlsam')
 
 
-def sh_smooth(data, bvals, bvecs, sh_order=4, similarity_threshold=50, regul=0.006):
+def sh_smooth(data, bvals, bvecs, sh_order=4, b0_threshold=1.0, similarity_threshold=50, regul=0.006):
     """Smooth the raw diffusion signal with spherical harmonics.
+
     data : ndarray
         The diffusion data to smooth.
     gtab : gradient table object
         Corresponding gradients table object to data.
+    b0_threshold : float, default 1.0
+        Threshold to consider this bval as a b=0 image.
     sh_order : int, default 8
         Order of the spherical harmonics to fit.
     similarity_threshold : int, default 50
@@ -28,6 +28,7 @@ def sh_smooth(data, bvals, bvecs, sh_order=4, similarity_threshold=50, regul=0.0
         Must be lower than 200.
     regul : float, default 0.006
         Amount of regularization to apply to sh coefficients computation.
+
     Return
     ---------
     pred_sig : ndarray
@@ -35,13 +36,18 @@ def sh_smooth(data, bvals, bvecs, sh_order=4, similarity_threshold=50, regul=0.0
     """
 
     if similarity_threshold > 200:
-        raise ValueError("similarity_threshold = {}, which is higher than 200,"
-                         " please use a lower value".format(similarity_threshold))
+        error = f"similarity_threshold = {similarity_threshold}, which is higher than 200, please use a lower value"
+        raise ValueError(error)
+
+    if b0_threshold > 20:
+        error = f"b0_threshold = {b0_threshold}, which is higher than 20, please use a lower value"
+        raise ValueError(error)
 
     m, n = sph_harm_ind_list(sh_order)
     L = -n * (n + 1)
-    where_b0s = bvals == 0
+    where_b0s = bvals <= b0_threshold
     pred_sig = np.zeros_like(data, dtype=np.float32)
+
 
     # Round similar bvals together for identifying similar shells
     rounded_bvals = np.zeros_like(bvals)
@@ -62,17 +68,16 @@ def sh_smooth(data, bvals, bvecs, sh_order=4, similarity_threshold=50, regul=0.0
                 pred_sig[..., idx] = data[..., idx]
             continue
 
+
         x, y, z = bvecs[:, idx]
-        r, theta, phi = cart2sphere(x, y, z)
+        _, theta, phi = cart2sphere(x, y, z)
 
         # Find the sh coefficients to smooth the signal
         B_dwi = real_sph_harm(m, n, theta[:, None], phi[:, None])
         invB = smooth_pinv(B_dwi, np.sqrt(regul) * L)
         sh_coeff = np.dot(data[..., idx], invB.T)
-
         # Find the smoothed signal from the sh fit for the given gtab
         pred_sig[..., idx] = np.dot(sh_coeff, B_dwi.T)
-
     return pred_sig
 
 

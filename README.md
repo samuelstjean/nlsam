@@ -52,7 +52,7 @@ You can find a detailed usage example and assorted dataset to try out in the
 ## Questions / Need help / Think this is great software?
 
 If you need help or would like more information, don't hesitate to drop me a
-line at firstname@isi.uu.nl, where of course firstname needs to be replaced with samuel.
+line at samuel.st_jean@university, where university needs to be replaced with med.lu.se
 
 ## References
 
