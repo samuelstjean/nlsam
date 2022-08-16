@@ -67,7 +67,7 @@ for pyxfile in modules:
     ext_modules.append(ext)
 
 install_requires = ['numpy>=1.15.4',
-                    'scipy>=1.6',
+                    'scipy>=1.5',
                     'cython>=0.29',
                     'nibabel>=2.0',
                     'joblib>=0.14.1',
