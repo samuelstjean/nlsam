@@ -1,5 +1,3 @@
-from __future__ import division
-
 import numpy as np
 
 
@@ -49,7 +47,7 @@ def _angle(vec):
     vec = np.array(vec)
 
     if vec.shape[1] != 3:
-        raise ValueError("Input must be of shape N x 3. Current shape is {}".format(vec.shape))
+        raise ValueError(f"Input must be of shape N x 3. Current shape is {vec.shape}")
 
     # Each vector is normalized to unit norm. We then replace
     # null norm vectors by 0 for sorting purposes.

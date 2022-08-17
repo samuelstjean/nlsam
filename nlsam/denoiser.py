@@ -1,7 +1,4 @@
-from __future__ import division, print_function
-
 import numpy as np
-import warnings
 import logging
 
 from time import time
@@ -81,17 +78,16 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         mask = np.ones(data.shape[:-1], dtype=bool)
 
     if data.shape[:-1] != mask.shape:
-        raise ValueError('data shape is {}, but mask shape {} is different!'.format(data.shape, mask.shape))
+        raise ValueError(f'data shape is {data.shape}, but mask shape {mask.shape} is different!')
 
     if data.shape[:-1] != sigma.shape:
-        raise ValueError('data shape is {}, but sigma shape {} is different!'.format(data.shape, sigma.shape))
+        raise ValueError(f'data shape is {data.shape}, but sigma shape {sigma.shape} is different!')
 
     if len(block_size) != len(data.shape):
-        raise ValueError('Block shape {} and data shape {} are not of the same '
-                         'length'.format(data.shape, block_size.shape))
+        raise ValueError(f'Block shape {data.shape} and data shape {block_size.shape} are not of the same length')
 
     if not ((dtype == np.float32) or (dtype == np.float64)):
-        raise ValueError('dtype should be either np.float32 or np.float64, but is {}'.format(dtype))
+        raise ValueError(f'dtype should be either np.float32 or np.float64, but is {dtype}')
 
     b0_loc = np.where(bvals <= b0_threshold)[0]
     dwis = np.where(bvals > b0_threshold)[0]
@@ -102,7 +98,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     # is not always the case when we hack around with the scanner.
     bvecs = np.where(bvals[:, None] <= b0_threshold, 0, bvecs)
 
-    logger.info("Found {} b0s at position {}".format(str(num_b0s), str(b0_loc)))
+    logger.info(f"Found {num_b0s} b0s at position {b0_loc}")
 
     # Average all b0s if we don't split them in the training set
     if num_b0s > 1 and not split_b0s:
@@ -142,8 +138,8 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         indexes += the_rest[:(num_b0s - len(indexes))]
 
     if num_b0s > len(indexes):
-        error = ('Seems like you still have more b0s {} than available blocks {},'
-                 ' either average them or deactivate subsampling.'.format(num_b0s, len(indexes)))
+        error = (f'Seems like you still have more b0s {num_b0s} than available blocks {len(indexes)},'
+                 ' either average them or deactivate subsampling.')
         raise ValueError(error)
 
     b0_block_size = tuple(block_size[:-1]) + ((block_size[-1] + 1,))
@@ -159,7 +155,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         to_denoise[..., 1:] = data[..., idx]
         divider[list(b0_loc + idx)] += 1
 
-        logger.info('Now denoising volumes {} / block {} out of {}.'.format(b0_loc + idx, i, len(indexes)))
+        logger.info(f'Now denoising volumes {b0_loc + idx} / block {i} out of {len(indexes)}.')
 
         data_denoised[..., b0_loc + idx] += local_denoise(to_denoise,
                                                           b0_block_size,
@@ -234,7 +230,7 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     time_multi = time()
     data_denoised = Parallel(n_jobs=n_cores,
                              verbose=verbose)(delayed(processer)(*args) for args in arglist)
-    logger.info('Multiprocessing done in {0:.2f} mins.'.format((time() - time_multi) / 60.))
+    logger.info(f'Multiprocessing done in {(time() - time_multi) / 60} mins.')
 
     # Put together the multiprocessed results
     data_subset = np.zeros_like(data, dtype=np.float32)
