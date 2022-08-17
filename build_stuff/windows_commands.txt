@@ -1,4 +1,0 @@
-activate buildfarm
-python setup.py install build_ext -i --force
-pyinstaller nlsam_denoising.spec --onefile
-7za a nlsam_windows_x64.zip ./dist/nlsam_denoising.exe LICENSE README.md CHANGELOG.md example/
