@@ -1,5 +1,3 @@
-from __future__ import division
-
 import numpy as np
 import logging
 
@@ -35,13 +33,13 @@ def stabilization(data, m_hat, sigma, N, mask=None, clip_eta=True, return_eta=Fa
 
     # Check all dims are ok
     if (data.shape != sigma.shape):
-        raise ValueError('data shape {} is not compatible with sigma shape {}'.format(data.shape, sigma.shape))
+        raise ValueError(f'data shape {data.shape} is not compatible with sigma shape {sigma.shape}')
 
     if (data.shape[:-1] != mask.shape):
-        raise ValueError('data shape {} is not compatible with mask shape {}'.format(data.shape, mask.shape))
+        raise ValueError(f'data shape {data.shape} is not compatible with mask shape {mask.shape}')
 
     if (data.shape != m_hat.shape):
-        raise ValueError('data shape {} is not compatible with m_hat shape {}'.format(data.shape, m_hat.shape))
+        raise ValueError(f'data shape {data.shape} is not compatible with m_hat shape {m_hat.shape}')
 
     arglist = ((data[..., idx, :],
                 m_hat[..., idx, :],
