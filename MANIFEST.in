@@ -4,4 +4,3 @@ include CHANGELOG.md
 include example/*
 include docs/*
 include nlsam/tests/test*.sh
-recursive-include nlsam/gsl_libs *
