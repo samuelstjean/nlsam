@@ -2,7 +2,7 @@
 
 cimport cython
 from libc.math cimport sqrt, exp, fabs, M_PI
-from scipy.special.cython_special cimport ndtri, gamma, chndtr
+from scipy.special.cython_special cimport ndtri, gamma, chndtr, hyp1f1
 
 
 # libc.math isnan does not work on windows, it is called _isnan, so we use this one instead
@@ -10,15 +10,7 @@ from scipy.special.cython_special cimport ndtri, gamma, chndtr
 cdef extern from "numpy/npy_math.h" nogil:
     bint npy_isnan(double x)
     double NPY_NAN
-
-cdef extern from "hyp_1f1.h" nogil:
-    double gsl_sf_hyperg_1F1(double a, double b, double x)
-
-cdef double hyp1f1(double a, double b, double x) nogil:
-    """Wrapper for 1F1 hypergeometric series function
-    http://en.wikipedia.org/wiki/Confluent_hypergeometric_function"""
-    return gsl_sf_hyperg_1F1(a, b, x)
-
+    
 
 cpdef double chi_to_gauss(double m, double eta, double sigma, double N, double alpha=0.0001, bint use_nan=False) nogil:
     """Maps the noisy signal intensity from a Rician/Non central chi distribution
@@ -54,7 +46,7 @@ cpdef double chi_to_gauss(double m, double eta, double sigma, double N, double a
     """
     cdef double cdf, inv_cdf_gauss
 
-    cdf = 1. - _marcumq_cython(eta/sigma, m/sigma, N)
+    cdf = 1.0 - _marcumq_cython(eta/sigma, m/sigma, N)
 
     # clip cdf between alpha/2 and 1-alpha/2
     if cdf < alpha/2:
@@ -114,9 +106,9 @@ cdef double _marcumq_cython(double a, double b, double M, double eps=1e-8) nogil
     # but a is allowed and the real marcumq function is symmetric in a and b apparently
     # for general values of M. b and M negative have no physical sense though in our case.
     if M < 0:
-        return 1.
+        return 1.0
 
-    out = 1. - chndtr(x, k, lbda)
+    out = 1.0 - chndtr(x, k, lbda)
     return out
 
 
