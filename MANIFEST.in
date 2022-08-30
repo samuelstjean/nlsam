@@ -5,3 +5,4 @@ include example/*
 include docs/*
 include nlsam/tests/test*.sh
 exclude nlsam/*.c
+include nlsam/*.pyx
