@@ -1,30 +1,16 @@
 #!/usr/bin/env python
 
-import os
 import io
 import numpy
 
 from setuptools import setup, find_packages
-from Cython.Distutils import Extension, build_ext
+from Cython.Build import cythonize
 
 with io.open('README.md', encoding='utf-8') as f:
     long_description = f.read()
 
-# list of pyx modules to compile
-modules = ['nlsam.utils',
-           'nlsam.stabilizer']
-ext_modules = []
+ext_modules = cythonize("nlsam/*.pyx")
 include_dirs = [numpy.get_include()]
-
-for pyxfile in modules:
-
-    ext_name = os.path.splitext(pyxfile)[0].replace('/', '.')
-    source = os.path.join(*pyxfile.split('.')) + '.pyx'
-
-    ext = Extension(pyxfile,
-                    [source],
-                    include_dirs=include_dirs)
-    ext_modules.append(ext)
 
 install_requires = ['numpy>=1.15.4',
                     'scipy>=1.5',
@@ -47,5 +33,5 @@ setup(name='nlsam',
       scripts=['scripts/nlsam_denoising'],
       install_requires=install_requires,
       packages=find_packages(),
-      cmdclass={'build_ext': build_ext},
+      include_dirs=include_dirs,
       ext_modules=ext_modules)
