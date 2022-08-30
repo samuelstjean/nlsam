@@ -60,7 +60,7 @@ jobs:
 
       - name: Build sdist
         run: |
-          python -m pip install numpy cython
+          python -m pip install numpy cython scipy
           python setup.py sdist
 
 
