@@ -23,7 +23,6 @@ install_requires = ['numpy>=1.15.4',
 
 setup(name='nlsam',
       author='Samuel St-Jean',
-      author_email='sstjean1@ualberta.ca',
       url='https://github.com/samuelstjean/nlsam',
       version='0.6.1',
       license='GPLv3',
