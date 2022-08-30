@@ -1,7 +1,5 @@
 #! /usr/bin/env python
 
-from __future__ import division, print_function
-
 import numpy as np
 from numpy.testing import assert_array_less, run_module_suite
 

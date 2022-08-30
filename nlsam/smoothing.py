@@ -6,7 +6,7 @@ from joblib import Parallel, delayed
 from dipy.core.geometry import cart2sphere
 from dipy.reconst.shm import sph_harm_ind_list, real_sph_harm, smooth_pinv
 
-from scipy.ndimage.filters import convolve, gaussian_filter
+from scipy.ndimage import convolve, gaussian_filter
 
 logger = logging.getLogger('nlsam')
 
