@@ -30,7 +30,7 @@ jobs:
       - name: Build wheels
         env:
           CIBW_ARCHS: "auto64"
-          CIBW_SKIP: "pp* cp36-* *musllinux*"
+          CIBW_SKIP: "pp* cp36-* cp37-* *musllinux*"
           CIBW_TEST_REQUIRES: pytest
           CIBW_TEST_COMMAND: pytest --pyargs nlsam --verbose
           CIBW_TEST_COMMAND_LINUX: >
