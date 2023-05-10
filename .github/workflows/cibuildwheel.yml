@@ -16,21 +16,21 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         name: Install Python
         with:
           python-version: '3.7'
 
       - name: Install cibuildwheel
         run: |
-          python -m pip install cibuildwheel==2.8.1
+          python -m pip install cibuildwheel==2.12.3
 
       - name: Build wheels
         env:
           CIBW_ARCHS: "auto64"
-          CIBW_SKIP: "pp* cp36-* *musllinux*"
+          CIBW_SKIP: "pp* cp36-* cp37-* *musllinux*"
           CIBW_TEST_REQUIRES: pytest
           CIBW_TEST_COMMAND: pytest --pyargs nlsam --verbose
           CIBW_TEST_COMMAND_LINUX: >
@@ -43,7 +43,7 @@ jobs:
         run: |
           python -m cibuildwheel --output-dir wheelhouse
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           path: ./wheelhouse/*.whl
 
@@ -60,11 +60,11 @@ jobs:
 
       - name: Build sdist
         run: |
-          python -m pip install numpy cython scipy
-          python setup.py sdist
+          python -m pip install build
+          python -m build --sdist
 
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           path: dist/*.tar.gz
 
@@ -76,12 +76,12 @@ jobs:
     # alternatively, to publish when a GitHub Release is created, use the following rule:
     if: github.event_name == 'release' && github.event.action == 'published'
     steps:
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         with:
           name: artifact
           path: dist
 
-      - uses: pypa/gh-action-pypi-publish@v1.4.1
+      - uses: pypa/gh-action-pypi-publish@v1
         with:
           user: ${{ secrets.PYPI_USERNAME }}
           password: ${{ secrets.PYPI_PASSWORD }}
