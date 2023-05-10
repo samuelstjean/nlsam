@@ -1,12 +1,9 @@
-#!/usr/bin/env python
-
-import io
 import numpy
 
 from setuptools import setup, find_packages
 from Cython.Build import cythonize
 
-with io.open('README.md', encoding='utf-8') as f:
+with open('README.md', encoding='utf-8') as f:
     long_description = f.read()
 
 ext_modules = cythonize("nlsam/*.pyx")
