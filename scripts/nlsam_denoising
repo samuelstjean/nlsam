@@ -306,17 +306,20 @@ def main():
             N = float(args.N)
 
     if args.N != 'auto' and args.noise_maps is not None:
-        parser.error(f'You need to pass -N auto when using noise maps, but you passed {args.N}')
+        parser.error(f'You need to pass -N auto when using noise maps, but you passed -N {args.N}')
 
     if args.N != 'auto' and noise_method == 'auto':
-        parser.error(f'You need to pass -N auto when using --noise_est auto, but you passed {args.N}')
+        parser.error(f'You need to pass -N auto when using --noise_est auto, but you passed -N {args.N}')
 
     if args.noise_maps is None:
         if args.N == 'auto' and noise_method != 'auto':
-            parser.error(f'You need to pass --noise_est auto when using -N auto, but you passed {noise_method}.')
+            parser.error(f'You need to pass --noise_est auto when using -N auto, but you passed --noise_est {noise_method}.')
 
     if isinstance(N, np.ndarray) and args.load_sigma is None:
-        parser.error(f'You need to pass --load_sigma sigma.nii.gz when loading N as a volume, but you passed {args.N}')
+        parser.error(f'You need to pass --load_sigma sigma.nii.gz when loading N as a volume, but you passed -N {args.N}')
+
+    if N == 'auto' and args.load_sigma is not None:
+        parser.error(f'You need to pass -N explicitly when using --load_sigma sigma.nii.gz, but you passed -N {args.N}')
 
     vol = nib.load(args.input)
     data = vol.get_fdata(caching='unchanged', dtype=np.float32)

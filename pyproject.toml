@@ -2,6 +2,34 @@
 requires = ["Cython>=0.29.14",
             "scipy>=1.5",
             "oldest-supported-numpy",
-            "setuptools<60",
+            "setuptools",
             "wheel"]
 build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "nlsam"
+version='0.6.1'
+authors = [
+    {name = "Samuel St-Jean"},
+]
+description='Implementation of "Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising"'
+readme = "README.md"
+requires-python = ">=3.7"
+license = {text = "GPLv3"}
+
+dependencies = [
+    'numpy>=1.15.4',
+    'scipy>=1.5',
+    'cython>=0.29',
+    'nibabel>=2.0',
+    'joblib>=0.14.1',
+    'autodmri>=0.2.1',
+    'spams-bin>=2.6.2',
+    'dipy>=0.11']
+
+
+[project.urls]
+homepage = "https://github.com/samuelstjean/nlsam"
+documentation = "https://nlsam.readthedocs.io/en/latest/"
+changelog = "https://github.com/samuelstjean/nlsam/blob/master/CHANGELOG.md"
