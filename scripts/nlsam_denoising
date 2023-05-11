@@ -318,11 +318,6 @@ def main():
     if isinstance(N, np.ndarray) and args.load_sigma is None:
         parser.error(f'You need to pass --load_sigma sigma.nii.gz when loading N as a volume, but you passed {args.N}')
 
-    if args.N != 'auto' and args.load_sigma is None:
-        parser.error(f'You need to pass --load_sigma sigma.nii.gz when loading N as a volume, but you passed {args.N}')
-
-
-
     vol = nib.load(args.input)
     data = vol.get_fdata(caching='unchanged', dtype=np.float32)
     affine = vol.affine
