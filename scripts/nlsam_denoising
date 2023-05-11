@@ -305,21 +305,27 @@ def main():
         except IOError:
             N = float(args.N)
 
-    if args.N != 'auto' and args.noise_maps is not None:
-        parser.error(f'You need to pass -N auto when using noise maps, but you passed -N {args.N}')
+    # this is to prevent triggering an error check since noise_method is not used in this case and skipped in an else-if clause
+    if args.load_sigma is not None:
+        noise_method = None
 
-    if args.N != 'auto' and noise_method == 'auto':
-        parser.error(f'You need to pass -N auto when using --noise_est auto, but you passed -N {args.N}')
+    if args.N != 'auto':
+        if args.noise_maps is not None:
+            parser.error(f'You need to pass -N auto when using noise maps, but you passed -N {args.N}')
+
+        if noise_method == 'auto':
+            parser.error(f'You need to pass -N auto when using --noise_est auto, but you passed -N {args.N}')
 
     if args.noise_maps is None:
         if args.N == 'auto' and noise_method != 'auto':
             parser.error(f'You need to pass --noise_est auto when using -N auto, but you passed --noise_est {noise_method}.')
 
-    if isinstance(N, np.ndarray) and args.load_sigma is None:
-        parser.error(f'You need to pass --load_sigma sigma.nii.gz when loading N as a volume, but you passed -N {args.N}')
-
-    if N == 'auto' and args.load_sigma is not None:
-        parser.error(f'You need to pass -N explicitly when using --load_sigma sigma.nii.gz, but you passed -N {args.N}')
+    if args.load_sigma is None:
+        if isinstance(N, np.ndarray):
+            parser.error(f'You need to pass --load_sigma sigma.nii.gz when loading N as a volume, but you passed -N {args.N}')
+    else:
+        if N == 'auto':
+            parser.error(f'You need to pass -N explicitly when using --load_sigma sigma.nii.gz, but you passed -N {args.N}')
 
     vol = nib.load(args.input)
     data = vol.get_fdata(caching='unchanged', dtype=np.float32)
@@ -351,7 +357,7 @@ def main():
         n_cores = args.cores
 
     if len(block_size) != len(data.shape):
-        raise ValueError(f'Block shape {block_size} and data shape {shape} are not of the same length')
+        raise ValueError(f'Block shape {block_size} and data shape {data.shape} are not of the same length')
 
     if data.shape[:-1] != mask.shape:
         raise ValueError(f'data shape is {data.shape}, but mask shape {mask.shape} is different!')
@@ -404,13 +410,13 @@ def main():
         # were found and warn the user otherwise.
         frac_noisy_voxels = np.sum(mask_noise) / np.size(mask_noise) * 100
 
-        if frac_noisy_voxels < 1.:
+        if frac_noisy_voxels < 1:
             logger.warning(f'PIESNO was used with N={N}, but it found only {frac_noisy_voxels:.3f}%'
                            ' of voxels as pure noise with a mean standard deviation'
                            f' of {np.mean(sigma_1D):.5f}. This is suspicious, so please check'
                            ' the resulting sigma volume if something went wrong.'
                            ' In cases where PIESNO is not working, you might want to try'
-                           ' --noise_est local_std')
+                           ' --noise_est local_std or --noise_est auto')
 
     elif noise_method == 'local_std':
         logger.info(f"Estimating noise with method {noise_method}")
