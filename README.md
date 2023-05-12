@@ -9,7 +9,6 @@
 [spams]: http://spams-devel.gforge.inria.fr/
 [rtd]: https://nlsam.readthedocs.io/en/latest/
 [koay_bias]: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2765718/
-[docker]: https://hub.docker.com/search?type=edition&offering=community
 
 The reference implementation for the Non Local Spatial and Angular Matching (NLSAM) denoising algorithm for diffusion MRI.
 
@@ -28,8 +27,6 @@ If you have a working python setup already, the next command should give you eve
 pip install nlsam
 ```
 
-There are also ```Dockerfile```s in the [folder](Dockerfiles), for which you'll need to install [docker][] if you want to build upon it for pipeline processing.
-
 You can also download the datasets used in the paper over [here][nlsam_data].
 
 ## Using the NLSAM algorithm
@@ -40,7 +37,7 @@ Rician or Noncentral chi distributed and then proceed to the NLSAM denoising par
 A quickstart example call would be
 
 ```bash
-nlsam_denoising dwi.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask.nii.gz
+nlsam_denoising dwi.nii.gz dwi_nlsam.nii.gz bvals bvecs -m mask.nii.gz
 ```
 
 For more fine grained control and explanation of arguments,

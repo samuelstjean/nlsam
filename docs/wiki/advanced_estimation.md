@@ -56,7 +56,8 @@ In all cases, the take home message would be that estimating the real value for 
 is still challenging, but it will most likely be lower than the number of coils present on
 your receiver coil due to the way MRI scanners reconstruct and combine images.
 
-From my personal recommendations (well, don't quote me too much on it though), a good rule of thumb would be for 12 coils -> N=4, for 32 coils -> N=8 and for 64 coils (which are separated as a 24 coils for the upper part and 40 coils for the lower part), I would try out N=6 as dictated by the upper part, N=4 if it does not produce satisfactory results.
+My new personal recommendation would now be to use the default option, that is to estimate both parameters of the distribution at once from the background noise.
+While this will underestimate most of the time the correct noise standard deviation, it seems more stable than guessworking or assuming N=1 in general, all the while providing a good ballpark estimate for the denoising process, see *St-Jean et al.* for more details.
 
 ### References
 
@@ -73,13 +74,21 @@ Noise correction for HARDI and HYDI data obtained with multi-channel coils and s
 of squares reconstruction: an anisotropic extension of the LMMSE.
 Magnetic Resonance Imaging
 
-Constantinides, C. D., Atalar, E., & McVeigh, E. R. (1997). Signal-to-Noise Measurements in Magnitude Images from NMR Phased Arrays. Magnetic Resonance in Medicine, 38(5), 852–857.
+Constantinides, C. D., Atalar, E., & McVeigh, E. R. (1997).
+Signal-to-Noise Measurements in Magnitude Images from NMR Phased Arrays.
+Magnetic Resonance in Medicine, 38(5), 852–857.
 
 Dietrich, O., Raya, J. G., Reeder, S. B., Ingrisch, M., Reiser, M. F., & Schoenberg, S. O. (2008).
-Influence of multichannel combination, parallel imaging and other reconstruction
-techniques on MRI noise characteristics. Magnetic Resonance Imaging
+Influence of multichannel combination, parallel imaging and other reconstruction techniques on MRI noise characteristics.
+Magnetic Resonance Imaging
 
-Sakaie, M. & Lowe, M., Retrospective correction of bias in diffusion tensor imaging arising from coil combination mode, Magnetic Resonance Imaging, Volume 37, April 2017
+Sakaie, M. & Lowe, M.,
+Retrospective correction of bias in diffusion tensor imaging arising from coil combination mode,
+Magnetic Resonance Imaging, Volume 37, April 2017
+
+St-Jean S, De Luca A, Tax C.M.W., Viergever M.A, Leemans A. (2020)
+Automated characterization of noise distributions in diffusion MRI data
+Medical Image Analysis, October 2020:101758. doi:10.1016/j.media.2020.101758
 
 Varadarajan, D., & Haldar, J. (2015).
 A Majorize-Minimize Framework for Rician and Non-Central Chi MR Images.

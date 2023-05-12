@@ -27,14 +27,7 @@ everyday processing the default options should work just fine.
 <a name="prerequisite"></a>
 ## 1. Prerequisite
 
-#### 1.1 Minimally required data for processing
-
-You will need a set of diffusion weighted images and the associated bvals/bvecs files as used by FSL.
-
-#### 1.2 Required command line inputs
-
-In ye olden days, we needed to know stuff about our acquisition. You can now pass the option **auto** to estimate automatically the noise distribution instead.
-It is still possible to also pass a number (not necessarily an integer) for N if you wish to do so.
+You will need a set of diffusion weighted images, a (binary) brain mask (such as from FSL BET or anything similar) and the associated bvals/bvecs files as used by FSL.
 
 <a name="steps"></a>
 ## 2. Processing steps
@@ -48,27 +41,18 @@ Of course if your dataset is already bias corrected or you would like to use ano
 you can skip this step and proceed to the denoising itself by passing the option **--no_stabilization**.
 The correction for Rician or Noncentral chi distributed noise would then be left to any other method of your choosing.
 
-#### 2.2 Advanced techniques for estimating N (optional topic)
+#### 2.2 Required command line inputs
 
-See the [documentation](https://nlsam.readthedocs.io/en/latest/wiki/advanced_estimation.html)
-for a discussion on the subject.
-
-Probably obsoleted now by the option to automatically estimate the noise, but I'll keep it for historical purposes for now.
-
-#### 2.3 Required command line inputs
-
-There are 6 required command line inputs (their order is important) which are
+There are 4 required command line inputs (their order is important) and a switch for the mask which are
 
 + The input dataset (dwi.nii.gz)
 + The output dataset (dwi_nlsam.nii.gz)
-+ The effective number of coils for our acquisition (see section 2.2) or 'auto' to estimate it automatically
 + The b-values file for our input dataset (bvals)
 + The b-vectors file for our input dataset (bvecs)
-+ The number of angular neighbors (N)
++ -m or --mask mask.nii.gz for the brain mask
 
-The bvals/bvecs files are needed for identifying the angular neighbors and we need to choose how many we want to denoise at once.
+The bvals/bvecs files are needed for identifying the angular neighbors and we need to choose how many we want to denoise at once (the default is now 5).
 
-Here I selected 5 as it is the number of dwis which are roughly equidistant on the sphere.
 Using a larger number could mean more blurring if we mix q-space points which are too far part.
 
 For a multishell acquisition, only the direction (as opposed to the norm)
@@ -77,7 +61,7 @@ shells to favor picking radial decay in the denoising.
 
 There is also a new option called **--split_shell** to process each shell by itself separately and **--split_b0s** to process the b0s separately in each block.
 
-#### 2.4 Advanced options
+#### 2.3 Advanced options
 
 More options are available for various advanced usage, which can be viewed with **nlsam_denoising --help**.
 Some are mostly useful for debugging and saving intermediate steps, such as **--verbose** for
@@ -86,12 +70,12 @@ and saving the various outputs.
 
 Feel free to check them out if you want finer grained controls over the denoising process.
 
-#### 2.5 Example call to the nlsam_denoising script
+#### 2.4 Example call to the nlsam_denoising script
 
 Finally, the required call to the nlsam_denoising script for this example would be
 
 ```bash
-nlsam_denoising dwi.nii.gz dwi_nlsam.nii.gz auto bvals bvecs 5 -m mask.nii.gz --noise_est auto --verbose
+nlsam_denoising dwi.nii.gz dwi_nlsam.nii.gz bvals bvecs -m mask.nii.gz --verbose
 ```
 
 The script will output the time taken at each denoising iterations so you can ballpark estimate the total time required.
