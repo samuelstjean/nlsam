@@ -2,6 +2,10 @@
 
 ## [0.7] Development version
 
+- Changes in the command line parser
+    - the previously required options __N__ and __angular_block_size__ are now optional.
+    - A mask is now required to be passed with __-m__ or __--mask__ to only sample data. It was previously possible to be unlucky and only sample background noise in the reconstruction process, taking forever to practically do nothing in practice, passing a mask with only the data to sample and reconstruct should prevent this issue.
+
 - New command line arguments, now subclassed into categories.
     + __--load_mhat__ file, to load a volume for initializing the bias correction, the default is to use the data itself.
     + __--save_difference__ file, to save a volume showing the removed signal parts as abs(original_data - denoised_data)
@@ -15,9 +19,9 @@
 - The dictionary learning part of the algorithm now respects **--cores** instead of ignoring it and always using all available processors.
 - joblib is now used for parallel processing.
     - For now it means we lose the frozen executable until they fix it.
-- Binary wheels are now available for all platforms instead.
-- Dockerfiles are also available with either openblas or the intel MKL.
+    - Binary wheels are now available for all platforms instead.
 - A new option to estimate automatically the noise distribution (sigma and N) is now available by passing **auto** to both N and **--noise_est**.
+    - This option is also the new default now.
 - A new option to process each shell separately is now available with **--split_shell**.
 - Probably other stuff I forgot.
 
