@@ -1,0 +1,88 @@
+name: Build and upload to PyPI
+
+on:
+  pull_request:
+  release:
+    types:
+      - published
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        name: Install Python
+        with:
+          python-version: '3.7'
+
+      - name: Install cibuildwheel
+        run: |
+          python -m pip install cibuildwheel==2.12.3
+
+      - name: Build wheels
+        env:
+          CIBW_ARCHS: "auto64"
+          CIBW_SKIP: "pp* cp36-* cp37-* *musllinux*"
+          CIBW_TEST_REQUIRES: pytest
+          CIBW_TEST_COMMAND: pytest --pyargs nlsam --verbose
+          CIBW_TEST_COMMAND_LINUX: >
+            pytest --pyargs nlsam --verbose &&
+            cd {package}/example &&
+            chmod +x  {package}/nlsam/tests/test_scripts1.sh &&
+            bash {package}/nlsam/tests/test_scripts1.sh &&
+            chmod +x  {package}/nlsam/tests/test_scripts2.sh &&
+            bash {package}/nlsam/tests/test_scripts2.sh
+        run: |
+          python -m cibuildwheel --output-dir wheelhouse
+
+      - uses: actions/upload-artifact@v3
+        with:
+          path: ./wheelhouse/*.whl
+
+  build_sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        name: Install Python
+        with:
+          python-version: '3.7'
+
+      - name: Build sdist
+        run: |
+          python -m pip install build
+          python -m build --sdist
+
+
+      - uses: actions/upload-artifact@v3
+        with:
+          path: dist/*.tar.gz
+
+  upload_pypi:
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    # upload to PyPI on every tag starting with 'v'
+    # if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags/v')
+    # alternatively, to publish when a GitHub Release is created, use the following rule:
+    if: github.event_name == 'release' && github.event.action == 'published'
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: artifact
+          path: dist
+
+      - uses: pypa/gh-action-pypi-publish@v1
+        with:
+          user: ${{ secrets.PYPI_USERNAME }}
+          password: ${{ secrets.PYPI_PASSWORD }}
+          # password: ${{ secrets.testpypi_password }}
+          # repository_url: https://test.pypi.org/legacy/

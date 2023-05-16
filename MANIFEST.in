@@ -1,9 +1,8 @@
-include requirements.txt
 include LICENSE
 include README.md
 include CHANGELOG.md
-include requirements.txt
 include example/*
 include docs/*
 include nlsam/tests/test*.sh
-recursive-include nlsam/gsl_libs *
+exclude nlsam/*.c
+include nlsam/*.pyx

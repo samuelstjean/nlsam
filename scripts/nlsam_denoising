@@ -1,23 +1,20 @@
 #!/usr/bin/env python
 
-from __future__ import division, print_function
-
-# Has to be called before importing numpy
-from nlsam.multiprocess import multiprocessing_hanging_workaround
-multiprocessing_hanging_workaround()
-
 import os
 import argparse
 import logging
-from multiprocessing import cpu_count, freeze_support
+
+from multiprocessing import cpu_count
 from ast import literal_eval
 
 import nibabel as nib
 import numpy as np
 
 from nlsam.denoiser import nlsam_denoise
-from nlsam.smoothing import local_standard_deviation, local_piesno
+from nlsam.smoothing import local_standard_deviation
 from nlsam.bias_correction import stabilization, root_finder_sigma
+
+from autodmri.estimator import estimate_from_nmaps, estimate_from_dwis
 
 from dipy.io.gradients import read_bvals_bvecs
 from dipy.denoise.noise_estimate import piesno
@@ -32,11 +29,15 @@ References :
 
 [1] St-Jean, S., Coupe, P., & Descoteaux, M. (2016).
 Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising.
-Medical Image Analysis, 32(2016), 115-130.
+Medical Image Analysis, 32(2016), 115-130. doi:10.1016/j.media.2016.02.010
 
 [2] Koay CG, Ozarslan E and Basser PJ.
 A signal transformational framework for breaking the noise floor and its applications in MRI.
 Journal of Magnetic Resonance 2009; 197: 108-119.
+
+[3] St-Jean S, De Luca A, Tax C.M.W., Viergever M.A, Leemans A.
+Automated characterization of noise distributions in diffusion MRI data.
+Medical Image Analysis, June 2020:101758. doi:10.1016/j.media.2020.101758
 """
 
 
@@ -70,17 +71,24 @@ def buildArgsParser():
     required.add_argument('bvecs', metavar='bvecs',
                           help='Path of the bvecs file, in FSL format.')
 
-    required.add_argument('angular_block_size', metavar='n_angular_neighbors',
-                          type=int, help='Number of angular neighbors used for denoising.')
-
     #####################
     # Optional arguments
     #####################
 
     optionals = p.add_argument_group('Optional arguments')
 
-    optionals.add_argument('-m', '--mask', metavar='file',
-                           help='Path to a binary mask. Only the data inside the mask will be reconstructed.')
+    optionals.add_argument('-N', metavar='float', default='auto',
+                          help='Number of receiver coils of the scanner. \n'
+                          'Use N = 1 in the case of a SENSE (Philips) reconstruction and '
+                          'N >= 1 for GRAPPA based reconstruction (Siemens).\n'
+                          'You can also pass "auto" (the default) to estimate it automatically or a filename to load it as a volume.')
+
+    optionals.add_argument('--angular_block_size', default=5, metavar='int', type=int,
+                           help='Number of angular neighbors used for denoising.')
+
+    optionals.add_argument('-m', '--mask', metavar='file', required=True,
+                           help='Path to a binary mask. Only the data inside the mask will be reconstructed and used for estimation.\n'
+                           'This is now a required input to prevent sampling (and reconstructing) background noise instead of the data.')
 
     optionals.add_argument('--b0_threshold', metavar='int', default=10, type=int,
                            help='Lowest b-value to be considered as a b0. Default 10.')
@@ -117,17 +125,20 @@ def buildArgsParser():
 
     g = optionals.add_mutually_exclusive_group()
 
-    g.add_argument('--noise_est', dest='noise_method',
-                   metavar='string', default='piesno',
-                   choices=['local_std', 'piesno'],
+    g.add_argument('--noise_est',
+                   dest='noise_method',
+                   metavar='string',
+                   choices=['local_std', 'piesno', 'auto'],
+                   default='auto',
                    help='Noise estimation method used for estimating sigma.\n'
                    'local_std : Compute local noise standard deviation '
                    'with correction factor. No a priori needed.\n'
-                   'piesno (default): Use PIESNO estimation, assumes the presence of '
-                   'background in the data.')
+                   'piesno : Use PIESNO estimation, assumes the presence of '
+                   'background in the data.\n'
+                   'auto (default): Automatically estimate sigma and N from background in the data.')
 
     g.add_argument('--load_sigma', metavar='file',
-                   help='Load this file as the standard deviation volume.\n'
+                   help='Load this file as the noise standard deviation volume.\n'
                    'Will be squared internally to turn into variance.')
 
     #####################
@@ -137,20 +148,24 @@ def buildArgsParser():
     advanced = p.add_argument_group('Advanced noise estimation')
 
     advanced.add_argument('--noise_maps', metavar='file',
-                          help='Path of the noise map(s) volume for local piesno.\n'
+                          help='Path of the noise map(s) volume for automatic estimation.\n'
                           'Either supply a 3D noise map or a stack of 3D maps as a 4D volume.\n'
                           'This is intended for noise maps collected by the scanner (so that there is no signal in those measurements)\n'
                           'which are properly scaled with the rest of the data you collected.\n'
-                          'If in doubt, it is safer to use another estimation method with --noise_est')
+                          'If in doubt, it is safer to use another estimation method with --noise_est\n'
+                          'Note that you also need to pass "auto" as a value for N since it also gets estimated')
 
     advanced.add_argument('--noise_mask', dest='save_piesno_mask', metavar='file',
-                          help='If supplied, output filename for saving the mask of noisy voxels found by PIESNO.')
+                          help='If supplied, output filename for saving the mask of noisy voxels found by PIESNO or the automatic estimation.')
 
     advanced.add_argument('--save_stab', metavar='file',
                           help='Path to save the intermediate noisy bias corrected volume.')
 
     advanced.add_argument('--save_sigma', metavar='file',
                           help='Path to save the intermediate standard deviation volume.')
+
+    advanced.add_argument('--save_N', metavar='file',
+                          help='Path to save the intermediate N (degree of freedoms) volume.')
 
     advanced.add_argument('--save_difference', metavar='file',
                           help='Path to save the absolute difference volume, abs(noisy - denoised).')
@@ -159,7 +174,7 @@ def buildArgsParser():
                           help='Path to save the intermediate underlying signal intensity eta volume.')
 
     advanced.add_argument('--no_clip_eta', action='store_false',
-                          help='If set, allows eta to take negative values during stabilization.')
+                          help='If set, allows eta to take negative values during stabilization, which is physically impossible.')
 
     ############
     # The rest
@@ -178,20 +193,9 @@ def buildArgsParser():
     misc.add_argument('--cores', metavar='int', type=int,
                       help='Number of cores to use for multithreading.')
 
-    misc.add_argument('--use_threading', action='store_true',
-                      help='If set, rely on your blas/lapack/spams multithreading capabilities instead of python multiprocessing.\n'
-                      'This mode uses less ram, but is slower than multiprocessing and should only be used for very large datasets\n'
-                      'or in cases where the amount of available ram is limited.')
-
     misc.add_argument('--use_f32', action='store_true',
                       help='If supplied, use float32 for inner computations. This option lowers ram usage, but\n'
                       'could lead to numerical precision issues, so use carefully and inspect the final output.')
-
-    misc.add_argument('--mp_method', metavar='string',
-                      help='Dispatch method for multiprocessing, see\n'
-                      'https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods for more information.\n'
-                      'Default : None, use the default, platform dependent method to run multiprocessing.\n'
-                      'Only available in python 3.4 and later.')
 
     misc.add_argument('-f', '--force', action='store_true', dest='overwrite',
                       help='If set, the output denoised volume will be overwritten '
@@ -217,6 +221,12 @@ def buildArgsParser():
     deprecated.add_argument('--sh_order', metavar='int', default=0, type=int, choices=[0, 2, 4, 6, 8],
                             help='This option has been removed and has no effect.')
 
+    deprecated.add_argument('--mp_method', metavar='string',
+                            help='This option has been removed and has no effect.')
+
+    deprecated.add_argument('--use_threading', action='store_true',
+                            help='This option has been removed and has no effect.')
+
     return p
 
 
@@ -225,15 +235,13 @@ def main():
     args = parser.parse_args()
 
     noise_method = args.noise_method
-
     subsample = args.no_subsample
     is_symmetric = args.is_symmetric
     n_iter = args.iterations
     b0_threshold = args.b0_threshold
     split_b0s = args.split_b0s
     split_shell = args.split_shell
-    mp_method = args.mp_method
-    use_threading = args.use_threading
+
     block_size = np.array(args.spatial_block_size + (args.angular_block_size,))
     clip_eta = args.no_clip_eta
     logger = logging.getLogger('nlsam')
@@ -264,15 +272,17 @@ def main():
     else:
         dtype = np.float64
 
-    if args.use_threading:
-        logger.info('Using multithreading instead of multiprocessing, please make sure your blas/lapack/spams '
-                    'libraries are built with multithreading support!')
-
     if args.implausible_signal_fix:
         logger.warning('Option --implausible_signal_fix has been deprecated')
 
     if args.sh_order:
         logger.warning('Option --sh_order has been deprecated')
+
+    if args.mp_method:
+        logger.warning('Option --mp_method has been deprecated')
+
+    if args.use_threading:
+        logger.warning('Option --use_threading has been deprecated')
 
     ##########################################
     #  Load up data and do some sanity checks
@@ -288,16 +298,47 @@ def main():
     for f in overwritable_files:
         if f is not None and os.path.isfile(f):
             if args.overwrite:
-                logger.warning('Overwriting {}'.format(os.path.realpath(f)))
+                logger.warning(f'Overwriting {os.path.realpath(f)}')
             else:
-                parser.error('{} already exists! Use -f or --force to overwrite it.'.format(f))
+                parser.error(f'{f} already exists! Use -f or --force to overwrite it.')
+
+    # Load up N or turn it into a number if it fails
+    if args.N == 'auto':
+        N = 'auto'
+    else:
+        try:
+            N = nib.load(args.N).get_fdata(caching='unchanged', dtype=np.float32)
+        except IOError:
+            N = float(args.N)
+
+    # this is to prevent triggering an error check since noise_method is not used in this case and skipped in an else-if clause
+    if args.load_sigma is not None:
+        noise_method = None
+
+    if args.N != 'auto':
+        if args.noise_maps is not None:
+            parser.error(f'You need to pass -N auto when using noise maps, but you passed -N {args.N}')
+
+        if noise_method == 'auto':
+            parser.error(f'You need to pass -N auto when using --noise_est auto, but you passed -N {args.N}')
+
+    if args.noise_maps is None:
+        if args.N == 'auto' and noise_method != 'auto':
+            parser.error(f'You need to pass --noise_est auto when using -N auto, but you passed --noise_est {noise_method}.')
+
+    if args.load_sigma is None:
+        if isinstance(N, np.ndarray):
+            parser.error(f'You need to pass --load_sigma sigma.nii.gz when loading N as a volume, but you passed -N {args.N}')
+    else:
+        if N == 'auto':
+            parser.error(f'You need to pass -N explicitly when using --load_sigma sigma.nii.gz, but you passed -N {args.N}')
 
     vol = nib.load(args.input)
-    data = np.asarray(vol.get_data(caching='unchanged'), dtype=np.float32)
+    data = vol.get_fdata(caching='unchanged', dtype=np.float32)
     affine = vol.affine
     header = vol.header
     header.set_data_dtype(np.float32)
-    logger.info("Loading data {}".format(os.path.realpath(args.input)))
+    logger.info(f"Loading data {os.path.realpath(args.input)}")
 
     try:
         N = np.asarray(nib.load(args.N).get_data(caching='unchanged'), dtype=np.float32)
@@ -305,17 +346,17 @@ def main():
         N = float(args.N)
 
     if args.mask is not None:
-        mask = np.asarray(nib.load(args.mask).get_data(caching='unchanged'), dtype=np.bool)
-        logger.info("Loading mask {}".format(os.path.realpath(args.mask)))
+        mask = nib.load(args.mask).get_fdata(caching='unchanged').astype(bool)
+        logger.info(f"Loading mask {os.path.realpath(args.mask)}")
     else:
-        mask = np.ones(data.shape[:-1], dtype=np.bool)
+        mask = np.ones(data.shape[:-1], dtype=bool)
 
     # load m_hat if we supplied the argument
     if args.load_mhat is not None:
-        m_hat = np.asarray(nib.load(args.load_mhat).get_data(caching='unchanged'), dtype=np.float32)
-        logger.info("Loading m_hat {}".format(os.path.realpath(args.load_mhat)))
+        m_hat = nib.load(args.load_mhat).get_fdata(caching='unchanged', dtype=np.float32)
+        logger.info(f"Loading m_hat {os.path.realpath(args.load_mhat)}")
         if m_hat.shape != data.shape:
-            raise ValueError('m_hat shape {} is different from data shape {}!'.format(m_hat.shape, data.shape))
+            raise ValueError(f'm_hat shape {m_hat.shape} is different from data shape {data.shape}!')
     else:
         m_hat = data
 
@@ -327,75 +368,93 @@ def main():
         n_cores = args.cores
 
     if len(block_size) != len(data.shape):
-        raise ValueError('Block shape {} and data shape {} are not of the same '
-                         'length'.format(block_size, data.shape))
+        raise ValueError(f'Block shape {block_size} and data shape {data.shape} are not of the same length')
 
     if data.shape[:-1] != mask.shape:
-        raise ValueError('data shape is {}, but mask shape {} is different!'.format(data.shape, mask.shape))
+        raise ValueError(f'data shape is {data.shape}, but mask shape {mask.shape} is different!')
 
     #########################
     #  Noise estimation part
     #########################
 
     if args.load_sigma is not None:
-        sigma = np.asarray(nib.load(args.load_sigma).get_data(caching='unchanged'), dtype=np.float32)
-        logger.info("Loading sigma {}".format(os.path.realpath(args.load_sigma)))
+        sigma = nib.load(args.load_sigma).get_fdata(caching='unchanged', dtype=np.float32)
+        logger.info(f"Loading sigma {os.path.realpath(args.load_sigma)}")
 
         # If we have a bunch of 4D views, we only want a 3D array
         if sigma.ndim == data.ndim:
             sigma = np.median(sigma, axis=-1)
-            logger.warning("{} was {}D, but was downcasted to {}D.".format(os.path.realpath(args.load_sigma), sigma.ndim + 1, sigma.ndim))
+            logger.warning(f"{os.path.realpath(args.load_sigma)} was {sigma.ndim + 1}D, but was downcasted to {sigma.ndim}D.")
 
         if data.shape[:-1] != sigma.shape:
-            raise ValueError('data shape is {}, but sigma shape {} is different!'.format(data.shape, sigma.shape))
+            raise ValueError(f'data shape is {data.shape}, but sigma shape {sigma.shape} is different!')
 
     elif args.noise_maps is not None:
-        noise_maps = np.asarray(nib.load(args.noise_maps).get_data(caching='unchanged'), dtype=np.float32)
-        logger.info("Loading {} as a noise map".format(os.path.realpath(args.noise_maps)))
+        noise_maps = nib.load(args.noise_maps).get_fdata(caching='unchanged', dtype=np.float32)
+        logger.info(f"Loading {os.path.realpath(args.noise_maps)} as a noise map")
 
-        # Local piesno works on 4D, so we need to broadcast before
-        if noise_maps.ndim == 3:
+        # Needs to be 4D
+        if noise_maps.ndim != 4:
             noise_maps = noise_maps[..., None]
 
-        sigma, mask_noise = local_piesno(noise_maps, N=N, return_mask=True)
+        sigma, N, mask_noise = estimate_from_nmaps(noise_maps, ncores=n_cores, verbose=args.verbose)
 
         if args.save_piesno_mask is not None:
             nib.save(nib.Nifti1Image(mask_noise.astype(np.int16), affine), args.save_piesno_mask)
-            logger.info("Piesno mask saved as {}".format(os.path.realpath(args.save_piesno_mask)))
+            logger.info(f"Mask of noisy voxels saved as {os.path.realpath(args.save_piesno_mask)}")
+
+        if args.save_N is not None:
+            nib.save(nib.Nifti1Image(N, affine), args.save_N)
+            logger.info(f"N map saved as {os.path.realpath(args.save_N)}")
 
     elif noise_method == 'piesno':
-        logger.info("Estimating noise with method {}".format(noise_method))
+        logger.info(f"Estimating noise with method {noise_method}")
         sigma_1D, mask_noise = piesno(data, N=N, return_mask=True)
         sigma = np.broadcast_to(sigma_1D[None, None, :, None], data.shape)
 
         if args.save_piesno_mask is not None:
             nib.save(nib.Nifti1Image(mask_noise.astype(np.int16), affine), args.save_piesno_mask)
-            logger.info("Piesno mask saved as {}".format(os.path.realpath(args.save_piesno_mask)))
+            logger.info(f"Mask of noisy voxels saved as {os.path.realpath(args.save_piesno_mask)}")
 
         # If the detected noise standard deviation is low and the noise mask has few voxels,
         # maybe something went wrong. We check here that at least 1% of noisy voxels
         # were found and warn the user otherwise.
         frac_noisy_voxels = np.sum(mask_noise) / np.size(mask_noise) * 100
 
-        if frac_noisy_voxels < 1.:
-            logger.warning('PIESNO was used with N={}, but it found only {:.3f}%'
+        if frac_noisy_voxels < 1:
+            logger.warning(f'PIESNO was used with N={N}, but it found only {frac_noisy_voxels:.3f}%'
                            ' of voxels as pure noise with a mean standard deviation'
-                           ' of {:.5f}. This is suspicious, so please check'
+                           f' of {np.mean(sigma_1D):.5f}. This is suspicious, so please check'
                            ' the resulting sigma volume if something went wrong.'
                            ' In cases where PIESNO is not working, you might want to try'
-                           ' --noise_est local_std'.format(N, frac_noisy_voxels, np.mean(sigma_1D)))
+                           ' --noise_est local_std or --noise_est auto')
 
     elif noise_method == 'local_std':
-        logger.info("Estimating noise with method {}".format(noise_method))
-        sigma = local_standard_deviation(data, n_cores=n_cores, mp_method=mp_method)
+        logger.info(f"Estimating noise with method {noise_method}")
+        sigma = local_standard_deviation(data, n_cores=n_cores)
 
         # Compute the corrected value for each 3D volume
         if N > 0:
             sigma = root_finder_sigma(data, sigma, N, mask=mask)
 
+    elif noise_method == 'auto':
+        logger.info(f"Estimating noise with method {noise_method}")
+
+        sigma_1D, N_1D, mask_noise = estimate_from_dwis(data, return_mask=True, ncores=n_cores, verbose=args.verbose)
+        sigma = np.broadcast_to(sigma_1D[None, None, :, None], data.shape)
+        N = np.broadcast_to(N_1D[None, None, :, None], data.shape)
+
+        if args.save_piesno_mask is not None:
+            nib.save(nib.Nifti1Image(mask_noise.astype(np.int16), affine), args.save_piesno_mask)
+            logger.info(f"Mask of noisy voxels saved as {os.path.realpath(args.save_piesno_mask)}")
+
+        if args.save_N is not None:
+            nib.save(nib.Nifti1Image(N, affine), args.save_N)
+            logger.info(f"N map saved as {os.path.realpath(args.save_N)}")
+
     if args.save_sigma is not None:
         nib.save(nib.Nifti1Image(sigma, affine), args.save_sigma)
-        logger.info("Sigma map saved as {}".format(os.path.realpath(args.save_sigma)))
+        logger.info(f"Sigma map saved as {os.path.realpath(args.save_sigma)}")
 
     ##################
     #  Stabilizer part
@@ -410,20 +469,22 @@ def main():
         if sigma.ndim == 3:
             sigma = np.broadcast_to(sigma[..., None], data.shape)
 
-        data_stabilized, eta = stabilization(data, m_hat, sigma, N,
+        data_stabilized, eta = stabilization(data,
+                                             m_hat,
+                                             sigma,
+                                             N,
                                              mask=mask,
                                              clip_eta=clip_eta,
                                              return_eta=True,
-                                             n_cores=n_cores,
-                                             mp_method=mp_method)
+                                             n_cores=n_cores)
 
         if args.save_eta is not None:
             nib.save(nib.Nifti1Image(eta, affine), args.save_eta)
-            logger.info("eta volume saved as {}".format(os.path.realpath(args.save_eta)))
+            logger.info(f"eta volume saved as {os.path.realpath(args.save_eta)}")
 
         if args.save_stab is not None:
             nib.save(nib.Nifti1Image(data_stabilized, affine), args.save_stab)
-            logger.info("Stabilized data saved as {}".format(os.path.realpath(args.save_stab)))
+            logger.info(f"Stabilized data saved as {os.path.realpath(args.save_stab)}")
 
         del m_hat, eta
 
@@ -432,7 +493,7 @@ def main():
     ##################
 
     if not args.no_denoising:
-        logger.info("Now denoising ".format(os.path.realpath(args.input)))
+        logger.info(f"Now denoising {os.path.realpath(args.input)}")
 
         # If we have a bunch of 4D views, we only want a 3D array
         if sigma.ndim == data.ndim:
@@ -441,7 +502,11 @@ def main():
         if args.save_difference is None:
             del data
 
-        data_denoised = nlsam_denoise(data_stabilized, sigma, bvals, bvecs, block_size,
+        data_denoised = nlsam_denoise(data_stabilized,
+                                      sigma,
+                                      bvals,
+                                      bvecs,
+                                      block_size,
                                       mask=mask,
                                       is_symmetric=is_symmetric,
                                       n_cores=n_cores,
@@ -451,17 +516,15 @@ def main():
                                       n_iter=n_iter,
                                       b0_threshold=b0_threshold,
                                       dtype=dtype,
-                                      use_threading=use_threading,
-                                      mp_method=mp_method)
+                                      verbose=args.verbose)
 
         nib.save(nib.Nifti1Image(data_denoised.astype(np.float32), affine, header), args.output)
-        logger.info("Denoised data saved as {}".format(os.path.realpath(args.output)))
+        logger.info(f"Denoised data saved as {os.path.realpath(args.output)}")
 
         if args.save_difference is not None:
             nib.save(nib.Nifti1Image(np.abs(data_denoised - data).astype(np.float32), affine, header), args.save_difference)
-            logger.info("Difference map saved as {}".format(os.path.realpath(args.save_difference)))
+            logger.info(f"Difference map saved as {os.path.realpath(args.save_difference)}")
 
 
 if __name__ == "__main__":
-    freeze_support()
     main()

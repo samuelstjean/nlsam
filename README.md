@@ -4,6 +4,7 @@
 [DOI]: http://dx.doi.org/doi:10.1016/j.media.2016.02.010
 [URL]: http://www.sciencedirect.com/science/article/pii/S1361841516000335
 [paper]: https://arxiv.org/pdf/1606.07239.pdf
+[autodmri_paper]: https://www.sciencedirect.com/science/article/pii/S1361841520301225
 [nlsam_data]: https://github.com/samuelstjean/nlsam_data
 [spams]: http://spams-devel.gforge.inria.fr/
 [rtd]: https://nlsam.readthedocs.io/en/latest/
@@ -20,24 +21,10 @@ You can find the latest documentation and installation instructions over [here](
 
 ## How to install
 
-The easiest way is to go grab a [release][], in which case the downloaded zip file contains everything you need (no python installation required,
-you can use it straight away without installing anything else).
-After extracting the zip file, start a terminal/command line prompt (start button, then type cmd + enter on windows) and navigate to where you extracted the binaries.
-
-Since the tools are command line only, double-clicking it will open and immediately close a dos-like window, hence the need for opening a command line prompt.
-
 If you have a working python setup already, the next command should give you everything you need.
 
 ```shell
-pip install https://github.com/samuelstjean/nlsam/archive/master.zip --user --process-dependency-links
-```
-
-If you would like to look at the code and modify it, you can also clone it locally
-and then install everything through pip after grabbing some dependencies
-
-```shell
-git clone https://github.com/samuelstjean/nlsam.git
-pip install -e nlsam
+pip install nlsam
 ```
 
 You can also download the datasets used in the paper over [here][nlsam_data].
@@ -50,7 +37,7 @@ Rician or Noncentral chi distributed and then proceed to the NLSAM denoising par
 A quickstart example call would be
 
 ```bash
-nlsam_denoising dwi.nii.gz dwi_nlsam.nii.gz 1 bvals bvecs 5 -m mask.nii.gz
+nlsam_denoising dwi.nii.gz dwi_nlsam.nii.gz bvals bvecs -m mask.nii.gz
 ```
 
 For more fine grained control and explanation of arguments,
@@ -62,14 +49,14 @@ You can find a detailed usage example and assorted dataset to try out in the
 ## Questions / Need help / Think this is great software?
 
 If you need help or would like more information, don't hesitate to drop me a
-line at firstname@isi.uu.nl, where of course firstname needs to be replaced with samuel.
+line at samuel.st_jean@university, where university needs to be replaced with med.lu.se
 
 ## References
 
 The NLSAM denoising algorithm itself is detailed in
 
 > St-Jean, S., Coupé, P., & Descoteaux, M. (2016).
-> "[Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising.][paper]"
+> "[Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising][paper]"
 > Medical Image Analysis, 32(2016), 115–130. [DOI] [URL]
 
 The bias correction framework is a reimplementation of
@@ -77,6 +64,12 @@ The bias correction framework is a reimplementation of
 > Koay, CG, Özarslan, E and Basser, PJ
 > [A signal transformational framework for breaking the noise floor and its applications in MRI][koay_bias],
 > Journal of Magnetic Resonance, Volume 197, Issue 2, 2009
+
+The automatic estimation of the noise distribution is computed with
+
+> St-Jean S, De Luca A, Tax C.M.W., Viergever M.A, Leemans A. (2020)
+> "[Automated characterization of noise distributions in diffusion MRI data.][autodmri_paper]"
+> Medical Image Analysis, October 2020:101758. doi:10.1016/j.media.2020.101758
 
 And here is a premade bibtex entry.
 

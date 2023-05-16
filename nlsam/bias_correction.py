@@ -1,10 +1,8 @@
-from __future__ import division
-
 import numpy as np
 import logging
 
-from nlsam.multiprocess import multiprocesser
 from nlsam.stabilizer import fixed_point_finder, chi_to_gauss, root_finder, xi
+from joblib import Parallel, delayed
 
 logger = logging.getLogger('nlsam')
 
@@ -15,7 +13,7 @@ vec_xi = np.vectorize(xi, [np.float64])
 vec_root_finder = np.vectorize(root_finder, [np.float64])
 
 
-def stabilization(data, m_hat, sigma, N, mask=None, clip_eta=True, return_eta=False, n_cores=None, mp_method=None):
+def stabilization(data, m_hat, sigma, N, mask=None, clip_eta=True, return_eta=False, n_cores=-1, verbose=False):
 
     data = np.asarray(data)
     m_hat = np.asarray(m_hat)
@@ -23,9 +21,9 @@ def stabilization(data, m_hat, sigma, N, mask=None, clip_eta=True, return_eta=Fa
     N = np.atleast_3d(N)
 
     if mask is None:
-        mask = np.ones(data.shape[:-1], dtype=np.bool)
+        mask = np.ones(data.shape[:-1], dtype=bool)
     else:
-        mask = np.asarray(mask, dtype=np.bool)
+        mask = np.asarray(mask, dtype=bool)
 
     if N.ndim < data.ndim:
         N = np.broadcast_to(N[..., None], data.shape)
@@ -35,13 +33,13 @@ def stabilization(data, m_hat, sigma, N, mask=None, clip_eta=True, return_eta=Fa
 
     # Check all dims are ok
     if (data.shape != sigma.shape):
-        raise ValueError('data shape {} is not compatible with sigma shape {}'.format(data.shape, sigma.shape))
+        raise ValueError(f'data shape {data.shape} is not compatible with sigma shape {sigma.shape}')
 
     if (data.shape[:-1] != mask.shape):
-        raise ValueError('data shape {} is not compatible with mask shape {}'.format(data.shape, mask.shape))
+        raise ValueError(f'data shape {data.shape} is not compatible with mask shape {mask.shape}')
 
     if (data.shape != m_hat.shape):
-        raise ValueError('data shape {} is not compatible with m_hat shape {}'.format(data.shape, m_hat.shape))
+        raise ValueError(f'data shape {data.shape} is not compatible with m_hat shape {m_hat.shape}')
 
     arglist = ((data[..., idx, :],
                 m_hat[..., idx, :],
@@ -51,8 +49,12 @@ def stabilization(data, m_hat, sigma, N, mask=None, clip_eta=True, return_eta=Fa
                 clip_eta)
                for idx in range(data.shape[-2]))
 
-    parallel_stabilization = multiprocesser(multiprocess_stabilization, n_cores=n_cores, mp_method=mp_method)
-    output = parallel_stabilization(arglist)
+    # Did we ask for verbose at the module level?
+    if not verbose:
+        verbose = logger.getEffectiveLevel() <= 20  # Info or debug level
+
+    output = Parallel(n_jobs=n_cores,
+                      verbose=verbose)(delayed(multiprocess_stabilization)(*args) for args in arglist)
 
     data_stabilized = np.zeros_like(data, dtype=np.float32)
     eta = np.zeros_like(data, dtype=np.float32)
@@ -112,9 +114,9 @@ def root_finder_sigma(data, sigma, N, mask=None):
     N = np.array(N)
 
     if mask is None:
-        mask = np.ones_like(sigma, dtype=np.bool)
+        mask = np.ones_like(sigma, dtype=bool)
     else:
-        mask = np.array(mask, dtype=np.bool)
+        mask = np.array(mask, dtype=bool)
 
     # Force 3D/4D broadcasting if needed
     if sigma.ndim == (data.ndim - 1):
@@ -126,7 +128,7 @@ def root_finder_sigma(data, sigma, N, mask=None):
     corrected_sigma = np.zeros_like(data, dtype=np.float32)
 
     # To not murder people ram, we process it slice by slice and reuse the arrays in a for loop
-    gaussian_SNR = np.zeros(mask.size, dtype=np.float32)
+    gaussian_SNR = np.zeros(np.count_nonzero(mask), dtype=np.float32)
     theta = np.zeros_like(gaussian_SNR)
 
     for idx in range(data.shape[-1]):

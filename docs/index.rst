@@ -1,8 +1,3 @@
-.. NLSAM documentation master file, created by
-   sphinx-quickstart on Sat Mar 24 10:44:02 2018.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 Welcome to NLSAM's documentation!
 =================================
 
@@ -17,13 +12,10 @@ You can find the original paper and full details of the algorithm as presented i
 
 Which you can grab a copy from the publisher website_ or from arxiv_.
 
-You an find below the documentation for each modules and a few instructions on topics such as noise estimation and detailed installation instructions.
+You can find below the documentation for each modules and a few instructions on topics such as noise estimation and detailed installation instructions.
 
 .. toctree::
-   :maxdepth: 3
-   :caption: Modules
-
-   modules
+    autoapi/nlsam/index
 
 .. toctree::
    :maxdepth: 1

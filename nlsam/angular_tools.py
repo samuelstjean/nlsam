@@ -1,5 +1,3 @@
-from __future__ import division
-
 import numpy as np
 
 
@@ -49,7 +47,7 @@ def _angle(vec):
     vec = np.array(vec)
 
     if vec.shape[1] != 3:
-        raise ValueError("Input must be of shape N x 3. Current shape is {}".format(vec.shape))
+        raise ValueError(f"Input must be of shape N x 3. Current shape is {vec.shape}")
 
     # Each vector is normalized to unit norm. We then replace
     # null norm vectors by 0 for sorting purposes.
@@ -61,3 +59,75 @@ def _angle(vec):
     angle = [np.arccos(np.dot(vec, v).clip(-1, 1)) for v in vec]
 
     return np.array(angle)
+
+
+def greedy_set_finder(sets):
+    """Returns a list of subsets that spans the input sets with a greedy algorithm
+    http://en.wikipedia.org/wiki/Set_cover_problem#Greedy_algorithm"""
+
+    sets = [set(s) for s in sets]
+    universe = set()
+
+    for s in sets:
+        universe = universe.union(s)
+
+    output = []
+
+    while len(universe) != 0:
+
+        max_intersect = 0
+
+        for i, s in enumerate(sets):
+
+            n_intersect = len(s.intersection(universe))
+
+            if n_intersect > max_intersect:
+                max_intersect = n_intersect
+                element = i
+
+        output.append(tuple(sets[element]))
+        universe = universe.difference(sets[element])
+
+    return output
+
+
+def split_shell(bvals, bvecs, block_size, dwis, is_symmetric=False, bval_threshold=25):
+    '''Process each shell separately for finding the valid angular neighbors.
+    Returns a list of indexes for each shell separately
+    '''
+    # Round similar bvals together for identifying similar shells
+    rounded_bvals = np.zeros_like(bvals)
+    sorted_bvals = np.sort(np.unique(bvals))
+
+    for unique_bval in sorted_bvals:
+        idx = np.abs(unique_bval - bvals) < bval_threshold
+        rounded_bvals[idx] = unique_bval
+
+    non_bzeros = np.sort(np.unique(rounded_bvals))[1:]
+    neighbors = [None] * len(non_bzeros)
+    bvecs_idx = np.arange(bvecs.shape[0])
+
+    for shell, unique_bval in enumerate(non_bzeros):
+        shell_bvecs = bvecs[unique_bval == rounded_bvals]
+
+        if is_symmetric:
+            sym_bvecs = shell_bvecs
+        else:
+            sym_bvecs = np.vstack((shell_bvecs, -shell_bvecs))
+
+        current_shell = angular_neighbors(sym_bvecs, block_size[-1] - 1) % shell_bvecs.shape[0]
+        current_shell = current_shell[:shell_bvecs.shape[0]]
+
+        # convert to per shell indexes
+        positions = np.arange(shell_bvecs.shape[0])
+        new_positions = bvecs_idx[unique_bval == rounded_bvals]
+
+        # this magically works for who knows why
+        # https://stackoverflow.com/questions/13572448/replace-values-of-a-numpy-index-array-with-values-of-a-list?answertab=votes#tab-top
+        index = np.digitize(current_shell.ravel(), positions, right=True)
+        current_shell = new_positions[index].reshape(current_shell.shape)
+
+        current_shell = [(dwi,) + tuple(current_shell[pos]) for pos, dwi in enumerate(new_positions) if dwi in dwis]
+        neighbors[shell] = current_shell
+
+    return neighbors

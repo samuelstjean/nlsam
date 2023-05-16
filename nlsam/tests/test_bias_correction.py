@@ -1,7 +1,5 @@
 #! /usr/bin/env python
 
-from __future__ import division, print_function
-
 import numpy as np
 from numpy.testing import assert_allclose, assert_array_less, run_module_suite
 
@@ -59,7 +57,7 @@ def test_stabilization():
     noisySI = np.array(noisySI)
     sigma = 20 * np.ones_like(noisySI)
     N = 1 * np.ones_like(noisySI)
-    mask = np.ones_like(noisySI, dtype=np.bool)
+    mask = np.ones_like(noisySI, dtype=bool)
 
     # this is my mhat value
     # mhat = noiseFloorBreaker.getSmoothedNoisyY();
