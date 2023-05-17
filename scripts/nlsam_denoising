@@ -324,7 +324,7 @@ def main():
         if isinstance(N, np.ndarray):
             parser.error(f'You need to pass --load_sigma sigma.nii.gz when loading N as a volume, but you passed -N {args.N}')
     else:
-        if N == 'auto':
+        if args.N == 'auto':
             parser.error(f'You need to pass -N explicitly when using --load_sigma sigma.nii.gz, but you passed -N {args.N}')
 
     vol = nib.load(args.input)

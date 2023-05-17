@@ -22,14 +22,12 @@ jobs:
         with:
           python-version: '3.7'
 
-      - name: Install cibuildwheel
-        run: |
-          python -m pip install cibuildwheel==2.12.3
-
       - name: Build wheels
+        uses: pypa/cibuildwheel@v2.12.3
         env:
           CIBW_ARCHS: "auto64"
-          CIBW_SKIP: "pp* cp36-* cp37-* *musllinux*"
+          CIBW_SKIP: "pp* cp36-* cp37-* *musllinux* cp38-macosx_arm64"
+          CIBW_ARCHS_MACOS: x86_64 arm64
           CIBW_TEST_REQUIRES: pytest
           CIBW_TEST_COMMAND: pytest --pyargs nlsam --verbose
           CIBW_TEST_COMMAND_LINUX: >
@@ -39,8 +37,6 @@ jobs:
             bash {package}/nlsam/tests/test_scripts1.sh &&
             chmod +x  {package}/nlsam/tests/test_scripts2.sh &&
             bash {package}/nlsam/tests/test_scripts2.sh
-        run: |
-          python -m cibuildwheel --output-dir wheelhouse
 
       - uses: actions/upload-artifact@v3
         with:

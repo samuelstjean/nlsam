@@ -202,7 +202,7 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
 
     mask_col = extract_patches(mask, block_size[:-1], (1, 1, 1), flatten=False)
     axis = tuple(range(mask_col.ndim//2, mask_col.ndim))
-    train_idx = np.sum(mask_col, axis=axis).ravel() > (np.prod(block_size[:-1]) / 2.)
+    train_idx = np.sum(mask_col, axis=axis).ravel() > (np.prod(block_size[:-1]) / 2)
 
     train_data = np.asfortranarray(X[:, train_idx])
     train_data /= np.sqrt(np.sum(train_data**2, axis=0, keepdims=True), dtype=dtype)
@@ -230,7 +230,7 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     time_multi = time()
     data_denoised = Parallel(n_jobs=n_cores,
                              verbose=verbose)(delayed(processer)(*args) for args in arglist)
-    logger.info(f'Multiprocessing done in {(time() - time_multi) / 60} mins.')
+    logger.info(f'Multiprocessing done in {(time() - time_multi) / 60:.2f} mins.')
 
     # Put together the multiprocessed results
     data_subset = np.zeros_like(data, dtype=np.float32)
@@ -245,7 +245,7 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
 
 
 def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
-              dtype=np.float64, n_iter=10, gamma=3., tau=1., tolerance=1e-5):
+              dtype=np.float64, n_iter=10, gamma=3, tau=1, tolerance=1e-5):
 
     orig_shape = data.shape
     mask_array = im2col_nd(mask, block_size[:-1], overlap[:-1])
@@ -287,7 +287,7 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
         for i in range(alpha.shape[1]):
             if not_converged[i]:
                 param_alpha['lambda1'] = var_mat[i]
-                DtDW[:] = (1. / W[..., None, i]) * DtD * (1. / W[:, i])
+                DtDW[:] = (1 / W[..., None, i]) * DtD * (1 / W[:, i])
                 alpha[:, i:i + 1] = spams.lasso(X[:, i:i + 1], Q=DtDW, q=DtXW[:, i:i + 1], **param_alpha)
 
         alpha.toarray(out=arr)
@@ -299,10 +299,10 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
             break
 
         alpha_old[:] = arr
-        W[:] = 1. / (np.abs(alpha_old**tau) + eps)
+        W[:] = 1 / (np.abs(alpha_old**tau) + eps)
 
     weigths = np.ones(X_full_shape[1], dtype=dtype, order='F')
-    weigths[train_idx] = 1. / (alpha.getnnz(axis=0) + 1.)
+    weigths[train_idx] = 1 / (alpha.getnnz(axis=0) + 1)
 
     X = np.zeros(X_full_shape, dtype=dtype, order='F')
     X[:, train_idx] = np.dot(D, arr)
