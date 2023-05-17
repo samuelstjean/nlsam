@@ -60,6 +60,11 @@ def buildArgsParser():
     required.add_argument('output', metavar='output',
                           help='Path for the saved denoised file.')
 
+    required.add_argument('N', metavar='N', type=str,
+                          help='Number of receiver coils of the scanner. \n'
+                          'Use N = 1 in the case of a SENSE (Philips) reconstruction and '
+                          'N >= 1 for GRAPPA based reconstruction (Siemens).')
+
     required.add_argument('bvals', metavar='bvals',
                           help='Path of the bvals file, in FSL format.')
 
@@ -236,6 +241,7 @@ def main():
     b0_threshold = args.b0_threshold
     split_b0s = args.split_b0s
     split_shell = args.split_shell
+
     block_size = np.array(args.spatial_block_size + (args.angular_block_size,))
     clip_eta = args.no_clip_eta
     logger = logging.getLogger('nlsam')
@@ -333,6 +339,11 @@ def main():
     header = vol.header
     header.set_data_dtype(np.float32)
     logger.info(f"Loading data {os.path.realpath(args.input)}")
+
+    try:
+        N = np.asarray(nib.load(args.N).get_data(caching='unchanged'), dtype=np.float32)
+    except FileNotFoundError:
+        N = float(args.N)
 
     if args.mask is not None:
         mask = nib.load(args.mask).get_fdata(caching='unchanged').astype(bool)

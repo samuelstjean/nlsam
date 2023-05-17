@@ -20,7 +20,7 @@ You can find below the documentation for each modules and a few instructions on 
 .. toctree::
    :maxdepth: 1
    :glob:
-   :caption: Instructions
+   :caption: Wiki
 
    wiki/*
 

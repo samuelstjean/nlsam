@@ -62,6 +62,11 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     dtype : np.float32 or np.float64, default np.float64
         Precision to use for inner computations. Note that np.float32 should only be used for
         very, very large datasets (that is, your ram starts swapping) as it can lead to numerical precision errors.
+    use_threading : bool, default False
+        Do not use multiprocessing, but rather rely on the multithreading capabilities of your numerical solvers.
+        While this mode is more memory friendly, it is also slower than using the multiprocessing mode (the default).
+        Moreover, it also assumes that your blas/lapack/spams library are built with multithreading, so be sure to check
+        that your computer is using multiple cores or the algorithm will just take much longer to complete.
     verbose : bool, default False
         print useful messages.
 
@@ -118,18 +123,60 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     else:
         sym_bvecs = np.vstack((bvecs, -bvecs))
 
-    neighbors = angular_neighbors(sym_bvecs, block_size[-1] - 1) % data.shape[-1]
-    neighbors = neighbors[:data.shape[-1]]  # everything was doubled for symmetry
+    if split_shell:
+        logger.info('Data will be split in neighborhoods for each shells separately.')
+
+        # Round similar bvals together for identifying similar shells
+        rounded_bvals = np.zeros_like(bvals)
+        sorted_bvals = np.sort(np.unique(bvals)).astype(np.int32)
+
+        for unique_bval in sorted_bvals:
+            idx = np.abs(unique_bval - bvals) < 25
+            rounded_bvals[idx] = unique_bval
+
+        non_bzeros = np.sort(np.unique(rounded_bvals)).astype(np.int32)[1:]
+        neighbors = [None] * len(non_bzeros)
+        full_indexes = []
+
+        for shell, unique_bval in enumerate(non_bzeros):
+            shell_bvecs = bvecs[unique_bval == rounded_bvals]
+
+            if is_symmetric:
+                sym_bvecs = shell_bvecs
+            else:
+                sym_bvecs = np.vstack((shell_bvecs, -shell_bvecs))
+
+            neighbors[shell] = angular_neighbors(sym_bvecs, block_size[-1] - 1) % shell_bvecs.shape[0]
+            neighbors[shell] = neighbors[shell][:shell_bvecs.shape[0]]
+
+            # convert to per shell indexes
+            positions = np.arange(shell_bvecs.shape[0])
+            new_positions = np.arange(bvecs.shape[0])[unique_bval == rounded_bvals]
+
+            # this magically works for who knows why
+            # https://stackoverflow.com/questions/13572448/replace-values-of-a-numpy-index-array-with-values-of-a-list?answertab=votes#tab-top
+            index = np.digitize(neighbors[shell].ravel(), positions, right=True)
+            neighbors[shell] = new_positions[index].reshape(neighbors[shell].shape)
+
+            neighbors[shell] = [(dwi,) + tuple(neighbors[shell][pos]) for pos, dwi in enumerate(new_positions) if dwi in dwis]
+            full_indexes.extend(neighbors[shell])
+
+            if subsample:
+                neighbors[shell] = greedy_set_finder(neighbors[shell])
+
+        indexes = [x for shell in neighbors for x in shell]
+    else:
+        neighbors = angular_neighbors(sym_bvecs, block_size[-1] - 1) % data.shape[-1]
+        neighbors = neighbors[:data.shape[-1]]  # everything was doubled for symmetry
+        full_indexes = [(dwi,) + tuple(neighbors[dwi]) for dwi in range(data.shape[-1]) if dwi in dwis]
+
+        if subsample:
+            indexes = greedy_set_finder(full_indexes)
+        else:
+            indexes = full_indexes
 
     # Full overlap for dictionary learning
     overlap = np.array(block_size, dtype=np.int16) - 1
-
-    full_indexes = [(dwi,) + tuple(neighbors[dwi]) for dwi in range(data.shape[-1]) if dwi in dwis]
-
-    if subsample:
-        indexes = greedy_set_finder(full_indexes)
-    else:
-        indexes = full_indexes
 
     # If we have more b0s than indexes, then we have to add a few more blocks since
     # we won't do a full cycle. If we have more b0s than indexes after that, then it breaks.
@@ -211,7 +258,8 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     param_alpha['D'] /= np.sqrt(np.sum(param_alpha['D']**2, axis=0, keepdims=True, dtype=dtype))
     param_D['D'] = param_alpha['D']
 
-    del train_idx, train_data, X, mask_col
+    logger.info('Dictionary learning done in {0:.2f} mins.'.format((time() - time_D) / 60.))
+    del train_data, X, mask_col
 
     param_alpha['numThreads'] = 1
     param_D['numThreads'] = 1
@@ -248,7 +296,7 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
               dtype=np.float64, n_iter=10, gamma=3, tau=1, tolerance=1e-5):
 
     orig_shape = data.shape
-    mask_array = im2col_nd(mask, block_size[:-1], overlap[:-1])
+    mask_array = im2col_nd(mask, block_size[:-1], overlap[:-1]).astype(np.bool)
     train_idx = np.sum(mask_array, axis=0) > (mask_array.shape[0] / 2.)
 
     # If mask is empty, return a bunch of zeros as blocks
@@ -261,7 +309,6 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
     X = X[:, train_idx].astype(dtype)
 
     param_alpha['L'] = int(0.5 * X.shape[0])
-
     D = param_alpha['D']
 
     alpha = lil_matrix((D.shape[1], X.shape[1]))
@@ -276,6 +323,7 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
     not_converged = np.ones(alpha.shape[1], dtype=bool)
     nonzero_ind = np.zeros(alpha.shape, dtype=bool)
     arr = np.empty(alpha.shape)
+    nonzero_ind = np.empty(alpha.shape, dtype=np.bool)
 
     xi = np.random.randn(X.shape[0], X.shape[1]) * var_mat
     var_mat *= (X.shape[0] + gamma * np.sqrt(2 * X.shape[0]))
@@ -295,7 +343,7 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
         arr[nonzero_ind] /= W[nonzero_ind]
         not_converged[:] = np.max(np.abs(alpha_old - arr), axis=0) > tolerance
 
-        if not np.any(not_converged):
+        if np.logical_not(not_converged).all():
             break
 
         alpha_old[:] = arr
