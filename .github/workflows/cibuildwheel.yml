@@ -104,7 +104,7 @@ jobs:
           path=$(python -c "import distributed; print(distributed.__path__[0]);")
           echo ${path}
           if [ "$RUNNER_OS" == "Windows" ]; then
-            pyinstaller ./scripts/nlsam_denoising -F --clean --add-data ${path};.\\distributed\\ --noupx
+            pyinstaller ./scripts/nlsam_denoising -F --clean --add-data "${path};.\\distributed\\" --noupx
           else
             pyinstaller ./scripts/nlsam_denoising -F --clean --add-data ${path}:./distributed/ --noupx
           fi
