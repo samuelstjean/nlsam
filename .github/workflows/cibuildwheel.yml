@@ -111,4 +111,5 @@ jobs:
 
       - uses: actions/upload-artifact@v3
         with:
+          name: nlsam_denoising ${{ matrix.os }}
           path: ./dist/nlsam_denoising*
