@@ -516,4 +516,18 @@ def main():
 
 
 if __name__ == "__main__":
+    # Until joblib.loky support pyinstaller, we use dask instead
+    import sys
+    frozen = getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
+    frozen = True
+    if frozen:
+        from multiprocessing import freeze_support
+        freeze_support()
+
+        from dask.distributed import Client
+        from joblib import parallel_backend
+
+        client = Client(threads_per_worker=1)
+        parallel_backend("dask")
+
     main()

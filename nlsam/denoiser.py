@@ -249,7 +249,7 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
 
     orig_shape = data.shape
     mask_array = im2col_nd(mask, block_size[:-1], overlap[:-1])
-    train_idx = np.sum(mask_array, axis=0) > (mask_array.shape[0] / 2.)
+    train_idx = np.sum(mask_array, axis=0) > (mask_array.shape[0] / 2)
 
     # If mask is empty, return a bunch of zeros as blocks
     if not np.any(train_idx):
@@ -264,8 +264,10 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
 
     D = param_alpha['D']
 
-    alpha = lil_matrix((D.shape[1], X.shape[1]))
+    alpha = np.zeros((D.shape[1], X.shape[1]), dtype=dtype)
+    # alpha = lil_matrix((D.shape[1], X.shape[1]))
     W = np.ones(alpha.shape, dtype=dtype)
+    temp = np.zeros([alpha.shape[0], 1], dtype=dtype)
 
     DtD = np.asfortranarray(np.dot(D.T, D))
     DtX = np.dot(D.T, X)
@@ -288,9 +290,12 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
             if not_converged[i]:
                 param_alpha['lambda1'] = var_mat[i]
                 DtDW[:] = (1 / W[..., None, i]) * DtD * (1 / W[:, i])
-                alpha[:, i:i + 1] = spams.lasso(X[:, i:i + 1], Q=DtDW, q=DtXW[:, i:i + 1], **param_alpha)
+                # alpha[:, i:i + 1] = spams.lasso(X[:, i:i + 1], Q=DtDW, q=DtXW[:, i:i + 1], **param_alpha)
+                spams.lasso(X[:, i:i + 1], Q=DtDW, q=DtXW[:, i:i + 1], **param_alpha).todense(out=temp)
+                alpha[:, i:i + 1] = temp
 
-        alpha.toarray(out=arr)
+        # alpha.toarray(out=arr)
+        arr[:] = alpha
         nonzero_ind[:] = arr != 0
         arr[nonzero_ind] /= W[nonzero_ind]
         not_converged[:] = np.max(np.abs(alpha_old - arr), axis=0) > tolerance
@@ -302,7 +307,8 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
         W[:] = 1 / (np.abs(alpha_old**tau) + eps)
 
     weigths = np.ones(X_full_shape[1], dtype=dtype, order='F')
-    weigths[train_idx] = 1 / (alpha.getnnz(axis=0) + 1)
+    # weigths[train_idx] = 1 / (alpha.getnnz(axis=0) + 1)
+    weigths[train_idx] = 1 / (np.sum(alpha != 0, axis=0) + 1)
 
     X = np.zeros(X_full_shape, dtype=dtype, order='F')
     X[:, train_idx] = np.dot(D, arr)
