@@ -17,7 +17,7 @@ logger = logging.getLogger('nlsam')
 
 def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                   mask=None, is_symmetric=False, n_cores=-1, split_b0s=False, split_shell=False,
-                  subsample=True, n_iter=10, b0_threshold=10, dtype=np.float64, verbose=False):
+                  subsample=True, n_iter=10, b0_threshold=10, bval_threshold=25, dtype=np.float64, verbose=False):
     """Main nlsam denoising function which sets up everything nicely for the local
     block denoising.
 
@@ -29,7 +29,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         Noise standard deviation estimation at each voxel.
         Converted to variance internally.
     bvals : 1D array
-        the N b-values associated to each of the N diffusion volume.
+        the N bvalues associated to each of the N diffusion volume.
     bvecs : N x 3 2D array
         the N 3D vectors for each acquired diffusion gradients.
     block_size : tuple, length = data.ndim
@@ -49,7 +49,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         If True and the dataset contains multiple b0s, a different b0 will be used for
         each run of the denoising. If False, the b0s are averaged and the average b0 is used instead.
     split_shell : bool, default False
-        If True and the dataset contains multiple b-values, each shell is processed independently.
+        If True and the dataset contains multiple bvalues, each shell is processed independently.
         If False, all the data is used at the same time for computing angular neighbors.
     subsample : bool, default True
         If True, find the smallest subset of indices required to process each
@@ -57,7 +57,9 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     n_iter : int, default 10
         Maximum number of iterations for the reweighted l1 solver.
     b0_threshold : int, default 10
-        A b-value below b0_threshold will be considered as a b0 image.
+        A bvalue below b0_threshold will be considered as a b0 image.
+    bval_threshold : int, default 25
+        Any bvalue within += bval_threshold of each others will be considered on the same shell (e.g. b=990 and b=1000 are on the same shell).
     dtype : np.float32 or np.float64, default np.float64
         Precision to use for inner computations. Note that np.float32 should only be used for
         very, very large datasets (that is, your ram starts swapping) as it can lead to numerical precision errors.
@@ -106,8 +108,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         data[..., b0_loc] = np.mean(data[..., b0_loc], axis=-1, keepdims=True)
 
     # Split the b0s in a cyclic fashion along the training data
-    # If we only had one, cycle just return b0_loc indefinitely,
-    # else we go through all indexes.
+    # If we only had one, cycle just return b0_loc indefinitely, else we go through all indexes.
     np.random.shuffle(b0_loc)
     split_b0s_idx = cycle(b0_loc)
 
@@ -120,7 +121,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
     if split_shell:
         logger.info('Data will be split in neighborhoods for each shells separately.')
-        neighbors = split_per_shell(bvals, bvecs, angular_size, dwis, is_symmetric=is_symmetric, b0_threshold=b0_threshold)
+        neighbors = split_per_shell(bvals, bvecs, angular_size, dwis, is_symmetric=is_symmetric, bval_threshold=bval_threshold)
 
         if subsample:
             for n in range(len(neighbors)):

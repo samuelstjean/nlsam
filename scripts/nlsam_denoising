@@ -86,7 +86,7 @@ def buildArgsParser():
                            'This is now a required input to prevent sampling (and reconstructing) background noise instead of the data.')
 
     optionals.add_argument('--b0_threshold', metavar='int', default=10, type=int,
-                           help='Lowest b-value to be considered as a b0. Default 10.')
+                           help='Lowest b-value to be considered as a b0. Default 10')
 
     optionals.add_argument('--split_b0s', action='store_true',
                            help='If set and multiple b0s are present, they are split amongst the '
@@ -94,6 +94,9 @@ def buildArgsParser():
 
     optionals.add_argument('--split_shell', action='store_true',
                            help='If set, each shell/b-value is processed separately by itself.')
+
+    optionals.add_argument('--bval_threshold', metavar='int', default=25, type=int,
+                           help='Any bvalue within += bval_threshold of each others will be considered on the same shell (e.g. b=990 and b=1000 are on the same shell). Default 25')
 
     optionals.add_argument('--block_size', dest='spatial_block_size',
                            metavar='tuple', type=literal_eval, default=(3, 3, 3),
@@ -234,6 +237,7 @@ def main():
     is_symmetric = args.is_symmetric
     n_iter = args.iterations
     b0_threshold = args.b0_threshold
+    bval_threshold = args.bval_threshold
     split_b0s = args.split_b0s
     split_shell = args.split_shell
     block_size = np.array(args.spatial_block_size + (args.angular_block_size,))
@@ -504,6 +508,7 @@ def main():
                                       subsample=subsample,
                                       n_iter=n_iter,
                                       b0_threshold=b0_threshold,
+                                      bval_threshold=bval_threshold,
                                       dtype=dtype,
                                       verbose=args.verbose)
 
