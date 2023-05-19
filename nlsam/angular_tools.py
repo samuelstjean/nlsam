@@ -91,7 +91,7 @@ def greedy_set_finder(sets):
     return output
 
 
-def split_shell(bvals, bvecs, angular_size, dwis, is_symmetric=False, b0_threshold=25):
+def split_per_shell(bvals, bvecs, angular_size, dwis, is_symmetric=False, b0_threshold=25):
     '''Process each shell separately for finding the valid angular neighbors.
     Returns a list of indexes for each shell separately
     '''

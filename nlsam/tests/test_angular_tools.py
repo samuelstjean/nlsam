@@ -3,7 +3,7 @@
 import numpy as np
 from numpy.testing import assert_almost_equal, assert_equal, run_module_suite
 
-from nlsam.angular_tools import angular_neighbors, _angle, greedy_set_finder, split_shell
+from nlsam.angular_tools import angular_neighbors, _angle, greedy_set_finder, split_per_shell
 
 
 def test_angular_neighbors():
@@ -46,7 +46,7 @@ def test_greedy_set_finder():
     assert_equal(min_set, greedy_set_finder(sets))
 
 
-def test_split_shell():
+def test_split_per_shell():
     bvecs = np.array([[-0.923,0.254,-0.289],
                         [-0.371,-0.786,0.494],
                         [0.106,-0.563,-0.819],
@@ -82,7 +82,7 @@ def test_split_shell():
     angular_size = 5
     true_idx = list(range(5,15)), list(range(15,25)), list(range(25,30))
 
-    idx = split_shell(bvals, bvecs, angular_size, dwis, is_symmetric=False, b0_threshold=25)
+    idx = split_per_shell(bvals, bvecs, angular_size, dwis, is_symmetric=False, b0_threshold=25)
 
     for n, ii in enumerate(idx):
         assert_equal(np.unique(ii), true_idx[n])

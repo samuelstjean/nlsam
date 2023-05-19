@@ -5,7 +5,7 @@ from time import time
 from itertools import cycle
 
 from nlsam.utils import im2col_nd, col2im_nd
-from nlsam.angular_tools import angular_neighbors, split_shell, greedy_set_finder
+from nlsam.angular_tools import angular_neighbors, split_per_shell, greedy_set_finder
 from autodmri.blocks import extract_patches
 
 from joblib import Parallel, delayed
@@ -120,7 +120,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
     if split_shell:
         logger.info('Data will be split in neighborhoods for each shells separately.')
-        neighbors = split_shell(bvals, bvecs, angular_size, dwis, is_symmetric=is_symmetric, b0_threshold=b0_threshold)
+        neighbors = split_per_shell(bvals, bvecs, angular_size, dwis, is_symmetric=is_symmetric, b0_threshold=b0_threshold)
 
         if subsample:
             for n in range(len(neighbors)):
