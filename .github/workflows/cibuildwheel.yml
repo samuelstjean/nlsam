@@ -115,9 +115,9 @@ jobs:
           path: ./dist/nlsam_denoising*
 
       - uses: actions/upload-artifact@v3
+        env:
+          VERSION: 0.6.1
         with:
-          env:
-            VERSION: 0.6.1
           name: nlsam_${{env.VERSION}}}_${{ runner.os }}
           path: |
                 CHANGELOG.md
