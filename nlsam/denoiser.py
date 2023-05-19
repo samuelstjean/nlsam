@@ -92,6 +92,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     dwis = np.where(bvals > b0_threshold)[0]
     num_b0s = len(b0_loc)
     variance = sigma**2
+    angular_size = block_size[-1]
 
     # We also convert bvecs associated with b0s to exactly (0,0,0), which
     # is not always the case when we hack around with the scanner.
@@ -117,18 +118,28 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     else:
         sym_bvecs = np.vstack((bvecs, -bvecs))
 
-    neighbors = angular_neighbors(sym_bvecs, block_size[-1] - 1) % data.shape[-1]
-    neighbors = neighbors[:data.shape[-1]]  # everything was doubled for symmetry
+    if split_shell:
+        logger.info('Data will be split in neighborhoods for each shells separately.')
+        neighbors = split_shell(bvals, bvecs, angular_size, dwis, is_symmetric=is_symmetric, b0_threshold=b0_threshold)
+
+        if subsample:
+            for n in range(len(neighbors)):
+                neighbors[n] = greedy_set_finder(neighbors[n])
+
+        indexes = [x for shell in neighbors for x in shell]
+    else:
+        neighbors = angular_neighbors(sym_bvecs, angular_size - 1) % data.shape[-1]
+        neighbors = neighbors[:data.shape[-1]]  # everything was doubled for symmetry
+
+        full_indexes = [(dwi,) + tuple(neighbors[dwi]) for dwi in range(data.shape[-1]) if dwi in dwis]
+
+        if subsample:
+            indexes = greedy_set_finder(full_indexes)
+        else:
+            indexes = full_indexes
 
     # Full overlap for dictionary learning
     overlap = np.array(block_size, dtype=np.int16) - 1
-
-    full_indexes = [(dwi,) + tuple(neighbors[dwi]) for dwi in range(data.shape[-1]) if dwi in dwis]
-
-    if subsample:
-        indexes = greedy_set_finder(full_indexes)
-    else:
-        indexes = full_indexes
 
     # If we have more b0s than indexes, then we have to add a few more blocks since
     # we won't do a full cycle. If we have more b0s than indexes after that, then it breaks.
@@ -141,12 +152,12 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                  ' either average them or deactivate subsampling.')
         raise ValueError(error)
 
-    b0_block_size = tuple(block_size[:-1]) + ((block_size[-1] + 1,))
+    b0_block_size = tuple(block_size[:-1]) + ((angular_size + 1,))
     data_denoised = np.zeros(data.shape, np.float32)
     divider = np.zeros(data.shape[-1])
 
     # Put all idx + b0 in this array in each iteration
-    to_denoise = np.empty(data.shape[:-1] + (block_size[-1] + 1,), dtype=dtype)
+    to_denoise = np.empty(data.shape[:-1] + (angular_size + 1,), dtype=dtype)
 
     for i, idx in enumerate(indexes, start=1):
         b0_loc = tuple((next(split_b0s_idx),))

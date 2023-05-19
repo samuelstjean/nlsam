@@ -91,7 +91,7 @@ def greedy_set_finder(sets):
     return output
 
 
-def split_shell(bvals, bvecs, angular_size, dwis, is_symmetric=False, bval_threshold=25):
+def split_shell(bvals, bvecs, angular_size, dwis, is_symmetric=False, b0_threshold=25):
     '''Process each shell separately for finding the valid angular neighbors.
     Returns a list of indexes for each shell separately
     '''
@@ -100,7 +100,7 @@ def split_shell(bvals, bvecs, angular_size, dwis, is_symmetric=False, bval_thres
     sorted_bvals = np.sort(np.unique(bvals))
 
     for unique_bval in sorted_bvals:
-        idx = np.abs(unique_bval - bvals) < bval_threshold
+        idx = np.abs(unique_bval - bvals) < b0_threshold
         rounded_bvals[idx] = unique_bval
 
     non_bzeros = np.sort(np.unique(rounded_bvals))[1:]
@@ -130,5 +130,4 @@ def split_shell(bvals, bvecs, angular_size, dwis, is_symmetric=False, bval_thres
 
         current_shell = [(dwi,) + tuple(current_shell[pos]) for pos, dwi in enumerate(new_positions) if dwi in dwis]
         neighbors[shell] = current_shell
-
     return neighbors
