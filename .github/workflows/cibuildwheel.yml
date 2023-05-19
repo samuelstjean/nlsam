@@ -108,16 +108,16 @@ jobs:
             datapath = "${path}:./distributed/"
           pyinstaller ./scripts/nlsam_denoising -F --clean --add-data ${datapath} --noupx
 
+      - run: echo "version=v$(python -c "from importlib.metadata import version; print(version('nlsam'));")" >> $GITHUB_ENV
+
       - uses: actions/upload-artifact@v3
         with:
-          name: nlsam_denoising $RUNNER_OS
+          name: nlsam_${{ env.version }}_${{ runner.os }}
           path: ./dist/nlsam_denoising*
 
       - uses: actions/upload-artifact@v3
-        env:
-          VERSION: v$(python -c "from importlib.metadata import version; print(version('nlsam'));")
         with:
-          name: nlsam_${{ env.VERSION }}_${{ runner.os }}
+          name: nlsam_${{ env.version }}_${{ runner.os }}
           path: |
                 CHANGELOG.md
                 README.md
