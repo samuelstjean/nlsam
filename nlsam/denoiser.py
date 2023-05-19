@@ -8,7 +8,6 @@ from nlsam.utils import im2col_nd, col2im_nd
 from nlsam.angular_tools import angular_neighbors, split_shell, greedy_set_finder
 from autodmri.blocks import extract_patches
 
-from scipy.sparse import lil_matrix
 from joblib import Parallel, delayed
 
 import spams
@@ -265,12 +264,11 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
     D = param_alpha['D']
 
     alpha = np.zeros((D.shape[1], X.shape[1]), dtype=dtype)
-    # alpha = lil_matrix((D.shape[1], X.shape[1]))
     W = np.ones(alpha.shape, dtype=dtype)
     temp = np.zeros([alpha.shape[0], 1], dtype=dtype)
 
-    DtD = np.asfortranarray(np.dot(D.T, D))
-    DtX = np.dot(D.T, X)
+    DtD = np.asfortranarray(D.T @ D)
+    DtX = D.T @ X
     DtXW = np.empty_like(DtX, order='F')
     DtDW = np.empty_like(DtD, order='F')
 
@@ -290,11 +288,9 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
             if not_converged[i]:
                 param_alpha['lambda1'] = var_mat[i]
                 DtDW[:] = (1 / W[..., None, i]) * DtD * (1 / W[:, i])
-                # alpha[:, i:i + 1] = spams.lasso(X[:, i:i + 1], Q=DtDW, q=DtXW[:, i:i + 1], **param_alpha)
                 spams.lasso(X[:, i:i + 1], Q=DtDW, q=DtXW[:, i:i + 1], **param_alpha).todense(out=temp)
                 alpha[:, i:i + 1] = temp
 
-        # alpha.toarray(out=arr)
         arr[:] = alpha
         nonzero_ind[:] = arr != 0
         arr[nonzero_ind] /= W[nonzero_ind]
@@ -307,10 +303,9 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
         W[:] = 1 / (np.abs(alpha_old**tau) + eps)
 
     weigths = np.ones(X_full_shape[1], dtype=dtype, order='F')
-    # weigths[train_idx] = 1 / (alpha.getnnz(axis=0) + 1)
     weigths[train_idx] = 1 / (np.sum(alpha != 0, axis=0) + 1)
 
     X = np.zeros(X_full_shape, dtype=dtype, order='F')
-    X[:, train_idx] = np.dot(D, arr)
+    X[:, train_idx] = D @ arr
 
     return col2im_nd(X, block_size, orig_shape, overlap, weigths)

@@ -83,6 +83,7 @@ def test_split_shell():
     true_idx = list(range(5,15)), list(range(15,25)), list(range(25,30))
 
     idx = split_shell(bvals, bvecs, angular_size, dwis, is_symmetric=False, bval_threshold=25)
+
     for n, ii in enumerate(idx):
         assert_equal(np.unique(ii), true_idx[n])
 
