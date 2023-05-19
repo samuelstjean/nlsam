@@ -2,9 +2,15 @@
 
 ## [0.7] Development version
 
-- Changes in the command line parser
-    - the previously required options __N__ and __angular_block_size__ are now optional.
+- **Breaking changes in the command line parser**
+    - The previously required options __N__ and __angular_block_size__ are now optional.
     - A mask is now required to be passed with __-m__ or __--mask__ to only sample data. It was previously possible to be unlucky and only sample background noise in the reconstruction process, taking forever to practically do nothing in practice, passing a mask with only the data to sample and reconstruct should prevent this issue.
+
+    - A new call would now looks like
+
+    ~~~bash
+    nlsam_denoising input output bvals bvecs -m mask.nii.gz
+    ~~~
 
 - New command line arguments, now subclassed into categories.
     + __--load_mhat__ file, to load a volume for initializing the bias correction, the default is to use the data itself.
