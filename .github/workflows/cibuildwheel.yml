@@ -102,13 +102,12 @@ jobs:
           python -m pip install pyinstaller dask[distributed]
           python -m pip install .
           path=$(python -c "import distributed; print(distributed.__path__[0]);")
+          echo "version=v$(python -c "from importlib.metadata import version; print(version('nlsam'));")" >> $GITHUB_ENV
           if [ "$RUNNER_OS" == "Windows" ]; then
             pyinstaller ./scripts/nlsam_denoising -F --clean --add-data "${path};.\\distributed\\" --noupx
           else
             pyinstaller ./scripts/nlsam_denoising -F --clean --add-data ${path}:./distributed/ --noupx
           fi
-
-      - run: echo "version=v$(python -c "from importlib.metadata import version; print(version('nlsam'));")" >> $GITHUB_ENV
 
       - uses: actions/upload-artifact@v3
         with:
