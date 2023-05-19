@@ -103,10 +103,9 @@ jobs:
           python -m pip install .
           path=$(python -c "import distributed; print(distributed.__path__[0]);")
           if [ "$RUNNER_OS" == "Windows" ]; then
-            datapath="${path};.\\distributed\\"
+            pyinstaller ./scripts/nlsam_denoising -F --clean --add-data ${path};.\\distributed\\ --noupx
           else
-            datapath="${path}:./distributed/"
-          pyinstaller ./scripts/nlsam_denoising -F --clean --add-data ${datapath} --noupx
+            pyinstaller ./scripts/nlsam_denoising -F --clean --add-data ${path}:./distributed/ --noupx
 
       - run: echo "version=v$(python -c "from importlib.metadata import version; print(version('nlsam'));")" >> $GITHUB_ENV
 
