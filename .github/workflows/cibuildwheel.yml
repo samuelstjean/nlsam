@@ -102,12 +102,11 @@ jobs:
           python -m pip install pyinstaller dask[distributed]
           python -m pip install .
           path=$(python -c "import distributed; print(distributed.__path__[0]);")
-          echo ${path}
           if [ "$RUNNER_OS" == "Windows" ]; then
-            pyinstaller ./scripts/nlsam_denoising -F --clean --add-data "${path};.\\distributed\\" --noupx
+            datapath = "${path};.\\distributed\\"
           else
-            pyinstaller ./scripts/nlsam_denoising -F --clean --add-data ${path}:./distributed/ --noupx
-          fi
+            datapath = "${path}:./distributed/"
+          pyinstaller ./scripts/nlsam_denoising -F --clean --add-data ${datapath} --noupx
 
       - uses: actions/upload-artifact@v3
         with:
@@ -116,9 +115,9 @@ jobs:
 
       - uses: actions/upload-artifact@v3
         env:
-          VERSION: 0.6.1
+          VERSION: v$(python -c "from importlib.metadata import version; print(version('nlsam'));")
         with:
-          name: nlsam_${{env.VERSION}}}_${{ runner.os }}
+          name: nlsam_${{ env.VERSION }}_${{ runner.os }}
           path: |
                 CHANGELOG.md
                 README.md
