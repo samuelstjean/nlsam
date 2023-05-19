@@ -111,12 +111,12 @@ jobs:
 
       - uses: actions/upload-artifact@v3
         with:
-          name: nlsam_denoising ${{ RUNNER_OS }}
+          name: nlsam_denoising $RUNNER_OS
           path: ./dist/nlsam_denoising*
 
       - uses: actions/upload-artifact@v3
         with:
-          name: nlsam_denoising ${{ RUNNER_OS }}
+          name: nlsam_denoising $RUNNER_OS
           path: |
                 CHANGELOG.md
                 README.md
