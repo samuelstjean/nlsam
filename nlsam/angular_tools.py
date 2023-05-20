@@ -91,7 +91,7 @@ def greedy_set_finder(sets):
     return output
 
 
-def split_shell(bvals, bvecs, block_size, dwis, is_symmetric=False, bval_threshold=25):
+def split_per_shell(bvals, bvecs, angular_size, dwis, is_symmetric=False, bval_threshold=25):
     '''Process each shell separately for finding the valid angular neighbors.
     Returns a list of indexes for each shell separately
     '''
@@ -109,17 +109,18 @@ def split_shell(bvals, bvecs, block_size, dwis, is_symmetric=False, bval_thresho
 
     for shell, unique_bval in enumerate(non_bzeros):
         shell_bvecs = bvecs[unique_bval == rounded_bvals]
+        nbvecs = shell_bvecs.shape[0]
 
         if is_symmetric:
             sym_bvecs = shell_bvecs
         else:
             sym_bvecs = np.vstack((shell_bvecs, -shell_bvecs))
 
-        current_shell = angular_neighbors(sym_bvecs, block_size[-1] - 1) % shell_bvecs.shape[0]
-        current_shell = current_shell[:shell_bvecs.shape[0]]
+        current_shell = angular_neighbors(sym_bvecs, angular_size - 1) % nbvecs
+        current_shell = current_shell[:nbvecs]
 
         # convert to per shell indexes
-        positions = np.arange(shell_bvecs.shape[0])
+        positions = np.arange(nbvecs)
         new_positions = bvecs_idx[unique_bval == rounded_bvals]
 
         # this magically works for who knows why
@@ -129,5 +130,4 @@ def split_shell(bvals, bvecs, block_size, dwis, is_symmetric=False, bval_thresho
 
         current_shell = [(dwi,) + tuple(current_shell[pos]) for pos, dwi in enumerate(new_positions) if dwi in dwis]
         neighbors[shell] = current_shell
-
     return neighbors

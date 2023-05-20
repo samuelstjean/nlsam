@@ -5,10 +5,9 @@ from time import time
 from itertools import cycle
 
 from nlsam.utils import im2col_nd, col2im_nd
-from nlsam.angular_tools import angular_neighbors, split_shell, greedy_set_finder
+from nlsam.angular_tools import angular_neighbors, split_per_shell, greedy_set_finder
 from autodmri.blocks import extract_patches
 
-from scipy.sparse import lil_matrix
 from joblib import Parallel, delayed
 
 import spams
@@ -18,7 +17,7 @@ logger = logging.getLogger('nlsam')
 
 def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                   mask=None, is_symmetric=False, n_cores=-1, split_b0s=False, split_shell=False,
-                  subsample=True, n_iter=10, b0_threshold=10, dtype=np.float64, verbose=False):
+                  subsample=True, n_iter=10, b0_threshold=10, bval_threshold=25, dtype=np.float64, verbose=False):
     """Main nlsam denoising function which sets up everything nicely for the local
     block denoising.
 
@@ -30,7 +29,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         Noise standard deviation estimation at each voxel.
         Converted to variance internally.
     bvals : 1D array
-        the N b-values associated to each of the N diffusion volume.
+        the N bvalues associated to each of the N diffusion volume.
     bvecs : N x 3 2D array
         the N 3D vectors for each acquired diffusion gradients.
     block_size : tuple, length = data.ndim
@@ -50,7 +49,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         If True and the dataset contains multiple b0s, a different b0 will be used for
         each run of the denoising. If False, the b0s are averaged and the average b0 is used instead.
     split_shell : bool, default False
-        If True and the dataset contains multiple b-values, each shell is processed independently.
+        If True and the dataset contains multiple bvalues, each shell is processed independently.
         If False, all the data is used at the same time for computing angular neighbors.
     subsample : bool, default True
         If True, find the smallest subset of indices required to process each
@@ -58,7 +57,9 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     n_iter : int, default 10
         Maximum number of iterations for the reweighted l1 solver.
     b0_threshold : int, default 10
-        A b-value below b0_threshold will be considered as a b0 image.
+        A bvalue below b0_threshold will be considered as a b0 image.
+    bval_threshold : int, default 25
+        Any bvalue within += bval_threshold of each others will be considered on the same shell (e.g. b=990 and b=1000 are on the same shell).
     dtype : np.float32 or np.float64, default np.float64
         Precision to use for inner computations. Note that np.float32 should only be used for
         very, very large datasets (that is, your ram starts swapping) as it can lead to numerical precision errors.
@@ -93,6 +94,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     dwis = np.where(bvals > b0_threshold)[0]
     num_b0s = len(b0_loc)
     variance = sigma**2
+    angular_size = block_size[-1]
 
     # We also convert bvecs associated with b0s to exactly (0,0,0), which
     # is not always the case when we hack around with the scanner.
@@ -106,8 +108,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         data[..., b0_loc] = np.mean(data[..., b0_loc], axis=-1, keepdims=True)
 
     # Split the b0s in a cyclic fashion along the training data
-    # If we only had one, cycle just return b0_loc indefinitely,
-    # else we go through all indexes.
+    # If we only had one, cycle just return b0_loc indefinitely, else we go through all indexes.
     np.random.shuffle(b0_loc)
     split_b0s_idx = cycle(b0_loc)
 
@@ -118,18 +119,28 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     else:
         sym_bvecs = np.vstack((bvecs, -bvecs))
 
-    neighbors = angular_neighbors(sym_bvecs, block_size[-1] - 1) % data.shape[-1]
-    neighbors = neighbors[:data.shape[-1]]  # everything was doubled for symmetry
+    if split_shell:
+        logger.info('Data will be split in neighborhoods for each shells separately.')
+        neighbors = split_per_shell(bvals, bvecs, angular_size, dwis, is_symmetric=is_symmetric, bval_threshold=bval_threshold)
+
+        if subsample:
+            for n in range(len(neighbors)):
+                neighbors[n] = greedy_set_finder(neighbors[n])
+
+        indexes = [x for shell in neighbors for x in shell]
+    else:
+        neighbors = angular_neighbors(sym_bvecs, angular_size - 1) % data.shape[-1]
+        neighbors = neighbors[:data.shape[-1]]  # everything was doubled for symmetry
+
+        full_indexes = [(dwi,) + tuple(neighbors[dwi]) for dwi in range(data.shape[-1]) if dwi in dwis]
+
+        if subsample:
+            indexes = greedy_set_finder(full_indexes)
+        else:
+            indexes = full_indexes
 
     # Full overlap for dictionary learning
     overlap = np.array(block_size, dtype=np.int16) - 1
-
-    full_indexes = [(dwi,) + tuple(neighbors[dwi]) for dwi in range(data.shape[-1]) if dwi in dwis]
-
-    if subsample:
-        indexes = greedy_set_finder(full_indexes)
-    else:
-        indexes = full_indexes
 
     # If we have more b0s than indexes, then we have to add a few more blocks since
     # we won't do a full cycle. If we have more b0s than indexes after that, then it breaks.
@@ -142,12 +153,12 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                  ' either average them or deactivate subsampling.')
         raise ValueError(error)
 
-    b0_block_size = tuple(block_size[:-1]) + ((block_size[-1] + 1,))
+    b0_block_size = tuple(block_size[:-1]) + ((angular_size + 1,))
     data_denoised = np.zeros(data.shape, np.float32)
     divider = np.zeros(data.shape[-1])
 
     # Put all idx + b0 in this array in each iteration
-    to_denoise = np.empty(data.shape[:-1] + (block_size[-1] + 1,), dtype=dtype)
+    to_denoise = np.empty(data.shape[:-1] + (angular_size + 1,), dtype=dtype)
 
     for i, idx in enumerate(indexes, start=1):
         b0_loc = tuple((next(split_b0s_idx),))
@@ -249,7 +260,7 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
 
     orig_shape = data.shape
     mask_array = im2col_nd(mask, block_size[:-1], overlap[:-1])
-    train_idx = np.sum(mask_array, axis=0) > (mask_array.shape[0] / 2.)
+    train_idx = np.sum(mask_array, axis=0) > (mask_array.shape[0] / 2)
 
     # If mask is empty, return a bunch of zeros as blocks
     if not np.any(train_idx):
@@ -264,11 +275,12 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
 
     D = param_alpha['D']
 
-    alpha = lil_matrix((D.shape[1], X.shape[1]))
+    alpha = np.zeros((D.shape[1], X.shape[1]), dtype=dtype)
     W = np.ones(alpha.shape, dtype=dtype)
+    temp = np.zeros([alpha.shape[0], 1], dtype=dtype)
 
-    DtD = np.asfortranarray(np.dot(D.T, D))
-    DtX = np.dot(D.T, X)
+    DtD = np.asfortranarray(D.T @ D)
+    DtX = D.T @ X
     DtXW = np.empty_like(DtX, order='F')
     DtDW = np.empty_like(DtD, order='F')
 
@@ -288,9 +300,10 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
             if not_converged[i]:
                 param_alpha['lambda1'] = var_mat[i]
                 DtDW[:] = (1 / W[..., None, i]) * DtD * (1 / W[:, i])
-                alpha[:, i:i + 1] = spams.lasso(X[:, i:i + 1], Q=DtDW, q=DtXW[:, i:i + 1], **param_alpha)
+                spams.lasso(X[:, i:i+1], Q=DtDW, q=DtXW[:, i:i+1], **param_alpha).todense(out=temp)
+                alpha[:, i:i+1] = temp
 
-        alpha.toarray(out=arr)
+        arr[:] = alpha
         nonzero_ind[:] = arr != 0
         arr[nonzero_ind] /= W[nonzero_ind]
         not_converged[:] = np.max(np.abs(alpha_old - arr), axis=0) > tolerance
@@ -301,10 +314,11 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
         alpha_old[:] = arr
         W[:] = 1 / (np.abs(alpha_old**tau) + eps)
 
-    weigths = np.ones(X_full_shape[1], dtype=dtype, order='F')
-    weigths[train_idx] = 1 / (alpha.getnnz(axis=0) + 1)
+    weights = np.ones(X_full_shape[1], dtype=dtype, order='F')
+    weights[train_idx] = 1 / (np.sum(alpha != 0, axis=0) + 1)
 
     X = np.zeros(X_full_shape, dtype=dtype, order='F')
-    X[:, train_idx] = np.dot(D, arr)
+    X[:, train_idx] = D @ arr
+    out = col2im_nd(X, block_size, orig_shape, overlap, weights)
 
-    return col2im_nd(X, block_size, orig_shape, overlap, weigths)
+    return out

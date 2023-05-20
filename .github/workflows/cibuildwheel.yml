@@ -58,7 +58,6 @@ jobs:
           python -m pip install build
           python -m build --sdist
 
-
       - uses: actions/upload-artifact@v3
         with:
           path: dist/*.tar.gz
@@ -82,3 +81,44 @@ jobs:
           password: ${{ secrets.PYPI_PASSWORD }}
           # password: ${{ secrets.testpypi_password }}
           # repository_url: https://test.pypi.org/legacy/
+
+  build_pyinstaller:
+    name: Build pyinstaller on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, windows-2019, macos-11]
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        name: Install Python
+        with:
+          python-version: '3.10'
+
+      - name: Get pyinstaller
+        shell: bash
+        run: |
+          python -m pip install pyinstaller dask[distributed]
+          python -m pip install .
+          path=$(python -c "import distributed; print(distributed.__path__[0]);")
+          echo "version=v$(python -c "from importlib.metadata import version; print(version('nlsam'));")" >> $GITHUB_ENV
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            pyinstaller ./scripts/nlsam_denoising -F --clean --add-data "${path};.\\distributed\\" --noupx
+          else
+            pyinstaller ./scripts/nlsam_denoising -F --clean --add-data ${path}:./distributed/ --noupx
+          fi
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: nlsam_${{ env.version }}_${{ runner.os }}
+          path: ./dist/nlsam_denoising*
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: nlsam_${{ env.version }}_${{ runner.os }}
+          path: |
+                CHANGELOG.md
+                README.md
+                LICENSE
+                example/*
