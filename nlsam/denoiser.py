@@ -300,8 +300,8 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
             if not_converged[i]:
                 param_alpha['lambda1'] = var_mat[i]
                 DtDW[:] = (1 / W[..., None, i]) * DtD * (1 / W[:, i])
-                spams.lasso(X[:, i:i + 1], Q=DtDW, q=DtXW[:, i:i + 1], **param_alpha).todense(out=temp)
-                alpha[:, i:i + 1] = temp
+                spams.lasso(X[:, i:i+1], Q=DtDW, q=DtXW[:, i:i+1], **param_alpha).todense(out=temp)
+                alpha[:, i:i+1] = temp
 
         arr[:] = alpha
         nonzero_ind[:] = arr != 0
@@ -314,10 +314,11 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
         alpha_old[:] = arr
         W[:] = 1 / (np.abs(alpha_old**tau) + eps)
 
-    weigths = np.ones(X_full_shape[1], dtype=dtype, order='F')
-    weigths[train_idx] = 1 / (np.sum(alpha != 0, axis=0) + 1)
+    weights = np.ones(X_full_shape[1], dtype=dtype, order='F')
+    weights[train_idx] = 1 / (np.sum(alpha != 0, axis=0) + 1)
 
     X = np.zeros(X_full_shape, dtype=dtype, order='F')
     X[:, train_idx] = D @ arr
+    out = col2im_nd(X, block_size, orig_shape, overlap, weights)
 
-    return col2im_nd(X, block_size, orig_shape, overlap, weigths)
+    return out
