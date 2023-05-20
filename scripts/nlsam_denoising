@@ -532,7 +532,16 @@ if __name__ == "__main__":
         from dask.distributed import Client
         from joblib import parallel_backend
 
-        client = Client(threads_per_worker=1)
+        # Use the argparser to only fetch the number of cores, everything is still processed in main()
+        parser = buildArgsParser()
+        args = parser.parse_args()
+
+        if args.cores is None or args.cores > cpu_count():
+            n_cores = cpu_count()
+        else:
+            n_cores = args.cores
+
+        client = Client(threads_per_worker=1, n_workers=n_cores)
         parallel_backend("dask")
 
     main()
