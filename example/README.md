@@ -47,8 +47,8 @@ There are 4 required command line inputs (their order is important) and a switch
 
 + The input dataset (dwi.nii.gz)
 + The output dataset (dwi_nlsam.nii.gz)
-+ The b-values file for our input dataset (bvals)
-+ The b-vectors file for our input dataset (bvecs)
++ The bvalues file for our input dataset (bvals)
++ The bvectors file for our input dataset (bvecs)
 + -m or --mask mask.nii.gz for the brain mask
 
 The bvals/bvecs files are needed for identifying the angular neighbors and we need to choose how many we want to denoise at once (the default is now 5).
@@ -56,7 +56,7 @@ The bvals/bvecs files are needed for identifying the angular neighbors and we ne
 Using a larger number could mean more blurring if we mix q-space points which are too far part.
 
 For a multishell acquisition, only the direction (as opposed to the norm)
-of the b-vector is taken into account, so you can freely mix dwi from different
+of the bvector is taken into account, so you can freely mix dwi from different
 shells to favor picking radial decay in the denoising.
 
 There is also a new option called **--split_shell** to process each shell by itself separately and **--split_b0s** to process the b0s separately in each block.

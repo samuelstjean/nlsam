@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.7] Development version
+## [0.7] - 2023-05-20
 
 - **Breaking changes in the command line parser**
     - The previously required options __N__ and __angular_block_size__ are now optional.
@@ -24,7 +24,7 @@
 - New online documentation available at http://nlsam.readthedocs.io/ for the current (and future) versions.
 - The dictionary learning part of the algorithm now respects **--cores** instead of ignoring it and always using all available processors.
 - joblib is now used for parallel processing.
-    - For now it means we lose the frozen executable until they fix it.
+    - The frozen executable is now using dask and performs a bit slower than the normal version until joblib.loky is fixed to work with pyinstaller.
     - Binary wheels are now available for all platforms instead.
 - A new option to estimate automatically the noise distribution (sigma and N) is now available by passing **auto** to both N and **--noise_est**.
     - This option is also the new default now.

@@ -23,7 +23,7 @@ def sh_smooth(data, bvals, bvecs, sh_order=4, b0_threshold=1.0, similarity_thres
     sh_order : int, default 8
         Order of the spherical harmonics to fit.
     similarity_threshold : int, default 50
-        All b-values such that |b_1 - b_2| < similarity_threshold
+        All bvalues such that |b_1 - b_2| < similarity_threshold
         will be considered as identical for smoothing purpose.
         Must be lower than 200.
     regul : float, default 0.006
@@ -56,7 +56,7 @@ def sh_smooth(data, bvals, bvecs, sh_order=4, b0_threshold=1.0, similarity_thres
         idx = np.abs(unique_bval - bvals) < similarity_threshold
         rounded_bvals[idx] = unique_bval
 
-    # process each b-value separately
+    # process each bvalue separately
     for unique_bval in np.unique(rounded_bvals):
         idx = rounded_bvals == unique_bval
 

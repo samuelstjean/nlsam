@@ -86,14 +86,14 @@ def buildArgsParser():
                            'This is now a required input to prevent sampling (and reconstructing) background noise instead of the data.')
 
     optionals.add_argument('--b0_threshold', metavar='int', default=10, type=int,
-                           help='Lowest b-value to be considered as a b0. Default 10')
+                           help='Lowest bvalue to be considered as a b0. Default 10')
 
     optionals.add_argument('--split_b0s', action='store_true',
                            help='If set and multiple b0s are present, they are split amongst the '
                            'training data.')
 
     optionals.add_argument('--split_shell', action='store_true',
-                           help='If set, each shell/b-value is processed separately by itself.')
+                           help='If set, each shell/bvalue is processed separately by itself.')
 
     optionals.add_argument('--bval_threshold', metavar='int', default=25, type=int,
                            help='Any bvalue within += bval_threshold of each others will be considered on the same shell (e.g. b=990 and b=1000 are on the same shell). Default 25')

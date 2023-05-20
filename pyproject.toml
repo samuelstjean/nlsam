@@ -9,10 +9,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nlsam"
-version = '0.6.1'
-authors = [
-    {name = "Samuel St-Jean"},
-]
+version = '0.7'
+authors = [{name = "Samuel St-Jean"}]
 description='Implementation of "Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising"'
 readme = "README.md"
 requires-python = ">=3.7"
