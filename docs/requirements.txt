@@ -1,2 +1,3 @@
 sphinx-autoapi
 sphinx >= 3.0
+myst-parser
