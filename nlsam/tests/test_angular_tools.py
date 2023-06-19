@@ -1,7 +1,5 @@
-#! /usr/bin/env python
-
 import numpy as np
-from numpy.testing import assert_almost_equal, assert_equal, run_module_suite
+from numpy.testing import assert_almost_equal, assert_equal
 
 from nlsam.angular_tools import angular_neighbors, _angle, greedy_set_finder, split_per_shell
 
@@ -89,6 +87,3 @@ def test_split_per_shell():
 
     for n, ii in enumerate(idx):
         assert_equal(np.unique(greedy_set_finder(ii)), true_idx[n])
-
-if __name__ == "__main__":
-    run_module_suite()

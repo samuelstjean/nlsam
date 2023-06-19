@@ -1,7 +1,5 @@
-#! /usr/bin/env python
-
 import numpy as np
-from numpy.testing import assert_allclose, assert_array_less, run_module_suite
+from numpy.testing import assert_allclose, assert_array_less
 
 from nlsam.bias_correction import root_finder_sigma, multiprocess_stabilization
 
@@ -138,7 +136,3 @@ def test_stabilization():
     # The answer is a bit off for the last values of the final output, might be due to different numerical schemes
     assert_allclose(output[:80], answer[:80], atol=1e-2, rtol=1e-5)
     assert_allclose(eta, eta_koay, atol=1e-2, rtol=1e-6)
-
-
-if __name__ == "__main__":
-    run_module_suite()
