@@ -9,7 +9,7 @@ on:
 jobs:
   build_wheels:
     name: Build wheels on ${{ matrix.os }} ${{ matrix.arch }}
-    runs-on: ${{ matrix.os }}
+    runs-on: [${{ matrix.os }}, ${{ matrix.arch }}]
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -67,7 +67,7 @@ jobs:
 
   build_pyinstaller:
     name: Build pyinstaller on ${{ matrix.os }} ${{ matrix.arch }}
-    runs-on: ${{ matrix.os }}
+     runs-on: [${{ matrix.os }}, ${{ matrix.arch }}]
     strategy:
       matrix:
         os: [ubuntu-20.04, windows-2019, macos-11]
