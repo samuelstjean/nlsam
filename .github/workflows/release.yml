@@ -3,26 +3,39 @@ name: Upload Python Package
 on:
   release:
     types: [created]
+  workflow_run:
+    workflows: [build_wheels, build_sdist]
+    types:
+      - completed
 
 jobs:
-  upload_pypi:
-    needs: [build_wheels, build_sdist]
-    runs-on: ubuntu-latest
-    # upload to PyPI on every tag starting with 'v'
-    # if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags/v')
-    # alternatively, to publish when a GitHub Release is created, use the following rule:
-    if: github.event_name == 'release' && github.event.action == 'published'
-    steps:
-      - uses: actions/download-artifact@v3
-        with:
-          name: artifact
-          path: dist
+    upload_pypi:
+      runs-on: ubuntu-latest
+      # upload to PyPI on every tag starting with 'v'
+      # if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags/v')
+      # alternatively, to publish when a GitHub Release is created, use the following rule:
+      if: ${{ github.event.workflow_run.conclusion == 'success' }} && github.event_name == 'release' && github.event.action == 'published'
+      steps:
+        - name: Download builds
+          uses: actions/download-artifact@v3
+          with:
+            name: artifact
+            path: dist
 
-      - uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          verbose: true
-          print-hash: true
-          user: ${{ secrets.PYPI_USERNAME }}
-          password: ${{ secrets.PYPI_PASSWORD }}
-          # password: ${{ secrets.testpypi_password }}
-          # repository_url: https://test.pypi.org/legacy/
+        - name: upload to pypi
+          uses: pypa/gh-action-pypi-publish@release/v1
+          with:
+            verbose: true
+            print-hash: true
+            user: ${{ secrets.PYPI_USERNAME }}
+            password: ${{ secrets.PYPI_PASSWORD }}
+            # password: ${{ secrets.testpypi_password }}
+            # repository_url: https://test.pypi.org/legacy/
+
+        - name: publish to github release
+          uses: softprops/action-gh-release@v0.1.15
+          # permissions:
+            # contents: write
+          if: startsWith(github.ref, 'refs/tags/')
+          with:
+            files: dist/*
