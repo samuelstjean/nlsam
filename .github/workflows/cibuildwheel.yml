@@ -8,7 +8,7 @@ on:
 
 jobs:
   build_wheels:
-    name: Build wheels on ${{ matrix.os }} ${{ matrix.arch }}
+    name: Build wheels on ${{ matrix.os }} ${{ runner.arch }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -30,7 +30,7 @@ jobs:
         env:
           CIBW_ARCHS: "auto64"
           CIBW_SKIP: "pp* cp36-* cp37-* *musllinux* cp38-macosx_arm64"
-          CIBW_ARCHS_MACOS: x86_64 arm64
+          # CIBW_ARCHS_MACOS: x86_64 arm64
           CIBW_TEST_REQUIRES: pytest
           CIBW_TEST_COMMAND: pytest --pyargs nlsam --verbose
           CIBW_TEST_COMMAND_LINUX: >
@@ -66,7 +66,7 @@ jobs:
           path: dist/*.tar.gz
 
   build_pyinstaller:
-    name: Build pyinstaller on ${{ matrix.os }} ${{ matrix.arch }}
+    name: Build pyinstaller on ${{ matrix.os }} ${{ runner.arch }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -98,7 +98,7 @@ jobs:
 
       - uses: actions/upload-artifact@v3
         with:
-          name: nlsam_${{ env.version }}_${{ runner.os }}
+          name: nlsam_${{ env.version }}_${{ runner.os }}_${{ runner.arch }}
           path: |
                 CHANGELOG.md
                 README.md
