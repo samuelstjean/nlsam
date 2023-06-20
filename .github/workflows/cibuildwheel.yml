@@ -8,7 +8,7 @@ on:
 
 jobs:
   build_wheels:
-    name: Build wheels on ${{ matrix.os }} ${{ runner.arch }}
+    name: Build wheels on ${{ matrix.os }} ${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -16,7 +16,7 @@ jobs:
         arch: ['x64']
         include:
           - os: macos-latest
-            arch: ['arm64']
+            arch: arm64
     steps:
       - uses: actions/checkout@v3
 
@@ -66,7 +66,7 @@ jobs:
           path: dist/*.tar.gz
 
   build_pyinstaller:
-    name: Build pyinstaller on ${{ matrix.os }} ${{ runner.arch }}
+    name: Build pyinstaller on ${{ matrix.os }} ${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -74,7 +74,7 @@ jobs:
         arch: ['x64']
         include:
           - os: macos-11
-            arch: ['arm64']
+            arch: arm64
     steps:
       - uses: actions/checkout@v3
 
