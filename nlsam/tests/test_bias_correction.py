@@ -6,9 +6,9 @@ from nlsam.bias_correction import root_finder_sigma, multiprocess_stabilization
 
 def test_root_finder_sigma():
 
-    eta = np.full((10, 10, 10, 10), 100., dtype=np.float32)
-    sigma = np.full((10, 10, 10, 10), 1., dtype=np.float32)
-    N = np.full((10, 10, 10, 10), 1., dtype=np.float32)
+    eta = np.full((10, 10, 10, 10), 100, dtype=np.float32)
+    sigma = np.full((10, 10, 10, 10), 1, dtype=np.float32)
+    N = np.full((10, 10, 10, 10), 1, dtype=np.float32)
     mask = np.ones_like(eta[..., 0])
     output = root_finder_sigma(eta, sigma, N, mask)
     assert_allclose(output, sigma, atol=1e-4)
@@ -23,9 +23,9 @@ def test_root_finder_sigma():
 
     # magnitude SNR of 0.5 -> sigma = 50, eta = 25 for N = 1
     a = [np.sqrt((25 + np.random.randn(10000) * 50)**2 + (np.random.randn(10000) * 50)**2) for ii in range(250)]
-    eta = np.mean(a, axis=1, keepdims=True, dtype=np.float32)
+    eta = np.mean(a, axis=1, keepdims=True, dtype=np.float64)
     sigma = np.std(a, axis=1, keepdims=True, dtype=np.float64)
-    N = np.ones_like(sigma)
+    N = np.ones(sigma.shape, dtype=np.float32)
     output = root_finder_sigma(eta, sigma, N)
 
     # everything less than 10% error of real value?
