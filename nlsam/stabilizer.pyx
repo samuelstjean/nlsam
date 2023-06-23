@@ -7,13 +7,13 @@ from cython cimport floating
 from libc.math cimport sqrt, fabs
 from scipy.special.cython_special cimport ndtri, gamma, chndtr, hyp1f1
 
-
 # libc.math isnan does not work on windows, it is called _isnan, so we use this one instead
 # same thing for NAN apparently
 cdef extern from "numpy/npy_math.h" nogil:
     bint npy_isnan(double x)
     double NPY_NAN
 
+# This is because in def, stuff is decided at runtime so we have to use different types to allow mixing float and double in the inputs
 ctypedef fused floating1:
     double
     float
