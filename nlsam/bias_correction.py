@@ -50,11 +50,11 @@ def stabilization(data, m_hat, sigma, N, mask=None, clip_eta=True, return_eta=Fa
 
     with Parallel(n_jobs=n_cores, prefer='threads') as parallel:
         output = parallel(delayed(multiprocess_stabilization)(data[current_slice],
-                                                                m_hat[current_slice],
-                                                                mask,
-                                                                sigma[current_slice],
-                                                                N[current_slice],
-                                                                clip_eta) for current_slice in slicer)
+                                                              m_hat[current_slice],
+                                                              mask,
+                                                              sigma[current_slice],
+                                                              N[current_slice],
+                                                              clip_eta) for current_slice in slicer)
 
     data_stabilized = np.zeros_like(data, dtype=np.float32)
     eta = np.zeros_like(data, dtype=np.float32)

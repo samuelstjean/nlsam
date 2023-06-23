@@ -26,8 +26,8 @@ ctypedef fused floating3:
     double
     float
 
-def multiprocess_stabilization(floating[:,:,:] data, floating1[:,:,:] m_hat, np.uint8_t[:,:,:] mask, floating2[:,:,:] sigma,
-                               floating3[:,:,:] N, bint clip_eta=True, double alpha=0.0001, bint use_nan=False):
+def multiprocess_stabilization(const floating[:,:,:] data, const floating1[:,:,:] m_hat, const np.uint8_t[:,:,:] mask,
+                               const floating2[:,:,:] sigma, const floating3[:,:,:] N, bint clip_eta=True, double alpha=0.0001, bint use_nan=False):
     """Helper function for multiprocessing the stabilization part."""
     cdef:
         Py_ssize_t i_max = data.shape[0]
@@ -338,7 +338,7 @@ cdef double root_finder(double r, double N, int max_iter=500, double eps=1e-6) n
 
     return t1
 
-def root_finder_loop(floating[:] data, floating1[:] sigma, floating2[:] N):
+def root_finder_loop(const floating[:] data, const floating1[:] sigma, const floating2[:] N):
 
     cdef:
         double theta, gaussian_SNR

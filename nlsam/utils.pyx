@@ -98,7 +98,7 @@ def im2col_nd(A, block_shape, overlap):
     dim1 = np.prod(A.shape - block_shape + 1)
     dtype = np.float64
 
-    A = np.array(A, order='C', dtype=dtype, copy=True) # parallel processing sometimes complains about read-only buffers, so we take an explicit copy
+    A = np.array(A, order='C', dtype=dtype)
     R = np.zeros((dim0, dim1), dtype=dtype, order='F')
 
     # if A is zeros, R will also be zeros
