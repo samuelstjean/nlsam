@@ -429,7 +429,7 @@ def main():
 
         # Compute the corrected value for each 3D volume
         if N > 0:
-            sigma = root_finder_sigma(data, sigma, N, mask=mask, verbose=verbose, ncores=n_cores)
+            sigma = root_finder_sigma(data, sigma, N, mask=mask, verbose=verbose, n_cores=n_cores)
 
     elif noise_method == 'auto':
         logger.info(f"Estimating noise with method {noise_method}")
@@ -523,7 +523,7 @@ def main():
 
 
 if __name__ == "__main__":
-    # Until joblib.loky support pyinstaller, we use dask instead
+    # Until joblib.loky support pyinstaller, we use dask instead for the frozen binaries
     import sys
     frozen = getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
 
