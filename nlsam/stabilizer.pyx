@@ -14,9 +14,20 @@ cdef extern from "numpy/npy_math.h" nogil:
     bint npy_isnan(double x)
     double NPY_NAN
 
+ctypedef fused floating1:
+    double
+    float
 
-def multiprocess_stabilization(floating[:,:,:] data, floating[:,:,:] m_hat, np.uint8_t[:,:,:] mask, floating[:,:,:] sigma,
-                               floating[:,:,:] N, bint clip_eta=True, double alpha=0.0001, bint use_nan=False):
+ctypedef fused floating2:
+    double
+    float
+
+ctypedef fused floating3:
+    double
+    float
+
+def multiprocess_stabilization(floating[:,:,:] data, floating1[:,:,:] m_hat, np.uint8_t[:,:,:] mask, floating2[:,:,:] sigma,
+                               floating3[:,:,:] N, bint clip_eta=True, double alpha=0.0001, bint use_nan=False):
     """Helper function for multiprocessing the stabilization part."""
     cdef:
         Py_ssize_t i_max = data.shape[0]
@@ -327,7 +338,7 @@ cdef double root_finder(double r, double N, int max_iter=500, double eps=1e-6) n
 
     return t1
 
-def root_finder_loop(floating[:] data, floating[:] sigma, floating[:] N):
+def root_finder_loop(floating[:] data, floating1[:] sigma, floating2[:] N):
 
     cdef:
         double theta, gaussian_SNR
