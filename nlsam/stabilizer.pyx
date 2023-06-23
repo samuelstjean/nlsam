@@ -327,7 +327,7 @@ cdef double root_finder(double r, double N, int max_iter=500, double eps=1e-6) n
 
     return t1
 
-def root_finder_loop(double[:] data, double[:] sigma, double[:] N):
+def root_finder_loop(data, sigma, N):
 
     cdef:
         double theta, gaussian_SNR
