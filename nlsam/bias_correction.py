@@ -19,8 +19,8 @@ def stabilization(data, m_hat, sigma, N, mask=None, clip_eta=True, return_eta=Fa
 
     data = np.asarray(data)
     m_hat = np.asarray(m_hat)
-    sigma = np.atleast_3d(sigma.astype(np.float32))
-    N = np.atleast_3d(N.astype(np.float32))
+    sigma = np.atleast_3d(sigma).astype(np.float32)
+    N = np.atleast_3d(N).astype(np.float32)
 
     if mask is None:
         mask = np.ones(data.shape[:-1], dtype=bool)
