@@ -10,7 +10,7 @@ def test_root_finder_sigma():
 
     eta = np.full((10, 10, 10, 10), 100.)
     sigma = np.full((10, 10, 10, 10), 1.)
-    N = 1
+    N = np.full((10, 10, 10, 10), 1.)
     mask = np.ones_like(eta[..., 0])
     output = root_finder_sigma(eta, sigma, N, mask)
     assert_allclose(output, sigma, atol=1e-4)
@@ -24,10 +24,11 @@ def test_root_finder_sigma():
     assert_allclose(output, sigma, atol=1e-4)
 
     # magnitude SNR of 0.5 -> sigma = 50, eta = 25 for N = 1
-    a = np.sqrt((25 + np.random.randn(10000) * 50)**2 + (np.random.randn(10000) * 50)**2)
-    eta = [a.mean(), a.mean()]
-    sigma = a.std()
-    output = root_finder_sigma(eta, sigma, 1)
+    a = [np.sqrt((25 + np.random.randn(10000) * 50)**2 + (np.random.randn(10000) * 50)**2) for ii in range(250)]
+    eta = np.mean(a, axis=1, keepdims=True)
+    sigma = np.std(a, axis=1, keepdims=True)
+    N = np.ones_like(sigma)
+    output = root_finder_sigma(eta, sigma, N)
 
     # everything less than 10% error of real value?
     assert_array_less(np.abs(output - 50) / 50, 0.1)
@@ -54,7 +55,7 @@ def test_stabilization():
                12.152385742126548, 14.708345988504204, 20.880343502584108, 45.633794111081926, 33.192065161666356, 12.913596989980766,
                45.29593334531513, 29.53694349839379, 46.163861173396285, 30.7950601400292]
 
-    noisySI = np.array(noisySI)
+    noisySI = np.atleast_3d(noisySI)
     sigma = 20 * np.ones_like(noisySI)
     N = 1 * np.ones_like(noisySI)
     mask = np.ones_like(noisySI, dtype=bool)
@@ -73,8 +74,9 @@ def test_stabilization():
             23.9808, 23.5034, 23.0955, 22.7748, 22.5601, 22.4715, 22.5301, 22.7584, 23.1799, 23.8194,
             24.7027, 25.857, 27.3106, 29.0928, 31.2343, 33.767, 36.7238, 40.1388, 44.0474]
 
-    mhat = np.array(mhat)
+    mhat = np.atleast_3d(mhat)
     output, eta = multiprocess_stabilization(noisySI, mhat, mask, sigma, N, clip_eta=False)
+    output = np.squeeze(output)
 
     # I don't do smoothing spline, but that's the original answer from the example
     answer = [974.2593726961478, 920.3597667319971, 819.4231414958396, 802.2668203840909, 727.4911655717409, 673.3397826429069,
@@ -132,7 +134,7 @@ def test_stabilization():
                 -10.0663, -11.3271, -12.2337, -12.8077, -13.038, -12.886, -12.2782, -11.077, -8.977, -4.8259, 7.1326,
                 12.1041, 16.3589, 20.4676, 24.6239, 28.9353, 33.4804, 38.3278]
 
-    eta_koay = np.array(eta_koay)
+    eta_koay = np.atleast_3d(eta_koay)
 
     # I don't do smoothing spline, but using the smoothed input on both versions this is what we have
     # The answer is a bit off for the last values of the final output, might be due to different numerical schemes

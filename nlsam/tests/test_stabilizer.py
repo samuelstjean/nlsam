@@ -4,11 +4,10 @@ import numpy as np
 from numpy.testing import assert_allclose, assert_equal, run_module_suite
 from itertools import product
 
-from nlsam.stabilizer import (_test_marcumq_cython,
-                              _test_beta,
-                              xi,
-                              fixed_point_finder,
-                              chi_to_gauss)
+from nlsam.stabilizer import _test_marcumq_cython, _test_beta
+from nlsam.stabilizer import _test_xi as xi
+from nlsam.stabilizer import _test_fixed_point_finder as fixed_point_finder
+from nlsam.stabilizer import _test_chi_to_gauss as chi_to_gauss
 
 # hispeed is the closed source java reference implementation,
 # from which most values are taken from.
