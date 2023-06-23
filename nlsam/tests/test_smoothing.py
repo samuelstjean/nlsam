@@ -1,7 +1,5 @@
-#! /usr/bin/env python
-
 import numpy as np
-from numpy.testing import assert_array_less, run_module_suite
+from numpy.testing import assert_array_less
 
 from nlsam.stabilizer import _test_xi as xi
 from nlsam.smoothing import local_standard_deviation
@@ -42,7 +40,3 @@ def test_local_standard_deviation():
 
         # everything less than 10% error of real value?
         assert_array_less(np.abs(std - corrected_std.mean()) / std, 0.1)
-
-
-if __name__ == "__main__":
-    run_module_suite()

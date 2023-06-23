@@ -1,7 +1,5 @@
-#! /usr/bin/env python
-
 import numpy as np
-from numpy.testing import assert_allclose, assert_equal, run_module_suite
+from numpy.testing import assert_allclose, assert_equal
 from itertools import product
 
 from nlsam.stabilizer import _test_marcumq_cython, _test_beta
@@ -321,7 +319,3 @@ def test_marcumq_octave():
 
     for (a, b), q in zip(product(A, B), Q):
         assert_allclose(_test_marcumq_cython(a, b, M), q, atol=1e-4, rtol=1e-6)
-
-
-if __name__ == "__main__":
-    run_module_suite()

@@ -1,7 +1,5 @@
-#! /usr/bin/env python
-
 import numpy as np
-from numpy.testing import assert_allclose, run_module_suite
+from numpy.testing import assert_allclose
 
 from nlsam.utils import col2im_nd, im2col_nd
 from autodmri.blocks import extract_patches
@@ -52,7 +50,3 @@ def test_reshaping():
     out = extract_patches(a, (2, 2, 2, 10), (1, 1, 1, 10)).reshape(-1, 2**3 * 10).T
     redo = col2im_nd(out, (2, 2, 2, 10), (10, 10, 10, 10), (0, 0, 0, 0))
     assert_allclose(a, redo)
-
-
-if __name__ == "__main__":
-    run_module_suite()

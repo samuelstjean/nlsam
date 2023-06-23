@@ -544,6 +544,7 @@ if __name__ == "__main__":
             n_cores = args.cores
 
         client = Client(threads_per_worker=1, n_workers=n_cores)
-        parallel_backend("dask")
-
-    main()
+        with parallel_backend("dask"):
+            main()
+    else:
+        main()
