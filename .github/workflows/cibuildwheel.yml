@@ -26,7 +26,7 @@ jobs:
         uses: pypa/cibuildwheel@v2.12.3
         env:
           CIBW_ARCHS: "auto64"
-          CIBW_SKIP: "pp* cp36-* cp37-* *musllinux* cp38-macosx_arm64"
+          CIBW_SKIP: "pp* cp36-* cp37-* cp38-manylinux_x86_64 *musllinux* cp38-macosx_arm64"
           CIBW_ARCHS_MACOS: x86_64 arm64
           CIBW_TEST_REQUIRES: pytest
           CIBW_TEST_COMMAND: pytest --pyargs nlsam --verbose
