@@ -54,7 +54,7 @@ jobs:
       - uses: actions/setup-python@v4
         name: Install Python
         with:
-          python-version: '3.7'
+          python-version: '3.10'
 
       - name: Build sdist
         run: |
@@ -96,6 +96,11 @@ jobs:
             pyinstaller ./scripts/nlsam_denoising -F --clean --add-data ${path}:./distributed/ --noupx
           fi
 
+     - uses: actions/upload-artifact@v3
+        with:
+          name: nlsam_${{ env.version }}_${{ runner.os }}_${{ runner.arch }}
+          path: ./dist/nlsam_denoising*
+
       - uses: actions/upload-artifact@v3
         with:
           name: nlsam_${{ env.version }}_${{ runner.os }}_${{ runner.arch }}
@@ -104,4 +109,3 @@ jobs:
                 README.md
                 LICENSE
                 example/*
-                ./dist/nlsam_denoising*
