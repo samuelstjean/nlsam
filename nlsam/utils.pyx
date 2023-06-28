@@ -5,7 +5,7 @@ import numpy as np
 cdef void _im2col3D(double[:,:,::1] A, double[::1,:] R, int[:] size) nogil:
 
     cdef:
-        int k = 0, l = 0
+        Py_ssize_t k = 0, l = 0
         Py_ssize_t a, b, c, m, n, o
         Py_ssize_t x = A.shape[0], y = A.shape[1], z = A.shape[2]
         Py_ssize_t s0 = size[0], s1 = size[1], s2 = size[2]
@@ -28,7 +28,7 @@ cdef void _im2col3D(double[:,:,::1] A, double[::1,:] R, int[:] size) nogil:
 cdef void _im2col3D_overlap(double[:,:,::1] A, double[::1,:] R, int[:] size, int[:] overlap):
 
     cdef:
-        int k = 0, l = 0
+        Py_ssize_t k = 0, l = 0
         Py_ssize_t a, b, c, m, n, o
         Py_ssize_t x = A.shape[0], y = A.shape[1], z = A.shape[2]
         Py_ssize_t s0 = size[0], s1 = size[1], s2 = size[2]
@@ -53,7 +53,7 @@ cdef void _im2col3D_overlap(double[:,:,::1] A, double[::1,:] R, int[:] size, int
 cdef void _im2col4D(double[:,:,:,::1] A, double[::1,:] R, int[:] size) nogil:
 
     cdef:
-        int k = 0, l = 0
+        Py_ssize_t k = 0, l = 0
         Py_ssize_t a, b, c, d, m, n, o, p
         Py_ssize_t x = A.shape[0], y = A.shape[1], z = A.shape[2], t = A.shape[3]
         Py_ssize_t s0 = size[0], s1 = size[1], s2 = size[2]
@@ -119,7 +119,7 @@ def im2col_nd(A, block_shape, overlap):
 
 cdef void _col2im3D_overlap(double[:,:,::1] A, double[:,:,::1] div, double[::1,:] R, double[:] weights, int[:] block_shape, int[:] overlap):
     cdef:
-        int k = 0, l = 0
+        Py_ssize_t k = 0, l = 0
         Py_ssize_t a, b, c, m, n, o
         Py_ssize_t x = A.shape[0], y = A.shape[1], z = A.shape[2]
         Py_ssize_t s0 = block_shape[0], s1 = block_shape[1], s2 = block_shape[2]
@@ -145,7 +145,7 @@ cdef void _col2im3D_overlap(double[:,:,::1] A, double[:,:,::1] div, double[::1,:
 cdef void _col2im3D(double[:,:,::1] A, double[:,:,::1] div, double[::1,:] R, double[:] weights, int[:] block_shape) nogil:
 
     cdef:
-        int k = 0, l = 0
+        Py_ssize_t k = 0, l = 0
         Py_ssize_t a, b, c, m, n, o
         Py_ssize_t x = A.shape[0], y = A.shape[1], z = A.shape[2]
         Py_ssize_t s0 = block_shape[0], s1 = block_shape[1], s2 = block_shape[2]
@@ -169,7 +169,7 @@ cdef void _col2im3D(double[:,:,::1] A, double[:,:,::1] div, double[::1,:] R, dou
 
 cdef void _col2im4D(double[:,:,:,::1] A, double[:,:,::1] div, double[::1,:] R, double[:] weights, int[:] block_shape) nogil:
     cdef:
-        int k = 0, l = 0
+        Py_ssize_t k = 0, l = 0
         Py_ssize_t a, b, c, d, m, n, o, p
         Py_ssize_t x = A.shape[0], y = A.shape[1], z = A.shape[2], t = A.shape[3]
         Py_ssize_t s0 = block_shape[0], s1 = block_shape[1], s2 = block_shape[2]
