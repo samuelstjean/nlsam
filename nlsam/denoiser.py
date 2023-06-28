@@ -261,16 +261,16 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     return data_subset
 
 
-def processer(*args):
-    from line_profiler import LineProfiler
-    lp = LineProfiler()
-    lp_wrapper = lp(processer2)
-    lp_wrapper(*args)
-    lp.print_stats()
-    # processer2(*args)
+# def processer(*args):
+#     from line_profiler import LineProfiler
+#     lp = LineProfiler()
+#     lp_wrapper = lp(processer2)
+#     lp_wrapper(*args)
+#     lp.print_stats()
+#     # processer2(*args)
 
 # @profile
-def processer2(data, mask, variance, block_size, overlap, param_alpha, param_D, current_slice,
+def processer(data, mask, variance, block_size, overlap, param_alpha, param_D, current_slice,
               dtype=np.float64, n_iter=10, gamma=3, tau=1, tolerance=1e-5):
 
     # Fetch the current slice for parallel processing since now the arrays are dumped and read from disk
