@@ -322,7 +322,7 @@ def main():
 
     if args.noise_maps is None:
         if args.N == 'auto' and noise_method != 'auto':
-            parser.error(f'You need to pass --noise_est auto when using -N auto, but you passed --noise_est {noise_method}.')
+            parser.error(f'You need to pass --noise_est auto when using -N auto, but you passed --noise_est {noise_method}. Pass -N explicitly or use --noise_est auto')
 
     if args.load_sigma is None:
         if isinstance(N, np.ndarray):
