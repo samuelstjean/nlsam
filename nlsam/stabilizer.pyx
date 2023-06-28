@@ -7,13 +7,13 @@ from cython cimport floating
 from libc.math cimport sqrt, fabs
 from scipy.special.cython_special cimport ndtri, gamma, chndtr, hyp1f1
 
-
 # libc.math isnan does not work on windows, it is called _isnan, so we use this one instead
 # same thing for NAN apparently
 cdef extern from "numpy/npy_math.h" nogil:
     bint npy_isnan(double x)
     double NPY_NAN
 
+# This is because in def, stuff is decided at runtime so we have to use different types to allow mixing float and double in the inputs
 ctypedef fused floating1:
     double
     float
@@ -26,8 +26,8 @@ ctypedef fused floating3:
     double
     float
 
-def multiprocess_stabilization(floating[:,:,:] data, floating1[:,:,:] m_hat, np.uint8_t[:,:,:] mask, floating2[:,:,:] sigma,
-                               floating3[:,:,:] N, bint clip_eta=True, double alpha=0.0001, bint use_nan=False):
+def multiprocess_stabilization(const floating[:,:,:] data, const floating1[:,:,:] m_hat, const np.uint8_t[:,:,:] mask,
+                               const floating2[:,:,:] sigma, const floating3[:,:,:] N, bint clip_eta=True, double alpha=0.0001, bint use_nan=False):
     """Helper function for multiprocessing the stabilization part."""
     cdef:
         Py_ssize_t i_max = data.shape[0]
@@ -338,7 +338,7 @@ cdef double root_finder(double r, double N, int max_iter=500, double eps=1e-6) n
 
     return t1
 
-def root_finder_loop(floating[:] data, floating1[:] sigma, floating2[:] N):
+def root_finder_loop(const floating[:] data, const floating1[:] sigma, const floating2[:] N):
 
     cdef:
         double theta, gaussian_SNR
