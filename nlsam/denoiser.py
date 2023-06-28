@@ -261,15 +261,6 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     return data_subset
 
 
-# def processer(*args):
-#     from line_profiler import LineProfiler
-#     lp = LineProfiler()
-#     lp_wrapper = lp(processer2)
-#     lp_wrapper(*args)
-#     lp.print_stats()
-#     # processer2(*args)
-
-# @profile
 def processer(data, mask, variance, block_size, overlap, param_alpha, param_D, current_slice,
               dtype=np.float64, n_iter=10, gamma=3, tau=1, tolerance=1e-5):
 
@@ -289,7 +280,6 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D, c
         return np.zeros_like(data)
 
     X = im2col_nd(data, block_size, overlap)
-    # https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.median_filter.html
     var_mat = np.median(im2col_nd(variance, block_size[:-1], overlap[:-1])[:, train_idx], axis=0)
     X_full_shape = X.shape
     X = X[:, train_idx].astype(dtype)
@@ -302,11 +292,10 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D, c
     W = np.ones(alpha.shape, dtype=dtype)
     temp = np.zeros([alpha.shape[0], 1], dtype=dtype)
 
-    DtD = D.T @ D
-    DtX = D.T @ X
+    DtD = np.asfortranarray(D.T @ D)
+    DtX = np.asfortranarray(D.T @ X)
     DtXW = np.empty_like(DtX, order='F')
     DtDW = np.empty_like(DtD, order='F')
-    # DtDW = np.empty((D.shape[1], D.shape[1], X.shape[1]), order='F', dtype=dtype)
 
     alpha_old = np.ones(alpha.shape, dtype=dtype)
     not_converged = np.ones(alpha.shape[1], dtype=bool)
@@ -319,16 +308,11 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D, c
 
     for _ in range(n_iter):
         DtXW[:, not_converged] = DtX[:, not_converged] / W[:, not_converged]
-        # DtDW[..., not_converged] = np.einsum('in, ij, jn -> ijn', 1/W[:, not_converged], DtD, 1/W[:, not_converged], optimize='True')
 
         for i in range(alpha.shape[1]):
             if not_converged[i]:
                 param_alpha['lambda1'] = var_mat[i]
                 DtDW[:] = (1 / W[..., None, i]) * DtD * (1 / W[:, i])
-                # diff = (np.abs(DtDW[..., i] - (1 / W[..., None, i]) * DtD * (1 / W[:, i])).max())
-                # if diff > maxold:
-                    # maxold = diff
-                # spams.lasso(X[:, i:i+1], Q=DtDW[..., i], q=DtXW[:, i:i+1], **param_alpha).todense(out=temp)
                 spams.lasso(X[:, i:i+1], Q=DtDW, q=DtXW[:, i:i+1], **param_alpha).todense(out=temp)
                 alpha[:, i:i+1] = temp
 
