@@ -19,7 +19,6 @@ from autodmri.estimator import estimate_from_nmaps, estimate_from_dwis
 from dipy.io.gradients import read_bvals_bvecs
 from dipy.denoise.noise_estimate import piesno
 
-
 DESCRIPTION = """
 Main script for the NLSAM denoising [1], including the bias correction framework from [2].
 """

@@ -2,7 +2,6 @@
 
 import numpy as np
 
-
 cdef void _im2col3D(double[:,:,::1] A, double[::1,:] R, int[:] size) nogil:
 
     cdef:

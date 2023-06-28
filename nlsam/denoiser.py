@@ -15,7 +15,6 @@ import spams
 
 logger = logging.getLogger('nlsam')
 
-
 def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                   mask=None, is_symmetric=False, n_cores=-1, split_b0s=False, split_shell=False,
                   subsample=True, n_iter=10, b0_threshold=10, bval_threshold=25, dtype=np.float64, verbose=False):
@@ -182,7 +181,6 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     data_denoised /= divider
     return data_denoised
 
-
 def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
                   dtype=np.float64, n_cores=-1, verbose=False):
     if verbose:
@@ -263,7 +261,16 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     return data_subset
 
 
-def processer(data, mask, variance, block_size, overlap, param_alpha, param_D, current_slice,
+def processer(*args):
+    from line_profiler import LineProfiler
+    lp = LineProfiler()
+    lp_wrapper = lp(processer2)
+    lp_wrapper(*args)
+    lp.print_stats()
+    # processer2(*args)
+
+# @profile
+def processer2(data, mask, variance, block_size, overlap, param_alpha, param_D, current_slice,
               dtype=np.float64, n_iter=10, gamma=3, tau=1, tolerance=1e-5):
 
     # Fetch the current slice for parallel processing since now the arrays are dumped and read from disk
@@ -299,6 +306,7 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D, c
     DtX = D.T @ X
     DtXW = np.empty_like(DtX, order='F')
     DtDW = np.empty_like(DtD, order='F')
+    # DtDW = np.empty((D.shape[1], D.shape[1], X.shape[1]), order='F', dtype=dtype)
 
     alpha_old = np.ones(alpha.shape, dtype=dtype)
     not_converged = np.ones(alpha.shape[1], dtype=bool)
@@ -311,11 +319,16 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D, c
 
     for _ in range(n_iter):
         DtXW[:, not_converged] = DtX[:, not_converged] / W[:, not_converged]
+        # DtDW[..., not_converged] = np.einsum('in, ij, jn -> ijn', 1/W[:, not_converged], DtD, 1/W[:, not_converged], optimize='True')
 
         for i in range(alpha.shape[1]):
             if not_converged[i]:
                 param_alpha['lambda1'] = var_mat[i]
                 DtDW[:] = (1 / W[..., None, i]) * DtD * (1 / W[:, i])
+                # diff = (np.abs(DtDW[..., i] - (1 / W[..., None, i]) * DtD * (1 / W[:, i])).max())
+                # if diff > maxold:
+                    # maxold = diff
+                # spams.lasso(X[:, i:i+1], Q=DtDW[..., i], q=DtXW[:, i:i+1], **param_alpha).todense(out=temp)
                 spams.lasso(X[:, i:i+1], Q=DtDW, q=DtXW[:, i:i+1], **param_alpha).todense(out=temp)
                 alpha[:, i:i+1] = temp
 
@@ -332,8 +345,8 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D, c
 
     weights = np.ones(X_full_shape[1], dtype=dtype)
     weights[train_idx] = 1 / (np.sum(alpha != 0, axis=0) + 1)
-
-    X = np.zeros(X_full_shape, dtype=dtype)
+    X = np.zeros(X_full_shape, dtype=dtype, order='F')
     X[:, train_idx] = D @ arr
     out = col2im_nd(X, block_size, orig_shape, overlap, weights)
+    del X, W, alpha, alpha_old, DtX, DtXW, DtDW
     return out
