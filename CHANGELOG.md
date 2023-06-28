@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.1] - unreleased
+
+- Some speed improvements internally
+- Some more functions in parallel 
+- A new progress bar with tqdm
+
 ## [0.7] - 2023-05-20
 
 - **Breaking changes in the command line parser**
