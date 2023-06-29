@@ -85,11 +85,9 @@ def root_finder_sigma(data, sigma, N, mask=None, verbose=False, n_cores=-1):
     output, ndarray
         Corrected sigma value, where sigma_gaussian = sigma / sqrt(xi)
     """
-    # We promote to the biggest common dtype for the inner cython function
-    dtype = np.promote_types(np.promote_types(data.dtype, sigma.dtype), N.dtype)
-    data = np.array(data, dtype=dtype)
-    sigma = np.array(sigma, dtype=dtype)
-    N = np.array(N, dtype=dtype)
+    data = np.array(data)
+    sigma = np.array(sigma)
+    N = np.array(N)
 
     if mask is None:
         mask = np.ones(data.shape[:-1], dtype=bool)
