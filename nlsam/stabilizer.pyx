@@ -1,18 +1,57 @@
-#cython: wraparound=False, cdivision=True, boundscheck=False, language_level=3, embedsignature=True
+# cython: wraparound=False, cdivision=True, boundscheck=False, language_level=3, embedsignature=True, infer_types=True
 
-cimport cython
-from libc.math cimport sqrt, exp, fabs, M_PI
+import numpy as np
+cimport numpy as np
+from cython cimport floating
+
+from libc.math cimport sqrt, fabs
 from scipy.special.cython_special cimport ndtri, gamma, chndtr, hyp1f1
-
 
 # libc.math isnan does not work on windows, it is called _isnan, so we use this one instead
 # same thing for NAN apparently
 cdef extern from "numpy/npy_math.h" nogil:
     bint npy_isnan(double x)
     double NPY_NAN
-    
 
-cpdef double chi_to_gauss(double m, double eta, double sigma, double N, double alpha=0.0001, bint use_nan=False) nogil:
+# This is because in def, stuff is decided at runtime so we have to use different types to allow mixing float and double in the inputs
+ctypedef fused floating1:
+    double
+    float
+
+ctypedef fused floating2:
+    double
+    float
+
+ctypedef fused floating3:
+    double
+    float
+
+def multiprocess_stabilization(const floating[:,:,:] data, const floating1[:,:,:] m_hat, const np.uint8_t[:,:,:] mask,
+                               const floating2[:,:,:] sigma, const floating3[:,:,:] N, bint clip_eta=True, double alpha=0.0001, bint use_nan=False):
+    """Helper function for multiprocessing the stabilization part."""
+    cdef:
+        Py_ssize_t i_max = data.shape[0]
+        Py_ssize_t j_max = data.shape[1]
+        Py_ssize_t k_max = data.shape[2]
+
+        double[:,:,:] eta = np.zeros([i_max, j_max, k_max], dtype=np.float64)
+        float[:,:,:]  out = np.zeros([i_max, j_max, k_max], dtype=np.float32)
+
+    with nogil:
+        for i in range(i_max):
+            for j in range(j_max):
+                for k in range(k_max):
+
+                    if (not mask[i,j,k]) or (not sigma[i,j,k]):
+                        continue
+
+                    eta[i,j,k] = fixed_point_finder(m_hat[i,j,k], sigma[i,j,k], N[i,j,k], clip_eta)
+                    out[i,j,k] = chi_to_gauss(data[i,j,k], eta[i,j,k], sigma[i,j,k], N[i,j,k], alpha, use_nan)
+
+    return out, eta
+
+
+cdef double chi_to_gauss(double m, double eta, double sigma, double N, double alpha, bint use_nan) nogil:
     """Maps the noisy signal intensity from a Rician/Non central chi distribution
     to its gaussian counterpart. See p. 4 of [1] eq. 12.
 
@@ -44,9 +83,9 @@ cpdef double chi_to_gauss(double m, double eta, double sigma, double N, double a
     and its applications in MRI.
     Journal of Magnetic Resonance 2009; 197: 108-119.
     """
-    cdef double cdf, inv_cdf_gauss
-
-    cdf = 1.0 - _marcumq_cython(eta/sigma, m/sigma, N)
+    cdef:
+        double cdf = 1.0 - _marcumq_cython(eta/sigma, m/sigma, N)
+        double inv_cdf_gauss
 
     # clip cdf between alpha/2 and 1-alpha/2
     if cdf < alpha/2:
@@ -64,7 +103,7 @@ cpdef double chi_to_gauss(double m, double eta, double sigma, double N, double a
     return inv_cdf_gauss
 
 
-cdef double _marcumq_cython(double a, double b, double M, double eps=1e-8) nogil:
+cdef inline double _marcumq_cython(double a, double b, double M, double eps=1e-8) nogil:
     """Computes the generalized Marcum Q function of order M.
     http://en.wikipedia.org/wiki/Marcum_Q-function
 
@@ -97,7 +136,7 @@ cdef double _marcumq_cython(double a, double b, double M, double eps=1e-8) nogil
         double out
 
     if fabs(b) < eps:
-        return 1.
+        return 1.0
 
     if fabs(M) < eps:
         k = eps
@@ -112,7 +151,7 @@ cdef double _marcumq_cython(double a, double b, double M, double eps=1e-8) nogil
     return out
 
 
-cpdef double fixed_point_finder(double m_hat, double sigma, double N,
+cdef double fixed_point_finder(double m_hat, double sigma, double N,
     bint clip_eta=True, int max_iter=100, double eps=1e-6) nogil:
     """Fixed point formula for finding eta. Table 1 p. 11 of [1]
 
@@ -143,11 +182,12 @@ cpdef double fixed_point_finder(double m_hat, double sigma, double N,
         Estimation of the underlying signal value
     """
     cdef:
-        double delta, m, t0, t1
+        double delta, m, t0, t1 = 0.0
+        double sqrtpi2 = 1.2533141373155001
 
     # If m_hat is below the noise floor, return 0 instead of negatives
     # as per Bai 2014
-    if clip_eta and (m_hat < sqrt(0.5 * M_PI) * sigma):
+    if clip_eta and (m_hat < sqrtpi2 * sigma):
         return 0.0
 
     delta = _beta(N) * sigma - m_hat
@@ -180,13 +220,13 @@ cpdef double fixed_point_finder(double m_hat, double sigma, double N,
         return t1
 
 
-cdef double _beta(double N) nogil:
+cdef inline double _beta(double N) nogil:
     """Helper function for xi, see p. 3 [1] just after eq. 8.
     Generalized version for non integer N"""
     return sqrt(2) * gamma(N + 0.5) / gamma(N)
 
 
-cdef double _fixed_point_k(double eta, double m, double sigma, double N) nogil:
+cdef inline double _fixed_point_k(double eta, double m, double sigma, double N) nogil:
     """Helper function for fixed_point_finder, see p. 11 [1] eq. D2."""
     cdef:
         double fpg, num, denom, h1f1m, h1f1p
@@ -202,7 +242,7 @@ cdef double _fixed_point_k(double eta, double m, double sigma, double N) nogil:
     return eta - num / denom
 
 
-cdef double _fixed_point_k_v2(double eta, double m, double sigma, double N) nogil:
+cdef inline double _fixed_point_k_v2(double eta, double m, double sigma, double N) nogil:
     """Helper function for fixed_point_finder, see p. 11 [1] eq. D3.
 
     This is a secret equation scheme which gives rise to a different fixed point iteration
@@ -220,7 +260,7 @@ cdef double _fixed_point_k_v2(double eta, double m, double sigma, double N) nogi
 
     return eta + num / denom
 
-cpdef double xi(double eta, double sigma, double N) nogil:
+cdef inline double xi(double eta, double sigma, double N) nogil:
     """Standard deviation scaling factor formula, see p. 3 of [1], eq. 10.
 
     Input
@@ -243,7 +283,7 @@ cpdef double xi(double eta, double sigma, double N) nogil:
         double eta2sigma = eta**2/sigma**2
 
     if fabs(sigma) < 1e-15 or check_high_SNR(eta, sigma, N):
-        return 1.
+        return 1.0
 
     h1f1 = hyp1f1(-0.5, N, -eta2sigma/2)
     out = 2*N + eta2sigma - (_beta(N) * h1f1)**2
@@ -260,11 +300,11 @@ cpdef double xi(double eta, double sigma, double N) nogil:
 
 
 # Helper function for the root finding loop
-cdef double k(double theta, double N, double r) nogil:
+cdef inline double k(double theta, double N, double r) nogil:
     cdef:
         # Fake SNR value for xi
         double eta = theta
-        double sigma = 1.
+        double sigma = 1.0
         double g, h1f1m, h1f1p, num, denom
 
     g = sqrt(xi(eta, sigma, N) * (1 + r**2) - 2*N)
@@ -277,13 +317,13 @@ cdef double k(double theta, double N, double r) nogil:
     return theta - num / denom
 
 
-cpdef double root_finder(double r, double N, int max_iter=500, double eps=1e-6) nogil:
+cdef double root_finder(double r, double N, int max_iter=500, double eps=1e-6) nogil:
     cdef:
-        double lower_bound = sqrt((2*N / xi(0, 1, N)) - 1)
-        double t0, t1
+        double lower_bound = sqrt((2*N / xi(0.0, 1.0, N)) - 1)
+        double t0, t1 = 0.0
 
     if r < lower_bound:
-        return 0
+        return 0.0
 
     t0 = r - lower_bound
     t1 = k(t0, N, r)
@@ -298,8 +338,23 @@ cpdef double root_finder(double r, double N, int max_iter=500, double eps=1e-6) 
 
     return t1
 
+def root_finder_loop(const floating[:] data, const floating1[:] sigma, const floating2[:] N):
 
-cdef double check_high_SNR(double eta, double sigma, double N) nogil:
+    cdef:
+        double theta, gaussian_SNR
+        Py_ssize_t imax = data.shape[0]
+        float[:] corrected_sigma = np.zeros(data.shape[0], dtype=np.float32)
+
+    with nogil:
+        for idx in range(imax):
+            theta = data[idx] / sigma[idx]
+            gaussian_SNR = root_finder(theta, N[idx])
+            corrected_sigma[idx] = sigma[idx] / sqrt(xi(gaussian_SNR, 1, N[idx]))
+
+    return corrected_sigma
+
+
+cdef inline bint check_high_SNR(double eta, double sigma, double N) nogil:
     '''If the SNR is high enough against N, these corrections factors change basically nothing, so may as well return early.'''
     cdef:
         double SNR = eta / sigma
@@ -321,10 +376,17 @@ cdef double check_high_SNR(double eta, double sigma, double N) nogil:
 def _test_marcumq_cython(a, b, M):
     return _marcumq_cython(a, b, M)
 
-
 def _test_beta(N):
     return _beta(N)
 
-
 def _test_fixed_point_k(eta, m, sigma, N):
     return _fixed_point_k(eta, m, sigma, N)
+
+def _test_xi(eta, sigma, N):
+    return xi(eta, sigma, N)
+
+def _test_fixed_point_finder(m_hat, sigma, N, clip_eta=True, max_iter=100, eps=1e-6):
+    return fixed_point_finder(m_hat, sigma, N, clip_eta, max_iter, eps)
+
+def _test_chi_to_gauss(m, eta, sigma, N, alpha=0.0001, use_nan=False):
+    return chi_to_gauss(m, eta, sigma, N, alpha, use_nan)

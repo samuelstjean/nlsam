@@ -9,11 +9,11 @@ from nlsam.angular_tools import angular_neighbors, split_per_shell, greedy_set_f
 from autodmri.blocks import extract_patches
 
 from joblib import Parallel, delayed
+from tqdm.autonotebook import tqdm
 
 import spams
 
 logger = logging.getLogger('nlsam')
-
 
 def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                   mask=None, is_symmetric=False, n_cores=-1, split_b0s=False, split_shell=False,
@@ -181,7 +181,6 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     data_denoised /= divider
     return data_denoised
 
-
 def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
                   dtype=np.float64, n_cores=-1, verbose=False):
     if verbose:
@@ -227,36 +226,50 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     param_alpha['numThreads'] = 1
     param_D['numThreads'] = 1
 
-    arglist = ((data[:, :, k:k + block_size[2]],
-                mask[:, :, k:k + block_size[2]],
-                variance[:, :, k:k + block_size[2]],
-                block_size,
-                overlap,
-                param_alpha,
-                param_D,
-                dtype,
-                n_iter)
-               for k in range(data.shape[2] - block_size[2] + 1))
+    slicer = [np.index_exp[:, :, k:k + block_size[2]] for k in range((data.shape[2] - block_size[2] + 1))]
+
+    if verbose:
+        progress_slicer = tqdm(slicer) # This is because tqdm consumes the (generator) slicer, but we also need it later :/
+    else:
+        progress_slicer = slicer
 
     time_multi = time()
-    data_denoised = Parallel(n_jobs=n_cores,
-                             verbose=verbose)(delayed(processer)(*args) for args in arglist)
+
+    data_denoised = Parallel(n_jobs=n_cores)(delayed(processer)(data,
+                                                                mask,
+                                                                variance,
+                                                                block_size,
+                                                                overlap,
+                                                                param_alpha,
+                                                                param_D,
+                                                                current_slice,
+                                                                dtype,
+                                                                n_iter)
+                                                                for current_slice in progress_slicer)
+
     logger.info(f'Multiprocessing done in {(time() - time_multi) / 60:.2f} mins.')
 
     # Put together the multiprocessed results
     data_subset = np.zeros_like(data, dtype=np.float32)
     divider = np.zeros_like(data, dtype=np.int16)
 
-    for k, content in enumerate(data_denoised):
-        data_subset[:, :, k:k + block_size[2]] += content
-        divider[:, :, k:k + block_size[2]] += 1
+    for current_slice, content in zip(slicer, data_denoised):
+        data_subset[current_slice] += content
+        divider[current_slice] += 1
 
     data_subset /= divider
     return data_subset
 
 
-def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
+def processer(data, mask, variance, block_size, overlap, param_alpha, param_D, current_slice,
               dtype=np.float64, n_iter=10, gamma=3, tau=1, tolerance=1e-5):
+
+    # Fetch the current slice for parallel processing since now the arrays are dumped and read from disk
+    # instead of passed around as smaller slices by the function to 'increase performance'
+
+    data = data[current_slice]
+    mask = mask[current_slice]
+    variance = variance[current_slice]
 
     orig_shape = data.shape
     mask_array = im2col_nd(mask, block_size[:-1], overlap[:-1])
@@ -280,7 +293,7 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
     temp = np.zeros([alpha.shape[0], 1], dtype=dtype)
 
     DtD = np.asfortranarray(D.T @ D)
-    DtX = D.T @ X
+    DtX = np.asfortranarray(D.T @ X)
     DtXW = np.empty_like(DtX, order='F')
     DtDW = np.empty_like(DtD, order='F')
 
@@ -291,7 +304,7 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
 
     xi = np.random.randn(X.shape[0], X.shape[1]) * var_mat
     var_mat *= (X.shape[0] + gamma * np.sqrt(2 * X.shape[0]))
-    eps = np.max(np.abs(np.dot(D.T, xi)), axis=0)
+    eps = np.max(np.abs(D.T @ xi), axis=0)
 
     for _ in range(n_iter):
         DtXW[:, not_converged] = DtX[:, not_converged] / W[:, not_converged]
@@ -314,11 +327,10 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D,
         alpha_old[:] = arr
         W[:] = 1 / (np.abs(alpha_old**tau) + eps)
 
-    weights = np.ones(X_full_shape[1], dtype=dtype, order='F')
+    weights = np.ones(X_full_shape[1], dtype=dtype)
     weights[train_idx] = 1 / (np.sum(alpha != 0, axis=0) + 1)
-
     X = np.zeros(X_full_shape, dtype=dtype, order='F')
     X[:, train_idx] = D @ arr
     out = col2im_nd(X, block_size, orig_shape, overlap, weights)
-
+    del X, W, alpha, alpha_old, DtX, DtXW, DtDW
     return out

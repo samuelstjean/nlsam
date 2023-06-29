@@ -24,6 +24,7 @@ dependencies = [
     'joblib>=0.14.1',
     'autodmri>=0.2.1',
     'spams-bin>=2.6.2',
+    'tqdm>=4.56',
     'dipy>=0.11']
 
 
