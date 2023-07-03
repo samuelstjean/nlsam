@@ -1,8 +1,6 @@
 name: Upload Python Package
 
 on:
-  release:
-    types: [created]
   workflow_run:
     workflows: [build_wheels, build_sdist]
     types:
