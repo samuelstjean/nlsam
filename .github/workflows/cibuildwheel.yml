@@ -92,9 +92,13 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           name: nlsam_${{ env.version }}_${{ runner.os }}
+          path: ./dist/nlsam_denoising*
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: nlsam_${{ env.version }}_${{ runner.os }}
           path: |
                 CHANGELOG.md
                 README.md
                 LICENSE
                 example/*
-                ./dist/nlsam_denoising*
