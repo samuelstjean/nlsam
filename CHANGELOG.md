@@ -1,12 +1,12 @@
 # Changelog
 
-## [0.7.1] - unreleased
+## [0.7.1] - 2023-07-03
 
 - Some speed improvements internally
-- Some more functions in parallel 
+- Some more functions in parallel
 - A new progress bar with tqdm
 - New non-frozen builds for the standalone versions
-- Mac M1/M2 arm64 binary wheels now available 
+- Mac M1/M2 arm64 binary wheels now available
 
 ## [0.7] - 2023-05-20
 
