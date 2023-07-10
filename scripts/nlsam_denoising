@@ -19,7 +19,6 @@ from autodmri.estimator import estimate_from_nmaps, estimate_from_dwis
 from dipy.io.gradients import read_bvals_bvecs
 from dipy.denoise.noise_estimate import piesno
 
-
 DESCRIPTION = """
 Main script for the NLSAM denoising [1], including the bias correction framework from [2].
 """
@@ -243,10 +242,11 @@ def main():
     block_size = np.array(args.spatial_block_size + (args.angular_block_size,))
     clip_eta = args.no_clip_eta
     logger = logging.getLogger('nlsam')
+    verbose = args.verbose
 
     if args.logfile is not None:
         handler = logging.FileHandler(args.logfile)
-        args.verbose = True
+        verbose = True
     else:
         handler = logging.StreamHandler(args.logfile)
 
@@ -254,7 +254,7 @@ def main():
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-    if args.verbose:
+    if verbose:
         logger.setLevel(logging.INFO)
         logger.info('Verbosity is on')
 
@@ -322,7 +322,7 @@ def main():
 
     if args.noise_maps is None:
         if args.N == 'auto' and noise_method != 'auto':
-            parser.error(f'You need to pass --noise_est auto when using -N auto, but you passed --noise_est {noise_method}.')
+            parser.error(f'You need to pass --noise_est auto when using -N auto, but you passed --noise_est {noise_method}. Pass -N explicitly or use --noise_est auto')
 
     if args.load_sigma is None:
         if isinstance(N, np.ndarray):
@@ -390,7 +390,7 @@ def main():
         if noise_maps.ndim != 4:
             noise_maps = noise_maps[..., None]
 
-        sigma, N, mask_noise = estimate_from_nmaps(noise_maps, ncores=n_cores, verbose=args.verbose)
+        sigma, N, mask_noise = estimate_from_nmaps(noise_maps, ncores=n_cores, verbose=verbose)
 
         if args.save_piesno_mask is not None:
             nib.save(nib.Nifti1Image(mask_noise.astype(np.int16), affine), args.save_piesno_mask)
@@ -424,16 +424,16 @@ def main():
 
     elif noise_method == 'local_std':
         logger.info(f"Estimating noise with method {noise_method}")
-        sigma = local_standard_deviation(data, n_cores=n_cores)
+        sigma = local_standard_deviation(data, n_cores=n_cores, verbose=verbose)
 
         # Compute the corrected value for each 3D volume
         if N > 0:
-            sigma = root_finder_sigma(data, sigma, N, mask=mask)
+            sigma = root_finder_sigma(data, sigma, N, mask=mask, verbose=verbose, n_cores=n_cores)
 
     elif noise_method == 'auto':
         logger.info(f"Estimating noise with method {noise_method}")
 
-        sigma_1D, N_1D, mask_noise = estimate_from_dwis(data, return_mask=True, ncores=n_cores, verbose=args.verbose)
+        sigma_1D, N_1D, mask_noise = estimate_from_dwis(data, return_mask=True, ncores=n_cores, verbose=verbose)
         sigma = np.broadcast_to(sigma_1D[None, None, :, None], data.shape)
         N = np.broadcast_to(N_1D[None, None, :, None], data.shape)
 
@@ -469,7 +469,8 @@ def main():
                                              mask=mask,
                                              clip_eta=clip_eta,
                                              return_eta=True,
-                                             n_cores=n_cores)
+                                             n_cores=n_cores,
+                                             verbose=verbose)
 
         if args.save_eta is not None:
             nib.save(nib.Nifti1Image(eta, affine), args.save_eta)
@@ -510,7 +511,7 @@ def main():
                                       b0_threshold=b0_threshold,
                                       bval_threshold=bval_threshold,
                                       dtype=dtype,
-                                      verbose=args.verbose)
+                                      verbose=verbose)
 
         nib.save(nib.Nifti1Image(data_denoised.astype(np.float32), affine, header), args.output)
         logger.info(f"Denoised data saved as {os.path.realpath(args.output)}")
@@ -521,7 +522,7 @@ def main():
 
 
 if __name__ == "__main__":
-    # Until joblib.loky support pyinstaller, we use dask instead
+    # Until joblib.loky support pyinstaller, we use dask instead for the frozen binaries
     import sys
     frozen = getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
 

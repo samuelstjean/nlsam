@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nlsam"
-version = '0.7'
+version = '0.7.1'
 authors = [{name = "Samuel St-Jean"}]
 description='Implementation of "Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising"'
 readme = "README.md"
@@ -24,6 +24,7 @@ dependencies = [
     'joblib>=0.14.1',
     'autodmri>=0.2.1',
     'spams-bin>=2.6.2',
+    'tqdm>=4.56',
     'dipy>=0.11']
 
 

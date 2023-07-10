@@ -2,6 +2,7 @@ import logging
 import numpy as np
 
 from joblib import Parallel, delayed
+from tqdm.autonotebook import tqdm
 
 from dipy.core.geometry import cart2sphere
 from dipy.reconst.shm import sph_harm_ind_list, real_sph_harm, smooth_pinv
@@ -81,7 +82,7 @@ def sh_smooth(data, bvals, bvecs, sh_order=4, b0_threshold=1.0, similarity_thres
     return pred_sig
 
 
-def _local_standard_deviation(arr):
+def _local_standard_deviation(arr, current_slice=None):
     """Standard deviation estimation from local patches.
 
     Estimates the local variance on patches by using convolutions
@@ -92,11 +93,17 @@ def _local_standard_deviation(arr):
     arr : 3D or 4D ndarray
         The array to be estimated
 
+    current_slice: numpy slice object
+        current slice to evaluate if we are running in parallel
+
     Returns
     -------
     sigma : ndarray
         Map of standard deviation of the noise.
     """
+
+    if current_slice is not None:
+        arr = arr[current_slice]
 
     size = (3, 3, 3)
     k = np.ones(size) / np.sum(np.ones(size))
@@ -149,16 +156,13 @@ def local_standard_deviation(arr, n_cores=-1, verbose=False):
     if arr.ndim == 3:
         sigma = _local_standard_deviation(arr)
     else:
-        # Did we ask for verbose at the module level?
-        if not verbose:
-            verbose = logger.getEffectiveLevel() <= 20  # Info or debug level
+        slicer = [np.index_exp[..., k] for k in range(arr.shape[-1])]
 
-        result = Parallel(n_jobs=n_cores,
-                          verbose=verbose)(delayed(_local_standard_deviation)(arr[..., i]) for i in range(arr.shape[-1]))
+        if verbose:
+            slicer = tqdm(slicer)
 
-        # Reshape the multiprocessed list as an array
-        result = np.rollaxis(np.asarray(result), 0, arr.ndim)
-        sigma = np.median(result, axis=-1)
+        result = Parallel(n_jobs=n_cores)(delayed(_local_standard_deviation)(arr, current_slice) for current_slice in slicer)
+        sigma = np.median(result, axis=0)
 
     # http://en.wikipedia.org/wiki/Full_width_at_half_maximum
     # This defines a normal distribution similar to specifying the variance.

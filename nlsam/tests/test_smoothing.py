@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.testing import assert_array_less
 
-from nlsam.bias_correction import xi
+from nlsam.stabilizer import _test_xi as xi
 from nlsam.smoothing import local_standard_deviation
 
 
