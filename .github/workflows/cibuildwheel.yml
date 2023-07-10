@@ -13,10 +13,8 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        arch: ['x64']
         include:
-          - os: macos-latest
-            arch: arm64
+          - os: ARM64
     steps:
       - uses: actions/checkout@v3
 
@@ -70,11 +68,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, windows-2019, macos-11]
-        arch: ['x64']
-        include:
-          - os: macos-11
-            arch: arm64
+        os: [ubuntu-20.04, windows-2019, macos-11, ARM64]
     steps:
       - uses: actions/checkout@v3
 
@@ -96,7 +90,7 @@ jobs:
             pyinstaller ./scripts/nlsam_denoising -F --clean --add-data ${path}:./distributed/ --noupx
           fi
 
-     - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v3
         with:
           name: nlsam_${{ env.version }}_${{ runner.os }}_${{ runner.arch }}
           path: ./dist/nlsam_denoising*
