@@ -1,5 +1,5 @@
 sphinx-autoapi
-sphinx >= 3.0
+sphinx < 7.0
 myst-parser
 
 scipy==1.10
