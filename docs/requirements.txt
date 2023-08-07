@@ -4,4 +4,4 @@ myst-parser
 
 scipy==1.10
 numpy==1.25
-cython==0.29
+Cython==3.0
