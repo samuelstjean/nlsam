@@ -106,6 +106,9 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     if num_b0s > 1 and not split_b0s:
         num_b0s = 1
         data[..., b0_loc] = np.mean(data[..., b0_loc], axis=-1, keepdims=True)
+        average_b0s = True
+    else:
+        average_b0s = False
 
     # Split the b0s in a cyclic fashion along the training data
     # If we only had one, cycle just return b0_loc indefinitely, else we go through all indexes.
@@ -161,24 +164,47 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     to_denoise = np.empty(data.shape[:-1] + (angular_size + 1,), dtype=dtype)
 
     for i, idx in enumerate(indexes, start=1):
-        b0_loc = tuple((next(split_b0s_idx),))
-        to_denoise[..., 0] = data[..., b0_loc].squeeze()
+        current_b0 = tuple((next(split_b0s_idx),))
+        to_denoise[..., 0] = data[..., current_b0].squeeze()
         to_denoise[..., 1:] = data[..., idx]
-        divider[list(b0_loc + idx)] += 1
+        divider[list(current_b0 + idx)] += 1
 
-        logger.info(f'Now denoising volumes {b0_loc + idx} / block {i} out of {len(indexes)}.')
+        logger.info(f'Now denoising volumes {current_b0 + idx} / block {i} out of {len(indexes)}.')
 
-        data_denoised[..., b0_loc + idx] += local_denoise(to_denoise,
-                                                          b0_block_size,
-                                                          overlap,
-                                                          variance,
-                                                          n_iter=n_iter,
-                                                          mask=mask,
-                                                          dtype=dtype,
-                                                          n_cores=n_cores,
-                                                          verbose=verbose)
-
+        data_denoised[..., current_b0 + idx] += local_denoise(to_denoise,
+                                                              b0_block_size,
+                                                              overlap,
+                                                              variance,
+                                                              n_iter=n_iter,
+                                                              mask=mask,
+                                                              dtype=dtype,
+                                                              n_cores=n_cores,
+                                                              verbose=verbose)
     data_denoised /= divider
+
+    # If we averaged b0s but didn't go through them because we did not have enough blocks,
+    # we just put back the value to prevent empty volumes
+    filled_vols = divider > 0
+
+    if average_b0s and (np.sum(filled_vols) < data_denoised.shape[-1]):
+        filled_b0s = []
+        empty_b0s = []
+
+        for b0s in b0_loc:
+            if filled_vols[b0s]:
+                filled_b0s += [b0s]
+            else:
+                empty_b0s += [b0s]
+
+        if len(filled_b0s) > 1:
+            b0s = np.mean(data_denoised[..., filled_b0s], axis=-1)
+        else:
+            b0s = data_denoised[..., filled_b0s]
+
+        logger.info(f'Filling in b0s volumes {empty_b0s} from the average of b0s volumes {filled_b0s}.')
+
+        data_denoised[..., empty_b0s] = b0s
+
     return data_denoised
 
 def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
