@@ -10,6 +10,7 @@ from autodmri.blocks import extract_patches
 
 from joblib import Parallel, delayed
 from tqdm.autonotebook import tqdm
+from scipy.linalg import null_space
 
 import spams
 
@@ -226,11 +227,12 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     param_D['verbose'] = False
     param_D['posAlpha'] = True
     param_D['posD'] = True
-    param_D['mode'] = 2
+    param_D['modeD'] = 0
     param_D['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
     param_D['K'] = int(2 * np.prod(block_size))
     param_D['iter'] = 150
-    param_D['batchsize'] = 500
+    param_D['regul'] = 'fused-lasso'
+    # param_D['batchsize'] = 500
     param_D['numThreads'] = n_cores
 
     if 'D' in param_alpha:
@@ -243,16 +245,17 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     train_data = np.asfortranarray(X[:, train_idx])
     train_data /= np.sqrt(np.sum(train_data**2, axis=0, keepdims=True), dtype=dtype)
 
-    param_alpha['D'] = spams.trainDL(train_data, **param_D)
+    param_alpha['D'] = spams.structTrainDL(train_data, **param_D)
     param_alpha['D'] /= np.sqrt(np.sum(param_alpha['D']**2, axis=0, keepdims=True, dtype=dtype))
     param_D['D'] = param_alpha['D']
 
     del train_idx, train_data, X, mask_col
 
-    param_alpha['numThreads'] = 1
-    param_D['numThreads'] = 1
+    param_alpha['numThreads'] = n_cores
+    param_D['numThreads'] = n_cores
 
-    slicer = [np.index_exp[:, :, k:k + block_size[2]] for k in range((data.shape[2] - block_size[2] + 1))]
+    # slicer = [np.index_exp[:, :, k:k + block_size[2]] for k in range((data.shape[2] - block_size[2] + 1))]
+    slicer = [np.index_exp[:, :, k:k + block_size[2]] for k in range(40,50)]
 
     if verbose:
         progress_slicer = tqdm(slicer) # This is because tqdm consumes the (generator) slicer, but we also need it later :/
@@ -261,7 +264,7 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
 
     time_multi = time()
 
-    data_denoised = Parallel(n_jobs=n_cores)(delayed(processer)(data,
+    data_denoised = Parallel(n_jobs=1)(delayed(processer)(data,
                                                                 mask,
                                                                 variance,
                                                                 block_size,
@@ -305,58 +308,270 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D, c
     if not np.any(train_idx):
         return np.zeros_like(data)
 
-    X = im2col_nd(data, block_size, overlap)
-    var_mat = np.median(im2col_nd(variance, block_size[:-1], overlap[:-1])[:, train_idx], axis=0)
-    X_full_shape = X.shape
-    X = X[:, train_idx].astype(dtype)
+    Y = im2col_nd(data, block_size, overlap)
+    Y_full_shape = Y.shape
+    Y = Y[:, train_idx].astype(dtype)
 
-    param_alpha['L'] = int(0.5 * X.shape[0])
+    # param_alpha['L'] = int(0.5 * Y.shape[0])
+    param_alpha['pos'] = True
+    param_alpha['regul'] = 'fused-lasso'
+    # param_alpha['admm'] = True
+    param_alpha['loss'] = 'square'
+    # param_alpha['verbose'] = True
+    param_alpha['admm'] = False
 
-    D = param_alpha['D']
+    lambda_max = 1
 
-    alpha = np.zeros((D.shape[1], X.shape[1]), dtype=dtype)
-    W = np.ones(alpha.shape, dtype=dtype)
-    temp = np.zeros([alpha.shape[0], 1], dtype=dtype)
+    def soft_thresh(x, gamma):
+        return np.sign(x) * np.max(0, np.abs(x) - gamma)
 
-    DtD = np.asfortranarray(D.T @ D)
-    DtX = np.asfortranarray(D.T @ X)
-    DtXW = np.empty_like(DtX, order='F')
-    DtDW = np.empty_like(DtD, order='F')
+    maxlambda = np.linalg.norm(soft_thresh(X.T @ Y / Y.shape[1]))
 
-    alpha_old = np.ones(alpha.shape, dtype=dtype)
-    not_converged = np.ones(alpha.shape[1], dtype=bool)
-    nonzero_ind = np.zeros(alpha.shape, dtype=bool)
-    arr = np.empty(alpha.shape)
+    lambda_min = lambda_max / 100
+    nlambas = 1
+    lambda_path = np.logspace(lambda_max, lambda_min, nlambas)
+    alphaw = 0.95
 
-    xi = np.random.randn(X.shape[0], X.shape[1]) * var_mat
-    var_mat *= (X.shape[0] + gamma * np.sqrt(2 * X.shape[0]))
-    eps = np.max(np.abs(D.T @ xi), axis=0)
+    X = param_alpha['D']
+    W = np.zeros((X.shape[1], Y.shape[1]), dtype=dtype, order='F')
+    W0 = np.zeros((X.shape[1], Y.shape[1]), dtype=dtype, order='F')
 
-    for _ in range(n_iter):
-        DtXW[:, not_converged] = DtX[:, not_converged] / W[:, not_converged]
+    # from scipy.optimize import lsq_linear
+    from time import time
+    tt = time()
+    # W0 = lsq_linear(X, Y, bounds=(0, np.inf))['x']
+    # print(f'time nnls {time() - tt}')
+    W0 = np.linalg.lstsq(X, Y, rcond=None)[0]
 
-        for i in range(alpha.shape[1]):
-            if not_converged[i]:
-                param_alpha['lambda1'] = var_mat[i]
-                DtDW[:] = (1 / W[..., None, i]) * DtD * (1 / W[:, i])
-                spams.lasso(X[:, i:i+1], Q=DtDW, q=DtXW[:, i:i+1], **param_alpha).todense(out=temp)
-                alpha[:, i:i+1] = temp
+    if param_alpha['pos']:
+        W0.clip(min=0)
 
-        arr[:] = alpha
-        nonzero_ind[:] = arr != 0
-        arr[nonzero_ind] /= W[nonzero_ind]
-        not_converged[:] = np.max(np.abs(alpha_old - arr), axis=0) > tolerance
+    del param_alpha['mode']
+    del param_alpha['D']
+    from time import time
 
-        if not np.any(not_converged):
-            break
+    for ii, lbda in enumerate(lambda_path):
+        tt = time()
+        print(ii, f'current lambda {lbda}')
+        param_alpha['lambda1'] = alphaw * lbda
+        param_alpha['lambda2'] = (1 - alphaw) * lbda
+        W0 = np.linalg.lstsq(X, Y, rcond=None)[0]
+        W0.clip(min=0)
+        W0 = np.asfortranarray(W0)
+        W[:] = spams.fistaFlat(Y, X, W0, **param_alpha)
+        W0[:] = W
+        print(f'abs sum sol {np.abs(W0).sum()}, min max {W0.min(), W0.max()}, abs min max {np.abs(W0).min(), np.abs(W0).max()}, nonzero {np.sum(W0 !=0) / W0.size}')
+        print(f'time {time() - tt}')
 
-        alpha_old[:] = arr
-        W[:] = 1 / (np.abs(alpha_old**tau) + eps)
+    Y = np.zeros(Y_full_shape, dtype=dtype, order='F')
+    Y[:, train_idx] = X @ W
+    out = col2im_nd(Y, block_size, orig_shape, overlap)
 
-    weights = np.ones(X_full_shape[1], dtype=dtype)
-    weights[train_idx] = 1 / (np.sum(alpha != 0, axis=0) + 1)
-    X = np.zeros(X_full_shape, dtype=dtype, order='F')
-    X[:, train_idx] = D @ arr
-    out = col2im_nd(X, block_size, orig_shape, overlap, weights)
-    del X, W, alpha, alpha_old, DtX, DtXW, DtDW
+    param_alpha['mode'] = 1
+    param_alpha['D'] = X
+
+    return out
+
+def frobenius_sort(bval, bvec, bdelta=None, base=(1,0,0)):
+    if bdelta is None:
+        bdelta = 1
+
+    bmatrix = bval/3 * (np.eye(3) + bdelta * np.diag([-1, -1, 2]))
+
+
+    assert np.trace(np.allclose(bmatrix, bval))
+
+    norm = np.linalg.norm(base, bmatrix, ord='fro', axis=-1)
+    sorted = np.argsort(norm)
+    return sorted
+
+
+def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=1e-5, l2=1e-6, l1=0, dtype=np.float32):
+    if nlambdas <= 0 or eps <= 0 or lmin < 0 or l2 < 0 or l1 < 0:
+        error = 'Parameter error'
+        raise ValueError(error)
+
+    nold = X.shape[0] # This is the original shape, which is modified later on if l2 > 0
+    N = y.shape[1]
+    p = X.shape[1]
+
+    mus = [None] * nlambdas
+    lambdas = [None] * nlambdas
+    betas = [None] * nlambdas
+    dfs = [None] * nlambdas
+
+    if penalty == 'fused':
+        D = np.eye(p-1, p, k=1) - np.eye(p-1, p)
+    elif penalty == 'sparse':
+        D = np.eye(p-1, p, k=1) - np.eye(p-1, p)
+        D = np.vstack(D, l1 * np.eye(p))
+    else:
+        error = f'Penalty {penalty} is not implemented'
+        raise ValueError(error)
+
+    rank = np.linalg.matrix_rank(X)
+    if l2 == 0 and rank < nold:
+        error = f'System {X.shape} is undefined with rank = {rank} < n = {n}, set l2 = {l2} larger than 0'
+        raise ValueError(error)
+
+    if l2 > 0:
+        y = np.vstack([y, np.zeros([p, N])])
+        X = np.vstack([X, np.sqrt(l2) * np.eye(p)])
+        # D = np.vstack([D, np.zeros([p, 1])])
+
+    n = X.shape[0]
+    m = D.shape[0]
+    B = np.zeros(m, dtype=bool)
+    S = np.zeros((m, N), dtype=np.int8)
+    muk = np.zeros((m, N))
+
+    # if p > n: # also for general X?
+
+    Xpinv = np.linalg.pinv(X)
+    # XtXpinv = np.linalg.pinv(X.T @ X)
+    # P = X @ Xpinv
+    # yold = y
+    yproj = X @ Xpinv @ y
+    Dproj = D @ Xpinv
+    L = D.T @ D
+
+    # step 1
+    # DinvD = np.linalg.pinv(Dm @ Dm.T) @ Dm
+    # Dts = D.T @ s
+    # uk = DinvD @ (y - lambdak * Dts)
+
+    # step 1
+    H = null_space(D)
+    XH = X @ H
+    Xty = X.T @ y
+    v = Xty - X.T @ XH @ np.linalg.pinv(XH.T @ XH) @ XH.T @ y
+    u0 = np.linalg.lstsq(D @ D.T, D @ v, rcond=None)[0]
+
+    # step 2
+    DinvD = np.linalg.pinv(Dproj @ Dproj.T) @ Dproj
+    Dts = np.zeros([Dproj.shape[1], N]) # first step B is empty
+    a = DinvD @ yproj
+    b = DinvD @ Dts
+    # t = a / (b + np.sign(a))
+    tp = a / (b + 1)
+    tm = a / (b - 1)
+    t = np.maximum(tp, tm)
+    i0 = np.argmax(t, axis=0, keepdims=False)
+    h0 = t[i0]
+
+    # mat = D @ (np.eye(*Dm.shape) - Dm.T @ DinvD)
+    # c = s @ (mat @ y)
+    # d = s @ (mat @ Dts)
+    # tl = c / d
+    # tl[np.logical_and(c < 0, d < 0)] = 0
+    # lk = np.max(tl)
+
+    # lambdak = lbda
+    B[i0] = True
+    S[i0] = np.sign(u0[i0])
+    lambdas[0] = h0
+    mus[0] = u0
+    dfs[0] = 0
+    # first sol is usually empty?
+    # betas[0] = a - h0 * b
+    betas[0] = yproj - Dproj.T @ u0
+
+    k = 1
+    In = np.eye(n)
+    # Xty = X.T @ yproj
+
+    while np.abs(lambdas[k-1]) > lmin and k < nlambdas:
+        print(k, lambdas[k-1])
+
+        Db = D[B]
+        Dm = D[~B]
+        Dpb = Dproj[B]
+        Dpm = Dproj[~B]
+        s = S[B]
+        Dts = Db.T @ s
+        DDt = Dm @ Dm.T
+
+        # step 3a
+        H = null_space(Dm)
+
+        XH = X @ H
+        mid = X.T @ XH @ np.linalg.pinv(XH.T @ XH)
+        v = Xty - mid @ XH.T @ y
+        w = Dts - mid @ H.T @ Dts
+
+        a = np.linalg.lstsq(DDt, Dm @ v, rcond=None)[0]
+        b = np.linalg.lstsq(DDt, Dm @ w, rcond=None)[0]
+
+        # step 3b
+        # hitting time
+        tm = a / (b + 1)
+        tp = a / (b - 1)
+        t = np.maximum(tp, tm)
+        # numerical issues fix
+        t[t > lambdas[k-1].squeeze() + eps] = 0
+        t[t > lambdas[k-1].squeeze()] = lambdas[k-1].squeeze()
+        # t.clip(max=lambdas[k-1], out=t)
+
+        ik = np.argmax(t, axis=0, keepdims=False)
+        hk = t[ik]
+        # print(f'{t}')
+
+        # if np.any(t > lambdas[k-1]):
+            # t[t > lambdas[k-1] + 1e-7] = 0
+            # t[t > lambdas[k-1]] = lambdas[k-1]
+
+        # leaving time
+        # mat = mid
+        mat = Dpb @ (In - Dpm.T @ np.linalg.pinv(Dpm @ Dpm.T) @ Dpm)
+        c = s * (mat @ y)
+        d = s * (mat @ Dpb.T @ s)
+
+        tl = c / d
+        tl[~np.logical_and(c < 0, d < 0)] = 0
+        # numerical issues fix
+        tl[tl > lambdas[k-1].squeeze() + eps] = 0
+        tl[tl > lambdas[k-1].squeeze()] = lambdas[k-1].squeeze()
+        # tl.clip(max=lambdas[k-1], out=tl)
+
+        ilk = np.argmax(tl, axis=0, keepdims=False)
+        lk = tl[ilk]
+
+        print(f'hk={hk}, lk={lk}')
+        # update matrices and stuff for next step
+
+        if hk > lk:
+            coord = np.nonzero(~B)[0][ik]
+            updates = True, np.sign(hk)
+            lambdak = hk
+            print(f'add {ik, coord}, B={B.sum()}')
+        else:
+            coord = np.nonzero(B)[0][ilk]
+            updates = False, 0
+            lambdak = lk
+            print(f'remove {ilk, coord}, B={B.sum()}')
+
+        muk[~B] = a - lambdak * b
+        muk[B] = lambdak * s
+        mus[k] = muk.copy()
+
+        # update boundaries
+        B[coord], S[coord] = updates
+        # mus[k] = a - lambdak * b
+        # betas[k] = XtXpinv @ (X.T @ yproj - Dpm.T @ mus[k])
+        # betas[k] = Xpinv @ (yproj - Dpm.T @ mus[k])
+        # betas[k] = Xpinv @ yproj - Dproj.T @ mus[k]
+        betas[k] = y - lambdak * Dpb.T @ s
+        # betas[k] = Xpinv @ H @ (yproj - lambdak * Dpm.T @ s)
+        lambdas[k] = lambdak
+        dfs[k] = H.shape[1]
+        k += 1
+
+    # strip beta from the l2 penalty part if needed
+    out = np.zeros([k, nold, N], dtype=dtype)
+    for i in range(k):
+        out[i] = betas[i][:nold]
+
+    return_lambdas = True
+    if return_lambdas:
+        return out, lambdas
     return out
