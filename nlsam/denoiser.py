@@ -12,6 +12,7 @@ from autodmri.blocks import extract_patches
 from joblib import Parallel, delayed
 from tqdm.autonotebook import tqdm
 from scipy.linalg import  null_space, cholesky_banded, cho_solve_banded
+import scipy.linalg as la
 import spams
 
 logger = logging.getLogger('nlsam')
@@ -477,7 +478,7 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
     lambdas = [None] * nlambdas
     betas = [None] * nlambdas
     dfs = [None] * nlambdas
-    Cp = [None] * nlambdas
+    # Cp = [None] * nlambdas
 
     if penalty == 'fused':
         D = np.eye(p-1, p, k=1) - np.eye(p-1, p)
@@ -516,7 +517,7 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
     # Special form if we have the fused penalty
     DDt_diag_banded = np.vstack([np.full(m, -1), np.full(m, 2)])
     DDt_diag_banded[0, 0] = 0
-    L_banded = cholesky_banded(DDt_diag_banded, lower=False, check_finite=False)
+    L_banded = la.cholesky_banded(DDt_diag_banded, lower=False, check_finite=False)
 
     # XtXpinv = np.linalg.pinv(X.T @ X)
     # P = X @ Xpinv
@@ -537,7 +538,7 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
     # v = Xty - X.T @ XH @ mid
 
     # u0 = np.linalg.lstsq(D @ D.T, D @ v, rcond=None)[0]
-    u0 = cho_solve_banded((L_banded, False), D @ v, check_finite=False)
+    u0 = la.cho_solve_banded((L_banded, False), D @ v, check_finite=False)
 
     # step 2
     # DinvD = np.linalg.pinv(Dproj @ Dproj.T) @ Dproj
@@ -574,7 +575,7 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
     newH[:i0 + 1] = 0
     XnewH = X @ newH
 
-    Q, R = scipy.linalg.qr_insert(Q, R, XnewH, 1, which='col', check_finite=False)
+    Q, R = la.qr_insert(Q, R, XnewH, 1, which='col', check_finite=False)
     H = np.hstack((H, newH))
 
     # print(i0)
@@ -593,12 +594,20 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
         Dts = Db.T @ s
         DDt = Dm @ Dm.T
         DDt_banded = diagonal_choform(DDt)
-        L_banded = cholesky_banded(DDt_banded, check_finite=False)
+        L_banded = la.cholesky_banded(DDt_banded, check_finite=False)
         # H = np.ones((p, Dm.shape[1] - Dm.shape[0]))
 
         # Reset the QR to prevent accumulating errors during long runs
         # if k % 100 == 0:
         #     Q, R = np.linalg.qr(X @ H)
+
+        diag_regul = np.diag(np.zeros(R.shape[0]) + 1e-13)
+
+        rhs = np.vstack((H.T @ Xty, H.T @ Dts)).T
+        b = la.solve_triangular(R.T + diag_regul, rhs, lower=True, check_finite=False)
+        A = la.solve_triangular(R + diag_regul, b, check_finite=False)
+        A1 = A[:, 0]
+        A2 = A[:, 1]
 
         # step 3a
         if Dm.shape[0] == 0: # Interior is empty
@@ -694,14 +703,6 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
             # A1 = np.linalg.lstsq(R.T @ R, H.T @ Xty, rcond=-1)[0]
             # A2 = np.linalg.lstsq(R.T @ R, H.T @ Dts, rcond=-1)[0]
 
-            diag_regul = np.diag(np.zeros(R.shape[0]) + 1e-13)
-
-            rhs = np.vstack((H.T @ Xty, H.T @ Dts)).T
-            b = scipy.linalg.solve_triangular(R.T + diag_regul, rhs, lower=True, check_finite=False)
-            A = scipy.linalg.solve_triangular(R + diag_regul, b, check_finite=False)
-            A1 = A[:, 0]
-            A2 = A[:, 1]
-
             XtXH = X.T @ Q @ R
             # XtXH = X.T @ XH
             v = Xty - XtXH @ A1
@@ -713,8 +714,8 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
             # a = np.linalg.lstsq(DDt, Dm @ v, rcond=-1)[0]
             # b = np.linalg.lstsq(DDt, Dm @ w, rcond=-1)[0]
 
-            a = cho_solve_banded((L_banded, False), Dm @ v, check_finite=False)
-            b = cho_solve_banded((L_banded, False), Dm @ w, check_finite=False)
+            a = la.cho_solve_banded((L_banded, False), Dm @ v, check_finite=False)
+            b = la.cho_solve_banded((L_banded, False), Dm @ w, check_finite=False)
 
             # step 3b
             # hitting time
@@ -757,6 +758,9 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
         # c = s * (Dpb @ y - Dpb @ Dpm.T @  a)
         # d = s * (Dpb @ Dpb.T @ s - Dpb @ Dpm.T @  b)
 
+        HA1 = H @ A1
+        HA2 = H @ A2
+
         if Db.shape[0] == 0 or H.shape[0] == H.shape[1]: # Boundary is empty
             lk = 0
         else:
@@ -770,8 +774,6 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
             # c = s * (Dpb @ mid @ yproj)
             # d = s * (Dpb @ mid @ Dpb.T @ s)
 
-            HA1 = H @ A1
-            HA2 = H @ A2
             c =  s * (Db @ HA1)
             d =  s * (Db @ HA2)
             # Dpb = Dproj[B]
@@ -804,8 +806,8 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
             newH = np.ones(p)
             newH[:coord + 1] = 0
             newpos = np.searchsorted(np.nonzero(B)[0], coord)
+            Q, R = la.qr_insert(Q, R, X @ newH, newpos + 1, which='col', check_finite=False)
             H = np.insert(H, newpos + 1, newH, axis=1)
-            Q, R = scipy.linalg.qr_insert(Q, R, X @ newH, newpos + 1, which='col', check_finite=False)
 
             # print(H.shape, R.shape, newpos, newH.shape)
             print(f'add {ik, coord}, B={B.sum()}')
@@ -813,7 +815,7 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
             coord = np.nonzero(B)[0][ilk]
             updates = False, 0
             lambdak = lk
-            Q, R = scipy.linalg.qr_delete(Q, R, ilk + 1, which='col', check_finite=False)
+            Q, R = la.qr_delete(Q, R, ilk + 1, which='col', check_finite=False)
             H = np.delete(H, ilk + 1, axis=-1)
             print(f'remove {ilk, coord}, B={B.sum()}')
         elif (lk == 0) and (hk == 0): # end of the path, so everything stays as is
@@ -843,7 +845,7 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
         betas[k] = HA1 - lambdak * HA2 # eq. 38
         lambdas[k] = lambdak
         dfs[k] = R.shape[1]
-        Cp[k] = np.sum((y - X@betas[k])**2) - n * var + 2*var * dfs[k]
+        # Cp[k] = np.sum((y - X@betas[k])**2) - n * var + 2*var * dfs[k]
 
         # if newH is None:
         #     # Q, R = scipy.linalg.qr_delete(Q, R, ilk, which='col', check_finite=False)
@@ -861,6 +863,8 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
     out = out.T
     lambdas = np.array(lambdas[:k+1])
     betas = np.array(betas[:k+1])
+    Cp = np.sum((y[:, None] - X@betas.T)**2, axis=0) - n * var + 2*var * np.array(dfs[:k+1])
+
     # l2_error = np.sum((X @ out.T - y[..., None])**2, axis=0)
 
     if return_lambdas:
