@@ -457,13 +457,6 @@ def diagonal_choform(a):
 
     return ab
 
-# def forwardsolve(A, b, alpha=1.0, transpose=0, lower=False):
-#     x = scipy.linalg.blas.dtrsm(alpha, A, b, trans_a=transpose, lower=lower)
-#     return x
-
-# def backsolve():
-#     pass
-
 # from numba import njit
 # from qpsolvers import solve_ls
 
@@ -514,9 +507,6 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
 
     n = X.shape[0]
     m = D.shape[0]
-    # I = list(range(m))
-    # B = []
-    # S = []
     B = np.zeros(m, dtype=bool)
     S = np.zeros(m, dtype=np.int8)
     muk = np.zeros(m)
@@ -576,20 +566,20 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
     betas[k] = H @ np.linalg.lstsq(XH.T @ XH, H.T @ Xty, rcond=None)[0]
     B[i0] = True
     S[i0] = np.sign(u0[i0])
-    # order = [i0]
-    # I.remove(i0)
-    # B.append(i0)
-    # S.append(np.sign(u0[i0]))
     lambdas[k] = h0
     mus[k] = u0
     dfs[k] = 1
 
     newH = np.ones((p, 1))
-    newH[:i0] = 0
+    newH[:i0 + 1] = 0
     XnewH = X @ newH
 
     Q, R = scipy.linalg.qr_insert(Q, R, XnewH, 1, which='col', check_finite=False)
     H = np.hstack((H, newH))
+
+    # print(i0)
+    # print(H)
+    # print(null_space(D[~B]))
 
     while np.abs(lambdas[k]) > lmin and k < (nlambdas - 1):
         print(k, lambdas[k])
@@ -692,25 +682,28 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
             # A1 = A[:, 0]
             # A2 = A[:, 1]
 
-            H = null_space(Dm)
-            XH = X @ H
+            # H = null_space(Dm)
+            # print(null_space(Dm))
+            # print(H)
+            # XH = X @ H
+            # XH = Q @ R
 
-            A1 = np.linalg.lstsq(XH.T @ XH, H.T @ Xty, rcond=-1)[0]
-            A2 = np.linalg.lstsq(XH.T @ XH, H.T @ Dts, rcond=-1)[0]
+            # A1 = np.linalg.lstsq(XH.T @ XH, H.T @ Xty, rcond=-1)[0]
+            # A2 = np.linalg.lstsq(XH.T @ XH, H.T @ Dts, rcond=-1)[0]
 
             # A1 = np.linalg.lstsq(R.T @ R, H.T @ Xty, rcond=-1)[0]
             # A2 = np.linalg.lstsq(R.T @ R, H.T @ Dts, rcond=-1)[0]
 
-            # diag_regul = np.diag(np.zeros(R.shape[0]) + 1e-13)
+            diag_regul = np.diag(np.zeros(R.shape[0]) + 1e-13)
 
-            # rhs = np.vstack((H.T @ Xty, H.T @ Dts)).T
-            # b = scipy.linalg.solve_triangular(R.T + diag_regul, rhs, lower=True, check_finite=False)
-            # A = scipy.linalg.solve_triangular(R + diag_regul, b, check_finite=False)
-            # A1 = A[:, 0]
-            # A2 = A[:, 1]
+            rhs = np.vstack((H.T @ Xty, H.T @ Dts)).T
+            b = scipy.linalg.solve_triangular(R.T + diag_regul, rhs, lower=True, check_finite=False)
+            A = scipy.linalg.solve_triangular(R + diag_regul, b, check_finite=False)
+            A1 = A[:, 0]
+            A2 = A[:, 1]
 
-            # XtXH = X.T @ Q @ R
-            XtXH = X.T @ XH
+            XtXH = X.T @ Q @ R
+            # XtXH = X.T @ XH
             v = Xty - XtXH @ A1
             w = Dts - XtXH @ A2
 
@@ -809,25 +802,20 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
             # coord = I[ik]
             lambdak = hk
             newH = np.ones(p)
-            newH[:coord] = 0
+            newH[:coord + 1] = 0
             newpos = np.searchsorted(np.nonzero(B)[0], coord)
             H = np.insert(H, newpos + 1, newH, axis=1)
-            print(H.shape, newpos, newH.shape)
-            # B.append(coord)
-            # S.append(np.sign(a[ik]))
+            Q, R = scipy.linalg.qr_insert(Q, R, X @ newH, newpos + 1, which='col', check_finite=False)
+
+            # print(H.shape, R.shape, newpos, newH.shape)
             print(f'add {ik, coord}, B={B.sum()}')
         elif lk > hk: # variable leaves the boundary
             coord = np.nonzero(B)[0][ilk]
             updates = False, 0
-            # coord = B[ilk]
             lambdak = lk
-            # newH = None
-            # Q, R = scipy.linalg.qr_delete(Q, R, ilk, which='col', check_finite=False)
-            H = np.delete(H, ilk, axis=-1)
-            # H = np.delete(H, coord, axis=-1)
-            # B.remove(coord)
-            # S.remove(coord)
-            print(f'remove {ilk, B[ilk]}, B={B.sum()}')
+            Q, R = scipy.linalg.qr_delete(Q, R, ilk + 1, which='col', check_finite=False)
+            H = np.delete(H, ilk + 1, axis=-1)
+            print(f'remove {ilk, coord}, B={B.sum()}')
         elif (lk == 0) and (hk == 0): # end of the path, so everything stays as is
             lambdak = 0
             print('end of the path reached')
@@ -846,13 +834,13 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
         # betas[k] = y - lambdak * Dpb.T @ s
         # betas[k] = XH @ (y - lambdak * Dpb.T @ s) # eq. 33
         # betas[k] = Xpinv @ (yproj - Dproj.T @ muk) # eq. 36
-        PnullD = XH @ np.linalg.pinv(XH.T @ XH) @ XH.T
-        betas[k] = Xpinv @ PnullD @ (yproj - lambdak * Dproj[B].T @ s) # eq. 38
+        # PnullD = XH @ np.linalg.pinv(XH.T @ XH) @ XH.T
+        # betas[k] = Xpinv @ PnullD @ (yproj - lambdak * Dproj[B].T @ s) # eq. 38
         B[coord], S[coord] = updates
 
         # betas[k] = Xpinv @ np.sum(yproj - lambdak * Dpm.T @ s, axis=1) # eq. 38
         # betas[k] = Xpinv @ (y - D.T @ muk) # eq. vignette
-        # betas[k] = HA1 - lambdak * HA2 # eq. 38
+        betas[k] = HA1 - lambdak * HA2 # eq. 38
         lambdas[k] = lambdak
         dfs[k] = R.shape[1]
         Cp[k] = np.sum((y - X@betas[k])**2) - n * var + 2*var * dfs[k]
