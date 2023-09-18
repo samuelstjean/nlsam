@@ -478,7 +478,6 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
     lambdas = [None] * nlambdas
     betas = [None] * nlambdas
     dfs = [None] * nlambdas
-    # Cp = [None] * nlambdas
 
     if penalty == 'fused':
         D = np.eye(p-1, p, k=1) - np.eye(p-1, p)
@@ -519,14 +518,10 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
     DDt_diag_banded[0, 0] = 0
     L_banded = la.cholesky_banded(DDt_diag_banded, lower=False, check_finite=False)
 
-    # XtXpinv = np.linalg.pinv(X.T @ X)
-    # P = X @ Xpinv
-    # yold = y
     yproj = X @ Xpinv @ y
     Dproj = D @ Xpinv
 
     # step 1
-    # H = null_space(D)
     H = np.ones([p, 1])
     XH = X@H
     Xty = X.T @ y
@@ -537,33 +532,14 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
     v = Xty - X.T @ XH @ np.linalg.lstsq(XH.T @ XH, H.T @ Xty, rcond=None)[0]
     # v = Xty - X.T @ XH @ mid
 
-    # u0 = np.linalg.lstsq(D @ D.T, D @ v, rcond=None)[0]
     u0 = la.cho_solve_banded((L_banded, False), D @ v, check_finite=False)
 
     # step 2
-    # DinvD = np.linalg.pinv(Dproj @ Dproj.T) @ Dproj
-    # Dts = np.zeros(Dproj.shape[1]) # first step B is empty
-    # a = DinvD @ yproj
-    # b = DinvD @ Dts
-
-    # tp = a / (b + 1)
-    # tm = a / (b - 1)
-    # t = np.maximum(tp, tm)
-    # t = a / (b + np.sign(a))
     t = np.abs(u0)
     i0 = np.argmax(t)
     h0 = t[i0]
 
-    # mat = D @ (np.eye(*Dm.shape) - Dm.T @ DinvD)
-    # c = s @ (mat @ y)
-    # d = s @ (mat @ Dts)
-    # tl = c / d
-    # tl[np.logical_and(c < 0, d < 0)] = 0
-    # lk = np.max(tl)
-
-    # lambdak = lbda
     k = 0
-    # betas[k] = H @ mid
     betas[k] = H @ np.linalg.lstsq(XH.T @ XH, H.T @ Xty, rcond=None)[0]
     B[i0] = True
     S[i0] = np.sign(u0[i0])
@@ -578,16 +554,9 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
     Q, R = la.qr_insert(Q, R, XnewH, 1, which='col', check_finite=False)
     H = np.hstack((H, newH))
 
-    # print(i0)
-    # print(H)
-    # print(null_space(D[~B]))
-
     while np.abs(lambdas[k]) > lmin and k < (nlambdas - 1):
-        print(k, lambdas[k])
+        # print(k, lambdas[k])
 
-        # Db = D[B]
-        # Dm = D[I]
-        # s = np.array(S, dtype=np.int8)
         Db = D[B]
         Dm = D[~B]
         s = S[B]
@@ -595,7 +564,6 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
         DDt = Dm @ Dm.T
         DDt_banded = diagonal_choform(DDt)
         L_banded = la.cholesky_banded(DDt_banded, check_finite=False)
-        # H = np.ones((p, Dm.shape[1] - Dm.shape[0]))
 
         # Reset the QR to prevent accumulating errors during long runs
         # if k % 100 == 0:
@@ -615,104 +583,10 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
             a = np.zeros(0)
             b = np.zeros(0)
         else:
-            # H = np.ones((Dm.shape[1], Dm.shape[1] - Dm.shape[0]))
-            # H = null_space(Dm)
-            # XH = X@H
-            # XH = np.mean(X, axis=1,keepdims=True)
-            # XH = np.repeat(XH, 2, axis=1)
-            # null = Dm.shape[1] - Dm.shape[0]
-            # XHm = np.full((n, null), XH)
-            # mid = X.T @ XH @ np.linalg.pinv(XH.T @ XH)
-            # v = Xty - mid @ XH.T @ y
-            # w = Dts - mid @ H.T @ Dts
-            # v = X.T @ (yproj - XH @ np.linalg.pinv(XH.T @ XH) @ XH.T @ yproj)
-            # w = Db.T @ s - X.T @ XH @ np.linalg.pinv(XH.T @ XH) @ H.T @ Db.T @ s
-
-            # w = X.T @ (Dpb.T @ s - XH @ np.linalg.pinv(XH.T @ XH) @ XH.T @ Dpb.T @ s)
-
-            # XH = X@H
-            # v1 = Xty - X.T @ XH @ np.linalg.pinv(XH.T @ XH) @ XH.T @ y
-            # w1 = Dts - X.T @ XH @ np.linalg.pinv(XH.T @ XH) @ H.T @ Dts
-
-            # # H = np.ones((p, Dm.shape[1] - Dm.shape[0]))
-            # H = np.zeros((p, m))
-            # H[:, B] = 1
-            # XH = X @ H
-            # v1 = Xty - X.T @ XH @ np.linalg.pinv(XH) @ y
-            # w1 = Dts - X.T @ XH @ np.linalg.pinv(XH.T @ XH) @ H.T @ Dts
-            # v2 = Xty - Xty.mean()
-            # w2 =  (X.T @ Dpb.T @ s) - np.mean(X.T @ Dpb.T @ s)
-            # # XH = np.mean(X, axis=1,keepdims=True)
-            # # null = Dm.shape[1] - Dm.shape[0]
-            # # XHm = np.full((n, null), XH)
-            # # v1 = X.T @ (yproj - XH @ np.linalg.pinv(XH.T @ XH) @ XH.T @ yproj)
-            # # w1 = X.T @ (Dpb.T @ s - XH @ np.linalg.pinv(XH.T @ XH) @ XH.T @ Dpb.T @ s)
-
-
-            # PnullD = np.mean(X, axis=1, keepdims=True)
-            # null = Dm.shape[1] - Dm.shape[0]
-            # PnullD = np.full((n, null), PnullD)
-            # v2 = X.T @ yproj - X.T @ PnullD @ yproj
-            # w2 = X.T @ Dpb.T @ s - X.T @ PnullD @ Dpb.T @ s
-            # v = np.linalg.lstsq(XH, X.T @ yproj, rcond=None)[0]
-            # v = X @ (np.eye(p) - H @ np.linalg.pinv(XH) @ yproj)
-
-            # v = Xty - X.T @ XHm @ np.linalg.pinv(XHm) @ y
-            # w = Dts - X.T @ XHm @ np.linalg.pinv(XHm.T @ XHm) @ H.T @ Dts
-
-            # H = np.mean(Dm != 0, axis=0, keepdims=True)
-            # H = np.ones(Dm.shape[0]) / (Dm.shape[1] - Dm.shape[0])
-            # H = np.ones((Dm.shape[1], Dm.shape[1] - Dm.shape[0]))
-            # H[np.nonzero(B)] = 1
-
-            # # XH = X @ H
-            # # Allocating is contiguous so this is faster than a view in the end
-            # null = Dm.shape[1] - Dm.shape[0]
-            # XHm = np.full((n, null), XH)
-            # # XtXHm = np.full((p, null), XtXH)
-            # HtDts = np.full(null, np.sum(Dts))
-            # # XHmpinv = np.full((null, null), 1 / XHtXH / null**2)
-            # # mid = X.T @ XHm @ np.linalg.pinv(XHm.T @ XHm)
-            # # mid = XtXHm @ XHmpinv
-            # mid = np.full((p, null), ratio / null)
-            # v = Xty - mid @ XHm.T @ y
-            # w = Dts - mid @ HtDts
-
-            # regul = np.diag(np.ones(XH.shape[1]) * 1e-8)
-            # chofac = scipy.linalg.cho_factor(XH.T @ XH + regul, check_finite=False)
-            # A1 = scipy.linalg.cho_solve(chofac, H.T @ Xty, check_finite=False)
-            # A2 = scipy.linalg.cho_solve(chofac, H.T @ Dts, check_finite=False)
-
-            # XHtXH = XH.T @ XH
-            # A1 = scipy.linalg.lstsq(XHtXH, H.T @ Xty, check_finite=False, lapack_driver='gelsy')[0]
-            # A2 = scipy.linalg.lstsq(XHtXH, H.T @ Dts, check_finite=False, lapack_driver='gelsy')[0]
-            # b = np.vstack((H.T @ Xty, H.T @ Dts)).T
-            # A = scipy.linalg.lstsq(XHtXH, b, check_finite=False, lapack_driver='gelsy')[0]
-            # A1 = A[:, 0]
-            # A2 = A[:, 1]
-
-            # H = null_space(Dm)
-            # print(null_space(Dm))
-            # print(H)
-            # XH = X @ H
-            # XH = Q @ R
-
-            # A1 = np.linalg.lstsq(XH.T @ XH, H.T @ Xty, rcond=-1)[0]
-            # A2 = np.linalg.lstsq(XH.T @ XH, H.T @ Dts, rcond=-1)[0]
-
-            # A1 = np.linalg.lstsq(R.T @ R, H.T @ Xty, rcond=-1)[0]
-            # A2 = np.linalg.lstsq(R.T @ R, H.T @ Dts, rcond=-1)[0]
-
             XtXH = X.T @ Q @ R
             # XtXH = X.T @ XH
             v = Xty - XtXH @ A1
             w = Dts - XtXH @ A2
-
-            # v = Xty - X.T @ XH @ np.linalg.pinv(XH.T @ XH) @ XH.T @ y
-            # w = Dts - X.T @ XH @ np.linalg.pinv(XH.T @ XH) @ H.T @ Dts
-
-            # a = np.linalg.lstsq(DDt, Dm @ v, rcond=-1)[0]
-            # b = np.linalg.lstsq(DDt, Dm @ w, rcond=-1)[0]
 
             a = la.cho_solve_banded((L_banded, False), Dm @ v, check_finite=False)
             b = la.cho_solve_banded((L_banded, False), Dm @ w, check_finite=False)
@@ -721,42 +595,13 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
             # hitting time
 
             t = a / (b + np.sign(a) + eps) # prevent divide by 0
-            # tp = a / (b + 1)
-            # tm = a / (b - 1)
-            # t = np.maximum(tp, tm)
             # numerical issues fix
             t[t > lambdas[k].squeeze() + eps] = 0
-            # t[t > lambdas[k].squeeze()] = lambdas[k].squeeze()
-            # t.clip(max=lambdas[k], out=t)
 
             ik = np.argmax(t)
             hk = t[ik]
-            # print(f'{t}')
-
-        # if np.any(t > lambdas[k]):
-        #     t[t > lambdas[k] + 1e-7] = 0
-        #     t[t > lambdas[k]] = lambdas[k]
 
         # leaving time
-        # mat = mid
-        # mat = Dpb @ (In - Dpm.T @ np.linalg.pinv(Dpm @ Dpm.T) @ Dpm)
-        # mat = Dpb @ (In - Dpm.T @ np.linalg.pinv(Dpm))
-        # mat = Dpb @ (In - Dpm.T @ np.linalg.pinv(Dpm))
-        # mat = Dpb @ (In - Dpm.T @ mid @ XH.T) @ H.T
-        # c = s * (mat @ y)
-        # d = s * (mat @ Dts)
-        # c = s * (Db @ (Xty - Dm.T @ a))
-        # d = s * (Db @ (Xty - Dm.T @ b))
-        # c = s * (Db @ (np.eye(p) - Dm.T @ np.linalg.pinv(Dm @ Dm.T) @ Dm) @ y)
-        # d = s * (Db @ (np.eye(p) - Dm.T @ np.linalg.pinv(Dm @ Dm.T) @ Dm) @ Dts)
-        # mat = (np.eye(n) - Dpm.T @ np.linalg.pinv(Dpm @ Dpm.T) @ Dpm)
-
-        # mat = (np.eye(n) - Dpm.T @ DDt)
-        # c = s * (Dpb @ mat @ yproj)
-        # d = s * (Dpb @ mat @ Dpb.T @ s)
-
-        # c = s * (Dpb @ y - Dpb @ Dpm.T @  a)
-        # d = s * (Dpb @ Dpb.T @ s - Dpb @ Dpm.T @  b)
 
         HA1 = H @ A1
         HA2 = H @ A2
@@ -764,44 +609,21 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
         if Db.shape[0] == 0 or H.shape[0] == H.shape[1]: # Boundary is empty
             lk = 0
         else:
-            # print(H.shape, A1.shape, A2.shape)
-            # Dts = Dpb.T @ s
-            # c = s * (Dpb @ (yproj - Dpm.T @ a))
-            # d = s * (Dpb @ (Dts - Dpm.T @ b))
-            # Dpm = Dproj[~B]
-            # Dpb = Dproj[B]
-            # mid = (np.eye(n) - Dpm.T @ np.linalg.pinv(Dpm @ Dpm.T) @ Dpm)
-            # c = s * (Dpb @ mid @ yproj)
-            # d = s * (Dpb @ mid @ Dpb.T @ s)
-
             c =  s * (Db @ HA1)
             d =  s * (Db @ HA2)
-            # Dpb = Dproj[B]
-            # c = s * (Dpb @ XH @ np.linalg.pinv(XH.T @ XH) @ XH.T @ Xty)
-            # d = s * (Dpb @ XH @ np.linalg.pinv(XH.T @ XH) @ H.T @ Dts)
-
-            # c = s * (Dpb @ (XH.T @ np.linalg.pinv(XH @ XH.T) @ XH) @ y)
-            # d = s * (Dpb @ (XH.T @ np.linalg.pinv(XH @ XH.T) @ XH) @ Dts)
 
             tl = np.where((c < 0) & (d < 0), c/(d + eps), 0)
-            # tl = c / d
-            # tl[~np.logical_and(c < 0, d < 0)] = 0
-            # tl[c > 0] = 0
             # numerical issues fix
             tl[tl > lambdas[k].squeeze() + eps] = 0
-            # tl[tl > lambdas[k].squeeze()] = lambdas[k].squeeze()
-            # # tl.clip(max=lambdas[k], out=tl)
 
             ilk = np.argmax(tl)
             lk = tl[ilk]
 
-        # print(f'hk={hk}, lk={lk}')
         # update matrices and stuff for next step
 
         if hk > lk: # variable enters the boundary
             coord = np.nonzero(~B)[0][ik]
             updates = True, np.sign(a[ik])
-            # coord = I[ik]
             lambdak = hk
             newH = np.ones(p)
             newH[:coord + 1] = 0
@@ -810,53 +632,28 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
             H = np.insert(H, newpos + 1, newH, axis=1)
 
             # print(H.shape, R.shape, newpos, newH.shape)
-            print(f'add {ik, coord}, B={B.sum()}')
+            # print(f'add {ik, coord}, B={B.sum()}')
         elif lk > hk: # variable leaves the boundary
             coord = np.nonzero(B)[0][ilk]
             updates = False, 0
             lambdak = lk
             Q, R = la.qr_delete(Q, R, ilk + 1, which='col', check_finite=False)
             H = np.delete(H, ilk + 1, axis=-1)
-            print(f'remove {ilk, coord}, B={B.sum()}')
+            # print(f'remove {ilk, coord}, B={B.sum()}')
         elif (lk == 0) and (hk == 0): # end of the path, so everything stays as is
             lambdak = 0
-            print('end of the path reached')
+            # print('end of the path reached')
 
         k += 1
-        # muk[I] = a - lambdak * b
         muk[~B] = a - lambdak * b
         muk[B] = lambdak * s
         mus[k] = muk.copy()
 
         # update boundaries
-        # mus[k] = a - lambdak * b
-        # betas[k] = XtXpinv @ (X.T @ yproj - Dpm.T @ mus[k])
-        # betas[k] = Xpinv @ (yproj - Dpm.T @ mus[k])
-        # betas[k] = Xpinv @ yproj - Dproj.T @ mus[k]
-        # betas[k] = y - lambdak * Dpb.T @ s
-        # betas[k] = XH @ (y - lambdak * Dpb.T @ s) # eq. 33
-        # betas[k] = Xpinv @ (yproj - Dproj.T @ muk) # eq. 36
-        # PnullD = XH @ np.linalg.pinv(XH.T @ XH) @ XH.T
-        # betas[k] = Xpinv @ PnullD @ (yproj - lambdak * Dproj[B].T @ s) # eq. 38
         B[coord], S[coord] = updates
-
-        # betas[k] = Xpinv @ np.sum(yproj - lambdak * Dpm.T @ s, axis=1) # eq. 38
-        # betas[k] = Xpinv @ (y - D.T @ muk) # eq. vignette
         betas[k] = HA1 - lambdak * HA2 # eq. 38
         lambdas[k] = lambdak
         dfs[k] = R.shape[1]
-        # Cp[k] = np.sum((y - X@betas[k])**2) - n * var + 2*var * dfs[k]
-
-        # if newH is None:
-        #     # Q, R = scipy.linalg.qr_delete(Q, R, ilk, which='col', check_finite=False)
-        #     H = np.delete(H, ilk, axis=-1)
-        #     # H = np.delete(H, coord, axis=-1)
-        # else:
-        #     # Q, R = scipy.linalg.qr_insert(Q, R, X @ newH, H.shape[1], which='col')
-        #     # H = np.hstack((H, newH))
-        #     newpos = np.searchsorted(np.nonzero(B)[0], ik)
-        #     H = np.insert(H, newpos, newH, axis=1)
-        #     print(H.shape, newpos, newH.shape)
 
     return_lambdas = True
     out = Xpinv @ (yproj[:, None] - Dproj.T @ np.array(mus[:k+1]).T)
