@@ -1,6 +1,6 @@
 import numpy as np
 import logging
-import scipy.linalg
+# import scipy.linalg
 
 from time import time
 from itertools import cycle
@@ -11,7 +11,7 @@ from autodmri.blocks import extract_patches
 
 from joblib import Parallel, delayed
 from tqdm.autonotebook import tqdm
-from scipy.linalg import  null_space, cholesky_banded, cho_solve_banded
+# from scipy.linalg import  null_space, cholesky_banded, cho_solve_banded
 import scipy.linalg as la
 import spams
 
@@ -462,22 +462,17 @@ def diagonal_choform(a):
 # from qpsolvers import solve_ls
 
 # @njit(cache=True, parallel=True)
-def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l1=0, dtype=np.float32):
-    if nlambdas <= 0 or eps < 0 or lmin < 0 or l2 < 0 or l1 < 0:
+def path_stuff(X, y, penalty='fused', nsteps=500, eps=1e-8, lmin=0, l2=1e-6, l1=0, dtype=np.float32, return_lambdas=True):
+    if nsteps <= 0 or eps < 0 or lmin < 0 or l2 < 0 or l1 < 0:
         error = 'Parameter error'
         raise ValueError(error)
 
-    # if y.ndim == 1:
-    #     y = y[:, None]
+    if y.ndim == 1:
+        y = y[:, None]
 
     nold = X.shape[0] # This is the original shape, which is modified later on if l2 > 0
-    # N = y.shape[1]
+    N = y.shape[1]
     p = X.shape[1]
-
-    mus = [None] * nlambdas
-    lambdas = [None] * nlambdas
-    betas = [None] * nlambdas
-    dfs = [None] * nlambdas
 
     if penalty == 'fused':
         D = np.eye(p-1, p, k=1) - np.eye(p-1, p)
@@ -502,7 +497,7 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
         print(f'Adding a small ridge penalty l2={l2} as needed since X has more columns = {p} than rows = {nold}')
 
     if l2 > 0:
-        y = np.hstack((y, np.zeros(p)))
+        y = np.vstack((y, np.zeros((p, N))))
         X = np.vstack((X, np.sqrt(l2) * np.eye(p)))
 
     n = X.shape[0]
@@ -510,160 +505,211 @@ def path_stuff(X, y, penalty='fused', nlambdas=500, eps=1e-8, lmin=0, l2=1e-6, l
     B = np.zeros(m, dtype=bool)
     S = np.zeros(m, dtype=np.int8)
     muk = np.zeros(m)
-    var = np.var(y, axis=-1)
+    var = np.var(y, axis=0)
 
-    Xpinv = np.linalg.pinv(X)
+    all_mus = [None] * N
+    all_lambdas = [None] * N
+    all_betas = [None] * N
+    all_dfs = [None] * N
+
+    for i in range(N):
+        all_mus[i] = [None] * nsteps
+        all_lambdas[i] = [None] * nsteps
+        all_betas[i] = [None] * nsteps
+        all_dfs[i] = [None] * nsteps
+
+    # Xpinv = np.linalg.pinv(X)
     # Special form if we have the fused penalty
     DDt_diag_banded = np.vstack([np.full(m, -1), np.full(m, 2)])
     DDt_diag_banded[0, 0] = 0
     L_banded = la.cholesky_banded(DDt_diag_banded, lower=False, check_finite=False)
 
-    yproj = X @ Xpinv @ y
-    Dproj = D @ Xpinv
+    # yproj = X @ Xpinv @ y
+    # Dproj = D @ Xpinv
 
     # step 1
     H = np.ones([p, 1])
     XH = X@H
-    Xty = X.T @ y
     Q, R = np.linalg.qr(XH)
+    Xty = X.T @ y
     # b = scipy.linalg.solve_triangular(R.T, H.T @ Xty, lower=True, check_finite=False)
     # mid = scipy.linalg.solve_triangular(R, b, check_finite=False)
 
-    v = Xty - X.T @ XH @ np.linalg.lstsq(XH.T @ XH, H.T @ Xty, rcond=None)[0]
-    # v = Xty - X.T @ XH @ mid
-
+    rhs = np.linalg.lstsq(XH.T @ XH, H.T @ Xty, rcond=None)[0]
+    v = Xty - X.T @ XH @ rhs
     u0 = la.cho_solve_banded((L_banded, False), D @ v, check_finite=False)
 
     # step 2
     t = np.abs(u0)
-    i0 = np.argmax(t)
-    h0 = t[i0]
+    i0 = np.argmax(t, axis=0)
+    h0 = t[i0, range(N)]
 
-    k = 0
-    betas[k] = H @ np.linalg.lstsq(XH.T @ XH, H.T @ Xty, rcond=None)[0]
-    B[i0] = True
-    S[i0] = np.sign(u0[i0])
-    lambdas[k] = h0
-    mus[k] = u0
-    dfs[k] = 1
+    for i in range(N):
+        all_betas[i][0] = H @ rhs[:, i]
+        all_lambdas[i][0] = h0[i]
+        all_mus[i][0] = u0[:, i]
+        all_dfs[i][0] = 1
 
-    newH = np.ones((p, 1))
-    newH[:i0 + 1] = 0
-    XnewH = X @ newH
+    Q_all = Q.copy()
+    R_all = R.copy()
+    Xty_all = Xty.copy()
+    XtX = X.T @ X
+    Xty = np.zeros(p)
+    diag_regul = np.diag(np.zeros(p) + 1e-13)
 
-    Q, R = la.qr_insert(Q, R, XnewH, 1, which='col', check_finite=False)
-    H = np.hstack((H, newH))
+    for i in range(N):
+        k = 0
+        B[:] = 0
+        S[:] = 0
+        ilocal = i0[i]
 
-    while np.abs(lambdas[k]) > lmin and k < (nlambdas - 1):
-        # print(k, lambdas[k])
+        H = np.ones([p, 1])
+        newH = np.ones((p, 1))
+        newH[:ilocal + 1] = 0
+        XnewH = X @ newH
+        Q = Q_all.copy()
+        R = R_all.copy()
+        Xty[:] = Xty_all[:, i]
 
-        Db = D[B]
-        Dm = D[~B]
-        s = S[B]
-        Dts = Db.T @ s
-        DDt = Dm @ Dm.T
-        DDt_banded = diagonal_choform(DDt)
-        L_banded = la.cholesky_banded(DDt_banded, check_finite=False)
+        B[ilocal] = True
+        S[ilocal] = np.sign(u0[ilocal, i])
 
-        # Reset the QR to prevent accumulating errors during long runs
-        # if k % 100 == 0:
-        #     Q, R = np.linalg.qr(X @ H)
+        Q, R = la.qr_insert(Q, R, XnewH, 1, which='col', check_finite=False)
+        H = np.hstack((H, newH))
+        XtXH = XtX @ H
 
-        diag_regul = np.diag(np.zeros(R.shape[0]) + 1e-13)
+        mus = all_mus[i]
+        lambdas = all_lambdas[i]
+        betas = all_betas[i]
+        dfs = all_dfs[i]
 
-        rhs = np.vstack((H.T @ Xty, H.T @ Dts)).T
-        b = la.solve_triangular(R.T + diag_regul, rhs, lower=True, check_finite=False)
-        A = la.solve_triangular(R + diag_regul, b, check_finite=False)
-        A1 = A[:, 0]
-        A2 = A[:, 1]
+        while np.abs(lambdas[k]) > lmin and k < (nsteps - 1):
+            print(k, lambdas[k])
 
-        # step 3a
-        if Dm.shape[0] == 0: # Interior is empty
-            hk = 0
-            a = np.zeros(0)
-            b = np.zeros(0)
-        else:
-            XtXH = X.T @ Q @ R
-            # XtXH = X.T @ XH
-            v = Xty - XtXH @ A1
-            w = Dts - XtXH @ A2
+            Db = D[B]
+            Dm = D[~B]
+            s = S[B]
+            Dts = Db.T @ s
+            DDt = Dm @ Dm.T
+            DDt_banded = diagonal_choform(DDt)
+            L_banded = la.cholesky_banded(DDt_banded, check_finite=False)
 
-            a = la.cho_solve_banded((L_banded, False), Dm @ v, check_finite=False)
-            b = la.cho_solve_banded((L_banded, False), Dm @ w, check_finite=False)
+            # Reset the QR to prevent accumulating errors during long runs
+            # if k % 100 == 0:
+            #     Q, R = np.linalg.qr(X @ H)
 
-            # step 3b
-            # hitting time
+            r = R.shape[0]
+            rhs = np.vstack((H.T @ Xty, H.T @ Dts)).T
+            b = la.solve_triangular(R.T + diag_regul[:r, :r], rhs, lower=True, check_finite=False)
+            A = la.solve_triangular(R + diag_regul[:r, :r], b, check_finite=False)
+            A1 = A[:, 0]
+            A2 = A[:, 1]
 
-            t = a / (b + np.sign(a) + eps) # prevent divide by 0
-            # numerical issues fix
-            t[t > lambdas[k].squeeze() + eps] = 0
+            # step 3a
+            if Dm.shape[0] == 0: # Interior is empty
+                hk = 0
+                a = np.zeros(0)
+                b = np.zeros(0)
+            else:
+                # XtXH = X.T @ Q @ R
+                # XtXH = XtX @ H
 
-            ik = np.argmax(t)
-            hk = t[ik]
+                v = Xty - XtXH @ A1
+                w = Dts - XtXH @ A2
 
-        # leaving time
+                rhs = Dm @ np.vstack((v, w)).T
+                A = la.cho_solve_banded((L_banded, False), rhs, check_finite=False)
+                a = A[:, 0]
+                b = A[:, 1]
+                # a = la.cho_solve_banded((L_banded, False), Dm @ v, check_finite=False)
+                # b = la.cho_solve_banded((L_banded, False), Dm @ w, check_finite=False)
 
-        HA1 = H @ A1
-        HA2 = H @ A2
+                # step 3b
+                # hitting time
+                t = a / (b + np.sign(a) + eps) # prevent divide by 0
+                # numerical issues fix
+                t[t > lambdas[k].squeeze() + eps] = 0
 
-        if Db.shape[0] == 0 or H.shape[0] == H.shape[1]: # Boundary is empty
-            lk = 0
-        else:
-            c =  s * (Db @ HA1)
-            d =  s * (Db @ HA2)
+                ik = np.argmax(t)
+                hk = t[ik]
 
-            tl = np.where((c < 0) & (d < 0), c/(d + eps), 0)
-            # numerical issues fix
-            tl[tl > lambdas[k].squeeze() + eps] = 0
+            # leaving time
+            HA1 = H @ A1
+            HA2 = H @ A2
 
-            ilk = np.argmax(tl)
-            lk = tl[ilk]
+            if Db.shape[0] == 0 or H.shape[0] == H.shape[1]: # Boundary is empty
+                lk = 0
+            else:
+                c =  s * (Db @ HA1)
+                d =  s * (Db @ HA2)
 
-        # update matrices and stuff for next step
+                tl = np.where((c < 0) & (d < 0), c/(d + eps), 0)
+                # numerical issues fix
+                tl[tl > lambdas[k].squeeze() + eps] = 0
 
-        if hk > lk: # variable enters the boundary
-            coord = np.nonzero(~B)[0][ik]
-            updates = True, np.sign(a[ik])
-            lambdak = hk
-            newH = np.ones(p)
-            newH[:coord + 1] = 0
-            newpos = np.searchsorted(np.nonzero(B)[0], coord)
-            Q, R = la.qr_insert(Q, R, X @ newH, newpos + 1, which='col', check_finite=False)
-            H = np.insert(H, newpos + 1, newH, axis=1)
+                ilk = np.argmax(tl)
+                lk = tl[ilk]
 
-            # print(H.shape, R.shape, newpos, newH.shape)
-            # print(f'add {ik, coord}, B={B.sum()}')
-        elif lk > hk: # variable leaves the boundary
-            coord = np.nonzero(B)[0][ilk]
-            updates = False, 0
-            lambdak = lk
-            Q, R = la.qr_delete(Q, R, ilk + 1, which='col', check_finite=False)
-            H = np.delete(H, ilk + 1, axis=-1)
-            # print(f'remove {ilk, coord}, B={B.sum()}')
-        elif (lk == 0) and (hk == 0): # end of the path, so everything stays as is
-            lambdak = 0
-            # print('end of the path reached')
+            # update matrices and stuff for next step
+            if hk > lk: # variable enters the boundary
+                coord = np.nonzero(~B)[0][ik]
+                updates = True, np.sign(a[ik])
+                lambdak = hk
+                newH = np.ones(p)
+                newH[:coord + 1] = 0
+                newpos = np.searchsorted(np.nonzero(B)[0], coord)
+                Q, R = la.qr_insert(Q, R, X @ newH, newpos + 1, which='col', check_finite=False)
+                H = np.insert(H, newpos + 1, newH, axis=1)
+                XtXH = np.insert(XtXH, newpos + 1, XtX @ newH, axis=1)
 
-        k += 1
-        muk[~B] = a - lambdak * b
-        muk[B] = lambdak * s
-        mus[k] = muk.copy()
+                # print(H.shape, R.shape, newpos, newH.shape)
+                print(f'add {ik, coord}, B={B.sum()}')
+            elif lk > hk: # variable leaves the boundary
+                coord = np.nonzero(B)[0][ilk]
+                updates = False, 0
+                lambdak = lk
+                Q, R = la.qr_delete(Q, R, ilk + 1, which='col', check_finite=False)
+                H = np.delete(H, ilk + 1, axis=1)
+                XtXH = np.delete(XtXH, ilk + 1, axis=1)
+                print(f'remove {ilk, coord}, B={B.sum()}')
+            elif (lk == 0) and (hk == 0): # end of the path, so everything stays as is
+                lambdak = 0
+                print('end of the path reached')
 
-        # update boundaries
-        B[coord], S[coord] = updates
-        betas[k] = HA1 - lambdak * HA2 # eq. 38
-        lambdas[k] = lambdak
-        dfs[k] = R.shape[1]
+            k += 1
+            muk[~B] = a - lambdak * b
+            muk[B] = lambdak * s
+            mus[k] = muk.copy()
 
-    return_lambdas = True
-    out = Xpinv @ (yproj[:, None] - Dproj.T @ np.array(mus[:k+1]).T)
-    out = out.T
-    lambdas = np.array(lambdas[:k+1])
-    betas = np.array(betas[:k+1])
-    Cp = np.sum((y[:, None] - X@betas.T)**2, axis=0) - n * var + 2*var * np.array(dfs[:k+1])
+            # update boundaries
+            B[coord], S[coord] = updates
+            betas[k] = HA1 - lambdak * HA2 # eq. 38
+            lambdas[k] = lambdak
+            dfs[k] = H.shape[1] - 1
 
-    # l2_error = np.sum((X @ out.T - y[..., None])**2, axis=0)
+    # out = Xpinv @ (yproj[:, None] - Dproj.T @ np.array(mus[:k+1]).T)
+    # out = out.T
+
+    all_l2_error = [None] * N
+    all_Cps = [None] * N
+    all_best_idx = np.zeros(N, dtype=np.int16)
+
+    for i in range(N):
+        lambdas = np.array(all_lambdas[i][:k+1])
+        betas = np.array(all_betas[i][:k+1])
+        dfs = np.array(all_dfs[i][:k+1])
+        l2_error = np.sum((y[:, None] - (X@betas.T)[..., None])**2, axis=0)
+        Cps = l2_error.T - n * var[:, None] + 2 * var[:, None] * dfs
+        best_idx = np.argmin(Cps, axis=1)
+
+        all_lambdas[i] = lambdas
+        all_betas[i] = betas
+        all_dfs[i] = dfs
+        all_l2_error[i] = l2_error
+        all_Cps[i] = Cps
+        all_l2_error[i] = l2_error
+        all_best_idx[i] = best_idx
 
     if return_lambdas:
-        return out, lambdas, betas
-    return out
+        return all_betas, all_lambdas, all_Cps, all_best_idx
+    return all_betas
