@@ -13,7 +13,10 @@ from joblib import Parallel, delayed
 from tqdm.autonotebook import tqdm
 # from scipy.linalg import  null_space, cholesky_banded, cho_solve_banded
 import scipy.linalg as la
+import scipy.sparse as ssp
 import spams
+import qpsolvers
+import numba
 
 logger = logging.getLogger('nlsam')
 
@@ -446,6 +449,128 @@ def frobenius_sort(bval, bvec, bdelta=None, base=(1,0,0)):
 
 #     return ab
 
+
+from numba.extending import get_cython_function_address
+from numba import njit, types
+import ctypes
+
+_PTR = ctypes.POINTER
+
+_dbl = ctypes.c_double
+_int = ctypes.c_int
+
+_ptr_dbl = _PTR(_dbl)
+_ptr_int = _PTR(_int)
+
+addr = get_cython_function_address('scipy.linalg.cython_lapack', 'dpbtrs')
+functype = ctypes.CFUNCTYPE(None,
+                            _ptr_int,  # UPLO
+                            _ptr_int,  # N
+                            _ptr_int,  # KD
+                            _ptr_int,  # NRHS
+                            _ptr_dbl,  # AB
+                            _ptr_int,  # LDAB
+                            _ptr_dbl,  # B
+                            _ptr_int,  # LDB
+                            _ptr_int)  # INFO
+numba_dpbtrs = functype(addr)
+
+addr = get_cython_function_address('scipy.linalg.cython_lapack', 'dpbtrf')
+functype = ctypes.CFUNCTYPE(None,
+                            _ptr_int,  # UPLO
+                            _ptr_int,  # N
+                            _ptr_int,  # KD
+                            _ptr_dbl,  # AB
+                            _ptr_int,  # LDAB
+                            _ptr_int)  # INFO
+numba_dpbtrf = functype(addr)
+# fnty = types.FunctionType(types.int64(types.float64[:,:], types.float64[:,:], types.boolean, types.boolean))
+# @njit(types.int64(fnty, types.UniTuple(types.int64, 2)), cache=True)
+
+
+@njit(cache=True, parallel=True, fastmath=True, nogil=True)
+def dpbtrs(cb, b, lower=False, overwrite_b=False):
+    if lower:
+        UPLO = 'L'
+    else:
+        UPLO = 'U'
+
+    # if b.ndim == 1:
+    #     b = np.atleast_2d(b).T
+
+    if b.flags.f_contiguous:
+        if not overwrite_b:
+            b = np.copy(b)
+    else:
+        b = np.asfortranarray(b)
+
+    cb = np.asfortranarray(cb)
+
+    UPLO = np.array([ord(UPLO)], dtype=np.int32)
+    NRHS = np.array(b.shape[1], dtype=np.int32)
+    N = np.array(cb.shape[1], dtype=np.int32)
+    KD = np.array(cb.shape[0] - 1, dtype=np.int32)
+    AB = cb
+    LDAB = np.array(cb.shape[0], dtype=np.int32)
+    B = b
+    LDB = np.array(b.shape[0], dtype=np.int32)
+    INFO = np.array(0, dtype=np.int32)
+
+    numba_dpbtrs( UPLO.ctypes,
+                N.ctypes,
+                KD.ctypes,
+                NRHS.ctypes,
+                AB.ctypes,
+                LDAB.ctypes,
+                B.ctypes,
+                LDB.ctypes,
+                INFO.ctypes)
+    return B, INFO
+
+
+@njit(cache=True, parallel=True, fastmath=True, nogil=True)
+def dpbtrf(ab, lower=False, overwrite_ab=False):
+    if lower:
+        UPLO = 'L'
+    else:
+        UPLO = 'U'
+
+    # if b.ndim == 1:
+    #     b = np.atleast_2d(b).T
+
+    if ab.flags.f_contiguous:
+        if not overwrite_ab:
+            ab = np.copy(ab)
+    else:
+        ab = np.asfortranarray(ab)
+
+    UPLO = np.array([ord(UPLO)], dtype=np.int32)
+    N = np.array(ab.shape[1], dtype=np.int32)
+    KD = np.array(ab.shape[0] - 1, dtype=np.int32)
+    AB = ab
+    LDAB = np.array(ab.shape[0], dtype=np.int32)
+    INFO = np.array(0, dtype=np.int32)
+
+    numba_dpbtrf(UPLO.ctypes,
+                N.ctypes,
+                KD.ctypes,
+                AB.ctypes,
+                LDAB.ctypes,
+                INFO.ctypes)
+    return AB, INFO
+
+@njit(cache=True, parallel=True, fastmath=True, nogil=True)
+def backsolve(A, b, lower=False, transpose=0):
+    alpha = 1.0
+    out = la.blas.dtrsm(alpha, A, b, lower=lower, trans_a=transpose)
+    # out = mydtrsm(alpha, A, b, lower=lower, trans_a=transpose)
+    return out
+
+@njit(cache=True, parallel=True, fastmath=True, nogil=True)
+def forwardsolve(A, b, lower=True, transpose=0):
+    return backsolve(A, b, lower=lower, transpose=transpose)
+
+@njit(cache=True, parallel=True, fastmath=True, nogil=True)
 def diagonal_choform(a):
     n = a.shape[1]
     ab = np.zeros((2, n))
@@ -458,10 +583,32 @@ def diagonal_choform(a):
 
     return ab
 
+@njit(cache=True, parallel=True, fastmath=True, nogil=True)
+def cholesky_banded(ab, lower=False, overwrite_ab=False):
+    c, info = dpbtrf(ab, lower=lower, overwrite_ab=overwrite_ab)
+
+    if info > 0:
+        raise ValueError("%d-th leading minor not positive definite" % info)
+    if info < 0:
+        raise ValueError('illegal value in %d-th argument of internal pbtrf' % -info)
+    return c
+
+@njit(cache=True, parallel=True, fastmath=True, nogil=True)
+def cho_solve_banded(cb_and_lower, b, overwrite_b=False):
+    (cb, lower) = cb_and_lower
+
+    x, info = dpbtrs(cb, b, lower=lower, overwrite_b=overwrite_b)
+
+    if info > 0:
+        raise ValueError("%dth leading minor not positive definite" % info)
+    if info < 0:
+        raise ValueError('illegal value in %dth argument of internal pbtrs' % -info)
+    return x
+
+
 # from numba import njit
 # from qpsolvers import solve_ls
 
-# @njit(cache=True, parallel=True)
 def path_stuff(X, y, penalty='fused', nsteps=500, eps=1e-8, lmin=0, l2=1e-6, l1=0, dtype=np.float32, return_lambdas=True):
     if nsteps <= 0 or eps < 0 or lmin < 0 or l2 < 0 or l1 < 0:
         error = 'Parameter error'
@@ -530,7 +677,7 @@ def path_stuff(X, y, penalty='fused', nsteps=500, eps=1e-8, lmin=0, l2=1e-6, l1=
     # step 1
     H = np.ones([p, 1])
     XH = X@H
-    Q, R = np.linalg.qr(XH)
+    # Q, R = np.linalg.qr(XH)
     Xty = X.T @ y
     # b = scipy.linalg.solve_triangular(R.T, H.T @ Xty, lower=True, check_finite=False)
     # mid = scipy.linalg.solve_triangular(R, b, check_finite=False)
@@ -550,12 +697,12 @@ def path_stuff(X, y, penalty='fused', nsteps=500, eps=1e-8, lmin=0, l2=1e-6, l1=
         all_mus[i][0] = u0[:, i]
         all_dfs[i][0] = 1
 
-    Q_all = Q.copy()
-    R_all = R.copy()
+    # Q_all = Q.copy()
+    # R_all = R.copy()
     Xty_all = Xty.copy()
     XtX = X.T @ X
     Xty = np.zeros(p)
-    diag_regul = np.diag(np.zeros(p) + 1e-13)
+    K = np.zeros(N, dtype=np.int16)
 
     for i in range(N):
         k = 0
@@ -566,25 +713,27 @@ def path_stuff(X, y, penalty='fused', nsteps=500, eps=1e-8, lmin=0, l2=1e-6, l1=
         H = np.ones([p, 1])
         newH = np.ones((p, 1))
         newH[:ilocal + 1] = 0
-        XnewH = X @ newH
-        Q = Q_all.copy()
-        R = R_all.copy()
+        # XnewH = X @ newH
+        # Q = Q_all.copy()
+        # R = R_all.copy()
         Xty[:] = Xty_all[:, i]
 
         B[ilocal] = True
         S[ilocal] = np.sign(u0[ilocal, i])
 
-        Q, R = la.qr_insert(Q, R, XnewH, 1, which='col', check_finite=False)
+        # Q, R = la.qr_insert(Q, R, XnewH, 1, which='col', check_finite=False)
         H = np.hstack((H, newH))
+        XH = X @ H
         XtXH = XtX @ H
 
         mus = all_mus[i]
         lambdas = all_lambdas[i]
         betas = all_betas[i]
         dfs = all_dfs[i]
+        # initvals = np.zeros((2, 2))
 
         while np.abs(lambdas[k]) > lmin and k < (nsteps - 1):
-            print(k, lambdas[k])
+            # print(k, lambdas[k])
 
             Db = D[B]
             Dm = D[~B]
@@ -592,16 +741,30 @@ def path_stuff(X, y, penalty='fused', nsteps=500, eps=1e-8, lmin=0, l2=1e-6, l1=
             Dts = Db.T @ s
             DDt = Dm @ Dm.T
             DDt_banded = diagonal_choform(DDt)
-            L_banded = la.cholesky_banded(DDt_banded, check_finite=False)
+            L_banded = cholesky_banded(DDt_banded, check_finite=False)
 
             # Reset the QR to prevent accumulating errors during long runs
-            # if k % 100 == 0:
-            #     Q, R = np.linalg.qr(X @ H)
+            # if k % 1 == 0:
+            R = np.linalg.qr(XH, mode='r')
 
-            r = R.shape[0]
             rhs = np.vstack((H.T @ Xty, H.T @ Dts)).T
-            b = la.solve_triangular(R.T + diag_regul[:r, :r], rhs, lower=True, check_finite=False)
-            A = la.solve_triangular(R + diag_regul[:r, :r], b, check_finite=False)
+            # print(Q.shape, R.shape, rhs.shape)
+            # b = la.solve_triangular(R.T, rhs, lower=True, check_finite=False)
+            # A = la.solve_triangular(R, b, check_finite=False)
+            # A = np.linalg.lstsq(R, np.linalg.lstsq(R.T, rhs, rcond=None)[0], rcond=None)[0]
+            # A = np.linalg.lstsq(R.T @ R, rhs, rcond=None)[0]
+            A = backsolve(R, forwardsolve(R, rhs, lower=False, transpose=True))
+            # A1 = qpsolvers.solve_ls(XH.T @ XH, rhs[:, 0], solver='quadprog')
+            # A2 = qpsolvers.solve_ls(XH.T @ XH, rhs[:, 1], solver='quadprog')
+
+            # AA = XH.T @ XH
+            # lhs = AA.T @ AA
+            # A1 = qpsolvers.solve_qp(lhs, H.T @ Xty, solver='quadprog')
+            # A2 = qpsolvers.solve_qp(lhs, H.T @ Dts, solver='quadprog')
+            # A = np.linalg.solve(R, np.linalg.solve(R.T, rhs, rcond=None)[0], rcond=None)[0]
+
+            # print(A1)
+            # print(A2)
             A1 = A[:, 0]
             A2 = A[:, 1]
 
@@ -618,7 +781,7 @@ def path_stuff(X, y, penalty='fused', nsteps=500, eps=1e-8, lmin=0, l2=1e-6, l1=
                 w = Dts - XtXH @ A2
 
                 rhs = Dm @ np.vstack((v, w)).T
-                A = la.cho_solve_banded((L_banded, False), rhs, check_finite=False)
+                A = cho_solve_banded((L_banded, False), rhs, check_finite=False)
                 a = A[:, 0]
                 b = A[:, 1]
                 # a = la.cho_solve_banded((L_banded, False), Dm @ v, check_finite=False)
@@ -658,23 +821,27 @@ def path_stuff(X, y, penalty='fused', nsteps=500, eps=1e-8, lmin=0, l2=1e-6, l1=
                 newH = np.ones(p)
                 newH[:coord + 1] = 0
                 newpos = np.searchsorted(np.nonzero(B)[0], coord)
-                Q, R = la.qr_insert(Q, R, X @ newH, newpos + 1, which='col', check_finite=False)
+                # Q, R = la.qr_insert(Q, R, X @ newH, newpos + 1, which='col', overwrite_qru=True, check_finite=False)
                 H = np.insert(H, newpos + 1, newH, axis=1)
+                XH = np.insert(XH, newpos + 1, X @ newH, axis=1)
+                XH = X @ H
                 XtXH = np.insert(XtXH, newpos + 1, XtX @ newH, axis=1)
-
-                # print(H.shape, R.shape, newpos, newH.shape)
-                print(f'add {ik, coord}, B={B.sum()}')
+                XtXH = XtX @ H
+                XtXH = X.T @ XH
+                # print(H.shape, R.shape, newpos, newH.shape, XH.shape)
+                # print(f'add {ik, coord}, B={B.sum()}')
             elif lk > hk: # variable leaves the boundary
                 coord = np.nonzero(B)[0][ilk]
                 updates = False, 0
                 lambdak = lk
-                Q, R = la.qr_delete(Q, R, ilk + 1, which='col', check_finite=False)
+                # Q, R = la.qr_delete(Q, R, ilk + 1, which='col', overwrite_qr=True, check_finite=False)
                 H = np.delete(H, ilk + 1, axis=1)
+                XH = np.delete(XH, ilk + 1, axis=1)
                 XtXH = np.delete(XtXH, ilk + 1, axis=1)
-                print(f'remove {ilk, coord}, B={B.sum()}')
+                # print(f'remove {ilk, coord}, B={B.sum()}')
             elif (lk == 0) and (hk == 0): # end of the path, so everything stays as is
                 lambdak = 0
-                print('end of the path reached')
+                # print('end of the path reached')
 
             k += 1
             muk[~B] = a - lambdak * b
@@ -687,29 +854,32 @@ def path_stuff(X, y, penalty='fused', nsteps=500, eps=1e-8, lmin=0, l2=1e-6, l1=
             lambdas[k] = lambdak
             dfs[k] = H.shape[1] - 1
 
-    # out = Xpinv @ (yproj[:, None] - Dproj.T @ np.array(mus[:k+1]).T)
-    # out = out.T
+        K[i] = k
 
     all_l2_error = [None] * N
     all_Cps = [None] * N
     all_best_idx = np.zeros(N, dtype=np.int16)
 
     for i in range(N):
+        k = K[i]
+        print(i, K[i])
         lambdas = np.array(all_lambdas[i][:k+1])
         betas = np.array(all_betas[i][:k+1])
         dfs = np.array(all_dfs[i][:k+1])
-        l2_error = np.sum((y[:, None] - (X@betas.T)[..., None])**2, axis=0)
-        Cps = l2_error.T - n * var[:, None] + 2 * var[:, None] * dfs
-        best_idx = np.argmin(Cps, axis=1)
+        l2_error = np.sum((y[:, i] - betas @ X.T)**2, axis=1)
+        Cps = l2_error - n * var[i] + 2 * var[i] * dfs
+        best_idx = np.argmin(Cps)
+        print(best_idx, Cps.shape)
 
         all_lambdas[i] = lambdas
         all_betas[i] = betas
         all_dfs[i] = dfs
         all_l2_error[i] = l2_error
         all_Cps[i] = Cps
-        all_l2_error[i] = l2_error
         all_best_idx[i] = best_idx
 
     if return_lambdas:
         return all_betas, all_lambdas, all_Cps, all_best_idx
     return all_betas
+
+def inner_path(X, y, Xty):
