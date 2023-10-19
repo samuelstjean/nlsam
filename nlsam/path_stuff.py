@@ -88,7 +88,7 @@ from nlsam.inner_path import inner_path
 #     return qr_impl
 
 
-def path_stuff(X, y, penalty='fused', nsteps=500, eps=1e-8, lmin=0, l2=1e-6, l1=0, dtype=np.float32, return_lambdas=True):
+def path_stuff(X, y, penalty='fused', nsteps=500, eps=1e-8, lmin=1e-5, l2=1e-6, l1=0, dtype=np.float32, return_lambdas=True):
     if nsteps <= 0 or eps < 0 or lmin < 0 or l2 < 0 or l1 < 0:
         error = 'Parameter error'
         raise ValueError(error)
@@ -156,13 +156,15 @@ def path_stuff(X, y, penalty='fused', nsteps=500, eps=1e-8, lmin=0, l2=1e-6, l1=
 
     # step 1
     H = np.ones([p, 1])
-    XH = X@H
+    # XH = X@H
+    XH = X.mean(axis=1, keepdims=True)
     # Q, R = np.linalg.qr(XH)
     Xty = X.T @ y
     # b = scipy.linalg.solve_triangular(R.T, H.T @ Xty, lower=True, check_finite=False)
     # mid = scipy.linalg.solve_triangular(R, b, check_finite=False)
 
-    rhs = np.linalg.lstsq(XH.T @ XH, H.T @ Xty, rcond=None)[0]
+    # rhs = np.linalg.lstsq(XH.T @ XH, H.T @ Xty, rcond=None)[0]
+    rhs = np.linalg.lstsq(XH.T @ XH, Xty.mean(axis=0, keepdims=True), rcond=None)[0]
     v = Xty - X.T @ XH @ rhs
     u0 = la.cho_solve_banded((L_banded, False), D @ v, check_finite=False)
 
