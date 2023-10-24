@@ -1,4 +1,4 @@
-# cython: language_level=3, boundscheck=False, infer_types=True, initializedcheck=False, cdivision=True
+# cython: language_level=3, boundscheck=False, infer_types=True, initializedcheck=False, cdivision=True,  linetrace=True
 # distutils: define_macros=NPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION
 # distutils: define_macros=CYTHON_TRACE_NOGIL=1
 
@@ -16,12 +16,10 @@ import scipy.linalg as la
 # import igraph as ig
 
 from numpy.linalg._umath_linalg import qr_r_raw_m, qr_r_raw_n
+from libc.math cimport sqrt
 # from scipy.linalg._decomp_update import qr_insert, qr_delete
 
 cdef inline double[::1] dpbtrs(double[::1,:] AB, double[::1] B, bint lower=False, bint overwrite_b=False):
-    # btemp = np.zeros(b.shape[0], order='F', dtype=np.float64)
-    # abtemp = np.zeros((cb.shape[0], cb.shape[1]), order='F', dtype=np.float64)
-
     cdef:
         char UPLO
         int N = AB.shape[1]
@@ -31,44 +29,10 @@ cdef inline double[::1] dpbtrs(double[::1,:] AB, double[::1] B, bint lower=False
         int LDB = B.shape[0]
         int INFO
 
-        # double[:] B = b.copy_fortran()
-        # double[:,:] AB = cb.copy_fortran()
-
     if lower:
         UPLO = b'L'
     else:
         UPLO = b'U'
-
-    # if b.ndim == 1:
-    #     b = np.atleast_2d(b).T
-
-    # if b.flags.f_contiguous:
-    #     if not overwrite_b:
-    #         B[:] = np.copy(b)
-    # else:
-    #     B[:] = np.asfortranarray(b)
-
-    # if b.flags.f_contiguous:
-    #     B[:] = b
-    # else:
-    #     B[:] = np.asfortranarray(b)
-
-    # AB[:] = np.asfortranarray(cb)
-
-    # AB[:] = cb.copy_fortran()
-    # B[:] = b.copy_fortran()
-
-
-
-    # UPLO = np.array([ord(UPLO)], dtype=np.int32)
-    # NRHS = np.array(0, dtype=np.int32)
-    # N = np.array(cb.shape[1], dtype=np.int32)
-    # KD = np.array(cb.shape[0] - 1, dtype=np.int32)
-    # AB = cb
-    # LDAB = np.array(cb.shape[0], dtype=np.int32)
-    # B = b
-    # LDB = np.array(b.shape[0], dtype=np.int32)
-    # INFO = np.array(0, dtype=np.int32)
 
     cython_dpbtrs(&UPLO,
                 &N,
@@ -83,7 +47,7 @@ cdef inline double[::1] dpbtrs(double[::1,:] AB, double[::1] B, bint lower=False
     if INFO > 0:
         raise ValueError(f"{INFO}th leading minor not positive definite")
     if INFO < 0:
-        raise ValueError(f'illegal value in {-INFO}th argument of internal pbtrs')
+        raise ValueError(f'illegal value in {-INFO}th argument of internal dpbtrs')
 
     return B
 
@@ -91,7 +55,7 @@ cdef inline double[::1] dpbtrs(double[::1,:] AB, double[::1] B, bint lower=False
 cdef inline double[::1] dpotrs(double[::1,:] A, double[::1] B, bint lower=False, bint overwrite_b=False):
     cdef:
         char UPLO
-        int N = A.shape[1]
+        int N = A.shape[0]
         int NRHS = 1
         int LDA = A.shape[0]
         int LDB = B.shape[0]
@@ -114,7 +78,7 @@ cdef inline double[::1] dpotrs(double[::1,:] A, double[::1] B, bint lower=False,
     if INFO > 0:
         raise ValueError(f"{INFO}th leading minor not positive definite")
     if INFO < 0:
-        raise ValueError(f'illegal value in {-INFO}th argument of internal pbtrs')
+        raise ValueError(f'illegal value in {-INFO}th argument of internal dpotrs')
 
     return B
 
@@ -163,7 +127,7 @@ cdef inline double[::1,:] dpbtrf(double[::1,:] AB, bint lower=False, bint overwr
     if INFO > 0:
         raise ValueError(f"{INFO}th leading minor not positive definite")
     if INFO < 0:
-        raise ValueError(f'illegal value in {-INFO}th argument of internal pbtrs')
+        raise ValueError(f'illegal value in {-INFO}th argument of internal dpbtrf')
 
     return AB
 
@@ -391,6 +355,53 @@ cdef inline void cmean2(double[::1,:] a, double[:] out) noexcept nogil:
             #     out[i] += a[i, j]
             # out[i] /= n
 
+cdef inline void make_diag_pos(double[:, :] Q, double[:, :] R) noexcept nogil:
+    cdef:
+        int k = Q.shape[0]
+        int m = R.shape[0]
+        int n = R.shape[1]
+        # int n = Q.shape[1]
+        int i, j
+
+    for i in range(m):
+        if R[i, i] < 0:
+            for j in range(k):
+                Q[j, i] = -Q[j, i]
+            for j in range(i, m):
+                R[i, j] = -R[i, j]
+
+
+
+# cdef inline double[:,:] add_col_R(double[:,:] R, double[:,:] A, double[::1] a) noexcept nogil:
+#     cdef:
+#         int m = A.shape[0]
+#         int n = A.shape[1]
+#         int i, j, o, k
+#         double sum1, sum2, gamma, norma. normu
+#         double[:] u = np.zeros(m, dtype=np.float64)
+#         double[:,:] out = np.zeros((m+1, m+1), dtype=np.float64)
+
+#     for i in range(m):
+#         for j in range(n):
+#             k = i - j
+#             if k > 0:
+#                 for o in range(k):
+#                     sum2 += u[o] * r[i,o]
+#             else:
+#                 sum2 = 0
+#             sum1 += a[i,j] - a[j] - sum2
+#         u[i] = 1.0 / r[i,i] * (sum1 - sum2)
+
+#     norma = np.sum(a**2)
+#     normu = np.sum(u**2)
+#     gamma = sqrt(a - u)
+
+#     out[:m, :m] = R
+#     out[m+1, :m+1] = u
+#     out[m+1, m+1] = gamma
+
+#     return out
+
 
 def inner_path(np.ndarray[double, ndim=2] X,
                np.ndarray[double, ndim=2] y,
@@ -406,7 +417,7 @@ def inner_path(np.ndarray[double, ndim=2] X,
         int p = X.shape[1]
         int n = X.shape[0]
         int m = D.shape[0]
-        int i0_local, k, splits, df, idx, r, cutoff, nextidx
+        int i0_local, k, splits, df, idx, r, cutoff, nextidx, coord
         double lambdak, lk, hk
         np.ndarray[np.int64_t, ndim=1] indices
 
@@ -437,8 +448,12 @@ def inner_path(np.ndarray[double, ndim=2] X,
     all_dfs = np.zeros((N, nsteps), dtype=np.int16)
     all_Ks = np.zeros(N, dtype=np.int16)
 
-    # if lmin < eps:
-    #     lmin = eps
+
+    Xmean = X.mean(axis=1, keepdims=True)
+    Xty_mean = Xty.mean(axis=1, keepdims=True)
+
+    Q_orig, R_orig = np.linalg.qr(Xmean)
+    lmin = max(lmin, eps)
 
     for i in range(N):
         B[:] = 0
@@ -485,9 +500,12 @@ def inner_path(np.ndarray[double, ndim=2] X,
         r = 1
         cutoff = i0_local
 
-        XH_prev = X.mean(axis=1, keepdims=True)
-        HtXty_prev = Xty_local.mean(keepdims=True)
+        XH_prev = Xmean
+        HtXty_prev = Xty_mean[i]
         HtDts_prev = np.zeros(1)
+
+        Q = Q_orig
+        R = R_orig
 
         while lambdas[k] > lmin and k < (nsteps - 1):
             # print(k, lambdas[k])
@@ -496,16 +514,6 @@ def inner_path(np.ndarray[double, ndim=2] X,
             Dm = D[~B]
             s = S[B]
             Dts = Db.T @ s
-
-            # if Dm.shape[0] > 0:
-            #     H = la.null_space(Dm)
-            #     XH = X@H
-            #     HtXty = H.T @ Xty_local
-            #     HtDts = H.T @ Dts
-            # else:
-            #     print('break off', i, k, lambdas[k])
-            #     beta = np.linalg.lstsq(X.mean(axis=0, keepdims=True).T @ X.mean(axis=0, keepdims=True), Xty_local, rcond=-1)
-            #     break
 
             consec = np.split(all_indexes, np.nonzero(B)[0] + 1)
             nsplits = len(consec)
@@ -532,7 +540,7 @@ def inner_path(np.ndarray[double, ndim=2] X,
                         HtDts[idx] = cmean(Dts[indices])
 
                         # we now have to copy the next index from the old array to the new array
-                        # go back one if we add a new colum to the new array
+                        # go back one if we add a new column to the new array
                         # skip one extra instead if we merge two columns in the new array
                         if nsplits > XH_prev.shape[1]:
                             nextidx = -1
@@ -544,12 +552,58 @@ def inner_path(np.ndarray[double, ndim=2] X,
                     HtXty[idx] = HtXty_prev[idx+nextidx]
                     HtDts[idx] = HtDts_prev[idx+nextidx]
 
+            # Q, R = np.linalg.qr(XH_prev)
+
+            iterator = enumerate(consec)
+            for idx, indices in iterator:
+                if indices[-1] == cutoff: # new cutoff point in the graph
+                    if nsplits > XH_prev.shape[1]:
+                        addcol = 2
+                        delcol = 1
+                    else:
+                        addcol = 1
+                        delcol = 2
+                        _, indices = next(iterator)
+                        idx += 1 # idx is the column before the two columns that will merge this step
+                        # print('new indices', indices)
+
+                    newXH = np.zeros((X.shape[0], addcol))
+                    cmean2(X[:, indices], newXH[:, 0])
+
+                    if addcol == 2:
+                        _, indices = next(iterator)
+                        cmean2(X[:, indices], newXH[:, 1])
+
+                    # print('QR update', k, idx ,indices, cutoff, addcol, delcol, consec)
+                    # print('QR update', Q.shape, R.shape)
+                    Q, R = la.qr_delete(Q, R, idx, p=delcol, which='col', check_finite=False)
+                    # print('QR update', Q.shape, R.shape)
+                    Q, R = la.qr_insert(Q, R, newXH, idx, which='col', overwrite_qru=False, check_finite=False)
+                    # print('QR update', Q.shape, R.shape)
+
+                    # If Q is square, the downdate will change to full mode instead of economic
+                    # so we strip the (possible) zeros here to make R square again
+                    if R.shape[1] < R.shape[0]:
+                        # print('resize', Q.shape, R.shape)
+                        R = R[:R.shape[1], :R.shape[1]]
+                        Q = Q[:, :R.shape[1]]
+                        # print('resize', Q.shape, R.shape)
+
+
+            # diagneg = np.diagonal(R) < 0
+            # Q[:, diagneg] *= -1
+            # R[diagneg] *= -1
+
             # print(XH_prev)
             # print(XH)
+            # print(Q@R)
             XH_prev = XH
             HtXty_prev = HtXty
             HtDts_prev = HtDts
 
+            # print('diff QR', np.abs(XH.T@XH - R.T@R).max(), np.abs(XH - Q@R).max(), np.shape(XH), np.shape(Q), R.shape)
+            # print('Q', Q)
+            # print('R', R)
             # R1 = qr(XH)
             # Q, R = np.linalg.qr(XH)
             # print('diff', np.abs(Q@R - XH).max(), np.abs(R - np.triu(R1)).max())
@@ -578,10 +632,19 @@ def inner_path(np.ndarray[double, ndim=2] X,
             # chofac = cho
 
             # Q, R = np.linalg.qr(XH)
-            R = np.asarray(qr(XH))
-            diagneg = np.diagonal(R) < 0
+            # R = np.asarray(qr(XH))
+
+            # print(Q)
+            # print(R)
+            # print(Q.flags, R.flags)
+            make_diag_pos(Q, R)
+            # print(Q)
+            # print(R)
+            # print(Q.flags, R.flags)
+            # diagneg = np.diagonal(R) < 0
             # Q[:, diagneg] *= -1
-            R[diagneg] *= -1
+            # R[diagneg] *= -1
+            # print('R pos', np.diag(R), R.shape, XH.shape)
 
             A1 = cho_solve(R, HtXty)
             A2 = cho_solve(R, HtDts)
@@ -662,7 +725,6 @@ def inner_path(np.ndarray[double, ndim=2] X,
                 HA1[indices] = A1[idx] / len(indices)
                 HA2[indices] = A2[idx] / len(indices)
 
-            # print(consec)
             if r == 0: # or HA1.shape[0] == HA1.shape[1]: # Boundary is empty
                 lk = 0
             else:
@@ -681,13 +743,6 @@ def inner_path(np.ndarray[double, ndim=2] X,
                 if lk < lmin:
                     lk = 0
 
-            # print(a,b)
-            # print(c,d)
-            # print(HA1, HA2)
-            # print(N, k, r, hk, lk, XH.shape, H.shape)
-            # raise ValueError
-
-            # print('lambdas', hk, lk, B.sum(), i, k)
             # update matrices and stuff for next step
             if hk > lk: # variable enters the boundary
                 coord = np.nonzero(~B)[0][ik]
@@ -716,7 +771,7 @@ def inner_path(np.ndarray[double, ndim=2] X,
                 coord = np.nonzero(B)[0][ilk]
                 updates = False, 0
                 lambdak = lk
-                cutoff = np.nonzero(B)[0][ilk -1]
+                cutoff = np.nonzero(B)[0][ilk-1]
                 # graph.add_edges([(coord, coord + 1)])
                 r -= 1
                 # print('remove', r, ilk, coord)
@@ -760,9 +815,7 @@ def inner_path(np.ndarray[double, ndim=2] X,
             lambdas[k] = lambdak
             dfs[k] = nsplits
 
-            # print('B', B)
-
-        all_Ks[i] = k
+        all_Ks[i] = k + 1 # Because k=0 is added in the outside function
 
     return all_mus, all_lambdas, all_betas, all_dfs, all_Ks
 
