@@ -1,4 +1,4 @@
-# cython: language_level=3, boundscheck=False, infer_types=True, initializedcheck=False, cdivision=True,  linetrace=True
+# cython: language_level=3, boundscheck=False, infer_types=True, initializedcheck=False, cdivision=True,  linetrace=False
 # distutils: define_macros=NPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION
 # distutils: define_macros=CYTHON_TRACE_NOGIL=1
 
@@ -286,7 +286,7 @@ cdef inline double[:] cho_solve_banded(double[:,:] cb, double[::1] b, bint lower
     return x
 
 
-cdef inline double[:] cho_solve(double[:,:] c, double[::1] b, bint lower=False, bint overwrite_b=False) noexcept:
+cdef inline double[:] cho_solve(double[:,:] c, double[:] b, bint lower=False, bint overwrite_b=False) noexcept:
     x = dpotrs(c.copy_fortran(), b.copy_fortran(), lower=lower, overwrite_b=overwrite_b)
     return x
 
@@ -419,8 +419,16 @@ def inner_path(np.ndarray[double, ndim=2] X,
         int p = X.shape[1]
         int n = X.shape[0]
         int m = D.shape[0]
-        int i0_local, k, splits, df, idx, r, cutoff, nextidx, coord
+        int i, k, i0_local, splits, df, idx, r, cutoff, nextidx, coord
         double lambdak, lk, hk
+        list new_HtXty, new_HtDts
+        np.ndarray[double, ndim=1] HtXty
+        np.ndarray[double, ndim=1] HtDts
+        np.ndarray[double, ndim=2] newXH
+        np.ndarray[double, ndim=2] Q
+        np.ndarray[double, ndim=2] R
+        np.ndarray[double, ndim=1] t
+        np.ndarray[double, ndim=1] tl
         # np.ndarray[np.int64_t, ndim=1] indices
 
     # np.int16_t[:] K = np.zeros(N, dtype=np.int16)
@@ -507,10 +515,10 @@ def inner_path(np.ndarray[double, ndim=2] X,
         Q = Q_orig
         R = R_orig
 
-        print('initial cutoff', cutoff, np.nonzero(~B)[0])
+        # print('initial cutoff', cutoff, np.nonzero(~B)[0])
 
         while lambdas[k] > lmin and k < (nsteps - 1):
-            print(k, lambdas[k])
+            # print(k, lambdas[k])
 
             Db = D[B]
             Dm = D[~B]
@@ -519,7 +527,7 @@ def inner_path(np.ndarray[double, ndim=2] X,
 
             consec = np.split(all_indexes, np.nonzero(B)[0] + 1)
             nsplits = len(consec)
-            nsplits1 = B.sum() + 1
+            # nsplits = B.sum() + 1
             # print(nsplits, nsplits1)
 
             # # ################
@@ -568,9 +576,9 @@ def inner_path(np.ndarray[double, ndim=2] X,
 
             # raise ValueError()
 
-            print('consec', consec)
+            # print('consec', consec)
             all_indices = np.nonzero(B)[0]
-            print('indices', all_indices, cutoff)
+            # print('indices', all_indices, cutoff)
             idx = np.nonzero(all_indices == cutoff)[0]
             # all_indices += 1
             # print(consec)
@@ -594,7 +602,7 @@ def inner_path(np.ndarray[double, ndim=2] X,
             else:
                 addcol = 1
                 delcol = 2
-                print('in delcol', addcol, delcol, idx, cutoff ,all_indices)
+                # print('in delcol', addcol, delcol, idx, cutoff ,all_indices)
                 # if all_indices[idx] == 1:
                     # indices = slice(0, all_indices[0])
                 if idx == 0:
@@ -622,7 +630,7 @@ def inner_path(np.ndarray[double, ndim=2] X,
             new_HtDts = [cmean(Dts[indices])]
 
             if addcol == 2:
-                print('previous set', indices)
+                # print('previous set', indices)
                 # _, indices = next(iterator)
                 # slice on the right
                 # if idx == 0:
@@ -642,28 +650,28 @@ def inner_path(np.ndarray[double, ndim=2] X,
                 todel = (idx,)
                 toins = idx
 
-            print('newXH', newXH)
-            print('QR', Q@R)
-            print('new_HtXty', new_HtXty)
-            # print(new_HtDts)
-            print(cutoff, indices, all_indices, idx, consec, todel, toins)
-            print('QR update', k, idx ,indices, cutoff, addcol, delcol, consec)
-            print('QR update', Q.shape, R.shape, idx, delcol, cutoff)
+            # print('newXH', newXH)
+            # print('QR', Q@R)
+            # print('new_HtXty', new_HtXty)
+            # # print(new_HtDts)
+            # print(cutoff, indices, all_indices, idx, consec, todel, toins)
+            # print('QR update', k, idx ,indices, cutoff, addcol, delcol, consec)
+            # print('QR update', Q.shape, R.shape, idx, delcol, cutoff)
             Q, R = la.qr_delete(Q, R, todel[0], p=delcol, which='col', check_finite=False)
-            print('QR update', Q.shape, R.shape)
+            # print('QR update', Q.shape, R.shape)
             Q, R = la.qr_insert(Q, R, newXH, toins, which='col', overwrite_qru=False, check_finite=False)
-            print('QR update', Q.shape, R.shape)
-            print('QR updated', Q@R)
+            # print('QR update', Q.shape, R.shape)
+            # print('QR updated', Q@R)
 
-            print('before del', todel, idx, addcol, delcol, HtXty.shape, HtDts.shape)
-            print(HtXty)
+            # print('before del', todel, idx, addcol, delcol, HtXty.shape[0], HtDts.shape[0])
+            # print(HtXty)
             HtXty = np.delete(HtXty, todel)
             HtDts = np.delete(HtDts, todel)
 
             HtXty = np.insert(HtXty, toins, new_HtXty)
             HtDts = np.insert(HtDts, toins, new_HtDts)
-            print('after del', todel, toins, idx, addcol, delcol, HtXty.shape, HtDts.shape)
-            print(HtXty, '\n')
+            # print('after del', todel, toins, idx, addcol, delcol, HtXty.shape[0], HtDts.shape[0])
+            # print(HtXty, '\n')
 
             # If Q is square, the downdate will change to full mode instead of economic
             # so we strip the (possible) zeros here to make R square again
@@ -847,7 +855,7 @@ def inner_path(np.ndarray[double, ndim=2] X,
                 # graph.delete_edges([(coord, coord + 1)])
                 cutoff = coord
                 r += 1
-                print('add cutoff', coord, cutoff, ik, np.nonzero(~B)[0])
+                # print('add cutoff', coord, cutoff, ik, np.nonzero(~B)[0])
 
                 # newH[:] = 1
                 # newH[:coord + 1] = 0
@@ -869,7 +877,7 @@ def inner_path(np.ndarray[double, ndim=2] X,
                 update_B = False
                 update_S = 0
                 lambdak = lk
-                print('remove cutoff', coord, lk, ilk, np.nonzero(B)[0])
+                # print('remove cutoff', coord, lk, ilk, np.nonzero(B)[0])
 
                 # Next index is our cutoff on the right because columns will merge
                 # if we are already on the last item then it's our cutoff
@@ -878,7 +886,7 @@ def inner_path(np.ndarray[double, ndim=2] X,
                 else:
                     cutoff = np.nonzero(B)[0][ilk + 1]
                 # cutoff = coord
-                print('remove cutoff', coord, cutoff, ilk, np.nonzero(B)[0])
+                # print('remove cutoff', coord, cutoff, ilk, np.nonzero(B)[0])
                 # graph.add_edges([(coord, coord + 1)])
                 r -= 1
                 # print('remove', r, ilk, coord)
