@@ -2,7 +2,7 @@
 
 import numpy as np
 
-cdef void _im2col3D(double[:,:,::1] A, double[::1,:] R, int[:] size) nogil:
+cdef void _im2col3D(double[:,:,::1] A, double[::1,:] R, int[:] size) noexcept nogil:
 
     cdef:
         Py_ssize_t k = 0, l = 0
@@ -50,7 +50,7 @@ cdef void _im2col3D_overlap(double[:,:,::1] A, double[::1,:] R, int[:] size, int
                 k += 1
 
 
-cdef void _im2col4D(double[:,:,:,::1] A, double[::1,:] R, int[:] size) nogil:
+cdef void _im2col4D(double[:,:,:,::1] A, double[::1,:] R, int[:] size) noexcept nogil:
 
     cdef:
         Py_ssize_t k = 0, l = 0
@@ -142,7 +142,7 @@ cdef void _col2im3D_overlap(double[:,:,::1] A, double[:,:,::1] div, double[::1,:
                 k += 1
 
 
-cdef void _col2im3D(double[:,:,::1] A, double[:,:,::1] div, double[::1,:] R, double[:] weights, int[:] block_shape) nogil:
+cdef void _col2im3D(double[:,:,::1] A, double[:,:,::1] div, double[::1,:] R, double[:] weights, int[:] block_shape) noexcept nogil:
 
     cdef:
         Py_ssize_t k = 0, l = 0
@@ -167,7 +167,7 @@ cdef void _col2im3D(double[:,:,::1] A, double[:,:,::1] div, double[::1,:] R, dou
                 k += 1
 
 
-cdef void _col2im4D(double[:,:,:,::1] A, double[:,:,::1] div, double[::1,:] R, double[:] weights, int[:] block_shape) nogil:
+cdef void _col2im4D(double[:,:,:,::1] A, double[:,:,::1] div, double[::1,:] R, double[:] weights, int[:] block_shape) noexcept nogil:
     cdef:
         Py_ssize_t k = 0, l = 0
         Py_ssize_t a, b, c, d, m, n, o, p
