@@ -1,5 +1,5 @@
 [build-system]
-requires = ["Cython>=0.29.14",
+requires = ["Cython>=0.29.33",
             "scipy>=1.5",
             "oldest-supported-numpy",
             "setuptools",
@@ -19,7 +19,7 @@ license = {text = "GPLv3"}
 dependencies = [
     'numpy>=1.15.4',
     'scipy>=1.5',
-    'cython>=0.29',
+    'cython>=0.29.33',
     'nibabel>=2.0',
     'joblib>=0.14.1',
     'autodmri>=0.2.1',
