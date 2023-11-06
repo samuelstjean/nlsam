@@ -29,7 +29,7 @@ def test_root_finder_sigma():
     output = root_finder_sigma(eta, sigma, N)
 
     # everything less than 10% error of real value?
-    assert_array_less(np.abs(output - 50) / 50, 0.1)
+    assert_allclose(output, 50, atol=5, rtol=0.01)
 
 
 # Taken from original example
