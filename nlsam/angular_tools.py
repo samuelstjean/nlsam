@@ -116,7 +116,9 @@ def split_per_shell(bvals, bvecs, angular_size, dwis, is_symmetric=False, bval_t
         else:
             sym_bvecs = np.vstack((shell_bvecs, -shell_bvecs))
 
-        current_shell = angular_neighbors(sym_bvecs, angular_size - 1) % nbvecs
+        local_size = min(angular_size - 1, nbvecs)
+        print(local_size, angular_size - 1, nbvecs)
+        current_shell = angular_neighbors(sym_bvecs, local_size) % nbvecs
         current_shell = current_shell[:nbvecs]
 
         # convert to per shell indexes

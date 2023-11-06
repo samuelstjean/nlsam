@@ -6,9 +6,13 @@ from itertools import cycle
 
 from nlsam.utils import im2col_nd, col2im_nd
 from nlsam.angular_tools import angular_neighbors, split_per_shell, greedy_set_finder
+from nlsam.path_stuff import path_stuff
 from autodmri.blocks import extract_patches
 
 from joblib import Parallel, delayed
+from tqdm import tqdm
+
+import spams
 
 logger = logging.getLogger('nlsam')
 
@@ -129,39 +133,57 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
         indexes = [x for shell in neighbors for x in shell]
     else:
-        neighbors = angular_neighbors(sym_bvecs, angular_size - 1) % data.shape[-1]
+        local_size = min(angular_size, len(dwis)) - len(b0_loc)
+        neighbors = angular_neighbors(sym_bvecs, local_size) % data.shape[-1]
         neighbors = neighbors[:data.shape[-1]]  # everything was doubled for symmetry
 
-        full_indexes = [(dwi,) + tuple(neighbors[dwi]) for dwi in range(data.shape[-1]) if dwi in dwis]
-
+        full_indexes = [(dwi,) + tuple(neighbors[dwi]) for dwi in dwis]
+        # for dwi in dwis:
+        #     print((dwi,) + tuple(neighbors[dwi]))
+        #     print(np.min(neighbors[dwi]), np.max(neighbors[dwi]))
+        # 1/0
         if subsample:
             indexes = greedy_set_finder(full_indexes)
         else:
             indexes = full_indexes
-
-    # Full overlap for dictionary learning
-    overlap = np.array(block_size, dtype=np.int16) - 1
-
+        print('dwis is ', dwis, bvecs.shape, data.shape, sym_bvecs.shape)
+        # print('full_indexes is ', full_indexes)
+        print('b0_loc is ', b0_loc)
+        print('indexes is ', len(indexes[0]), indexes)
+        print('neighbors is ', np.min(neighbors), np.max(neighbors), )
+    #     for ff in full_indexes:
+    #         print(ff, len(ff), ff[:30][-1], local_size, data.shape, bvecs.shape)
+    # 1/0
     # If we have more b0s than indexes, then we have to add a few more blocks since
     # we won't do a full cycle. If we have more b0s than indexes after that, then it breaks.
-    if num_b0s > len(indexes):
-        the_rest = [rest for rest in full_indexes if rest not in indexes]
-        indexes += the_rest[:(num_b0s - len(indexes))]
+    if split_shell:
+        pass
+    else:
+        if num_b0s > len(indexes):
+            the_rest = [rest for rest in full_indexes if rest not in indexes]
+            indexes += the_rest[:(num_b0s - len(indexes))]
 
-    if num_b0s > len(indexes):
-        error = (f'Seems like you still have more b0s {num_b0s} than available blocks {len(indexes)},'
-                 ' either average them or deactivate subsampling.')
-        raise ValueError(error)
+        if num_b0s > len(indexes):
+            error = (f'Seems like you still have more b0s {num_b0s} than available blocks {len(indexes)},'
+                    ' either average them or deactivate subsampling.')
+            raise ValueError(error)
 
-    b0_block_size = tuple(block_size[:-1]) + ((angular_size + 1,))
     data_denoised = np.zeros(data.shape, np.float32)
     divider = np.zeros(data.shape[-1])
 
     # Put all idx + b0 in this array in each iteration
-    to_denoise = np.empty(data.shape[:-1] + (angular_size + 1,), dtype=dtype)
 
     for i, idx in enumerate(indexes, start=1):
+        # print(dwis)
+        # print(idx)
+        # idx = dwis[idx]
+        to_denoise = np.empty(data.shape[:-1] + (len(idx) + 1,), dtype=dtype)
+        b0_block_size = tuple(block_size[:-1]) + ((len(idx) + 1,))
+        # Full overlap for dictionary learning
+        overlap = np.array(b0_block_size, dtype=np.int16) - 1
+
         current_b0 = tuple((next(split_b0s_idx),))
+
         to_denoise[..., 0] = data[..., current_b0].squeeze()
         to_denoise[..., 1:] = data[..., idx]
         divider[list(current_b0 + idx)] += 1
@@ -172,6 +194,8 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                                                               b0_block_size,
                                                               overlap,
                                                               variance,
+                                                              bvals[list(current_b0 + idx)],
+                                                              bvecs[list(current_b0 + idx)],
                                                               n_iter=n_iter,
                                                               mask=mask,
                                                               dtype=dtype,
@@ -194,7 +218,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                 empty_b0s += [b0s]
 
         if len(filled_b0s) > 1:
-            b0s = np.mean(data_denoised[..., filled_b0s], axis=-1)
+            b0s = np.mean(data_denoised[..., filled_b0s], axis=-1, keepdims=True)
         else:
             b0s = data_denoised[..., filled_b0s]
 
@@ -204,7 +228,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
     return data_denoised
 
-def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
+def local_denoise(data, block_size, overlap, variance, bvals, bvecs, n_iter=10, mask=None,
                   dtype=np.float64, n_cores=-1, verbose=False):
     if verbose:
         logger.setLevel(logging.INFO)
@@ -222,11 +246,13 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     param_D = {}
     param_D['verbose'] = False
     param_D['posAlpha'] = True
-    param_D['posD'] = True
-    param_D['modeD'] = 0
+    param_D['posD'] = False
+    param_D['modeD'] = 2
     param_D['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
-    param_D['K'] = int(2 * np.prod(block_size))
-    param_D['iter'] = 150
+    param_D['gamma1'] = 0.05
+    param_D['gamma2'] = 0.05
+    param_D['K'] = int(np.prod(block_size) * 2.5)
+    param_D['iter'] = 1500
     param_D['regul'] = 'fused-lasso'
     # param_D['batchsize'] = 500
     param_D['numThreads'] = n_cores
@@ -238,20 +264,37 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     axis = tuple(range(mask_col.ndim//2, mask_col.ndim))
     train_idx = np.sum(mask_col, axis=axis).ravel() > (np.prod(block_size[:-1]) / 2)
 
+    print('in small slicer', data.shape, mask.shape, X.shape, train_idx.shape, block_size)
     train_data = np.asfortranarray(X[:, train_idx])
     train_data /= np.sqrt(np.sum(train_data**2, axis=0, keepdims=True), dtype=dtype)
 
     param_alpha['D'] = spams.structTrainDL(train_data, **param_D)
-    param_alpha['D'] /= np.sqrt(np.sum(param_alpha['D']**2, axis=0, keepdims=True, dtype=dtype))
+    param_alpha['D'][np.isnan(param_alpha['D'])] = 0
+    print(param_alpha['D'])
+    # param_alpha['D'] /= np.sqrt(np.sum(param_alpha['D']**2, axis=0, keepdims=True, dtype=dtype))
+    # prune zeros
+    bad = np.abs(param_alpha['D']).sum(axis=0) == 0
+    param_alpha['D'] = param_alpha['D'][:, ~bad]
     param_D['D'] = param_alpha['D']
 
-    del train_idx, train_data, X, mask_col
+    print('D stuff', param_alpha['D'].shape, np.sum(param_alpha['D'] != 0),  np.sum(param_alpha['D'] == 0), np.sum(np.isnan(param_alpha['D'])), param_alpha['D'].size, np.nanmin(param_alpha['D']), np.nanmax(param_alpha['D']), np.nanmean(param_alpha['D']))
+    print('X stuff', X.shape, np.nanmin(X), np.nanmax(X), np.nanmean(X))
+    print('train_data stuff', np.nanmin(train_data), np.nanmax(train_data), np.nanmean(train_data))
 
+    # print(param_D['D'].shape)
+    # print(param_D['D'].sum(axis=1))
+    # print(param_D['D'].sum(axis=0))
+    # print(bad)
+    # print('D stuff', param_alpha['D'].shape, np.sum(param_alpha['D'] != 0),  np.sum(param_alpha['D'] == 0), np.sum(np.isnan(param_alpha['D'])), param_alpha['D'].size, np.nanmin(param_alpha['D']), np.nanmax(param_alpha['D']), np.nanmean(param_alpha['D']))
+    # 1/0
+    del train_idx, train_data, X, mask_col
     param_alpha['numThreads'] = n_cores
     param_D['numThreads'] = n_cores
-
+    # print(param_D['D'])
+    # print(np.linalg.norm(param_D['D'], axis=0))
+    # 1/0
     # slicer = [np.index_exp[:, :, k:k + block_size[2]] for k in range((data.shape[2] - block_size[2] + 1))]
-    slicer = [np.index_exp[:, :, k:k + block_size[2]] for k in range(40,50)]
+    slicer = [np.index_exp[:, :, k:k + block_size[2]] for k in range(30,40)]
 
     if verbose:
         progress_slicer = tqdm(slicer) # This is because tqdm consumes the (generator) slicer, but we also need it later :/
@@ -259,8 +302,7 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
         progress_slicer = slicer
 
     time_multi = time()
-
-    data_denoised = Parallel(n_jobs=1)(delayed(processer)(data,
+    data_denoised = Parallel(n_jobs=-1)(delayed(processer)(data,
                                                                 mask,
                                                                 variance,
                                                                 block_size,
@@ -268,6 +310,8 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
                                                                 param_alpha,
                                                                 param_D,
                                                                 current_slice,
+                                                                bvals,
+                                                                bvecs,
                                                                 dtype,
                                                                 n_iter)
                                                                 for current_slice in progress_slicer)
@@ -286,20 +330,21 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     return data_subset
 
 
-def processer(data, mask, variance, block_size, overlap, param_alpha, param_D, current_slice,
+def processer(data, mask, variance, block_size, overlap, param_alpha, param_D, current_slice, bvals, bvecs,
               dtype=np.float64, n_iter=10, gamma=3, tau=1, tolerance=1e-5):
 
     # Fetch the current slice for parallel processing since now the arrays are dumped and read from disk
     # instead of passed around as smaller slices by the function to 'increase performance'
 
+    # print(f'current slice is {current_slice}')
     data = data[current_slice]
     mask = mask[current_slice]
-    variance = variance[current_slice]
+    # variance = variance[current_slice]
 
     orig_shape = data.shape
     mask_array = im2col_nd(mask, block_size[:-1], overlap[:-1])
     train_idx = np.sum(mask_array, axis=0) > (mask_array.shape[0] / 2)
-
+    # print('after blocking')
     # If mask is empty, return a bunch of zeros as blocks
     if not np.any(train_idx):
         return np.zeros_like(data)
@@ -307,76 +352,187 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D, c
     Y = im2col_nd(data, block_size, overlap)
     Y_full_shape = Y.shape
     Y = Y[:, train_idx].astype(dtype)
-
-    # param_alpha['L'] = int(0.5 * Y.shape[0])
-    param_alpha['pos'] = True
-    param_alpha['regul'] = 'fused-lasso'
-    # param_alpha['admm'] = True
-    param_alpha['loss'] = 'square'
-    # param_alpha['verbose'] = True
-    param_alpha['admm'] = False
-
-    lambda_max = 1
-
-    def soft_thresh(x, gamma):
-        return np.sign(x) * np.max(0, np.abs(x) - gamma)
-
-    maxlambda = np.linalg.norm(soft_thresh(X.T @ Y / Y.shape[1]))
-
-    lambda_min = lambda_max / 100
-    nlambas = 1
-    lambda_path = np.logspace(lambda_max, lambda_min, nlambas)
-    alphaw = 0.95
+    # print('after blocking 2')
 
     X = param_alpha['D']
-    W = np.zeros((X.shape[1], Y.shape[1]), dtype=dtype, order='F')
-    W0 = np.zeros((X.shape[1], Y.shape[1]), dtype=dtype, order='F')
 
-    # from scipy.optimize import lsq_linear
-    from time import time
-    tt = time()
-    # W0 = lsq_linear(X, Y, bounds=(0, np.inf))['x']
-    # print(f'time nnls {time() - tt}')
-    W0 = np.linalg.lstsq(X, Y, rcond=None)[0]
+    sorter = frobenius_sort(bvals, bvecs)
+    unsorter = sorter.argsort()
+    # sorter = np.arange(len(bvals))
+    # unsorter = np.arange(len(bvals))
 
-    if param_alpha['pos']:
-        W0.clip(min=0)
+    # print('before sort',X.shape, Y.shape)
+    X = X[sorter]
+    Y = Y[sorter]
 
-    del param_alpha['mode']
-    del param_alpha['D']
-    from time import time
+    best_sols, best_recon, best_lambdas, best_freedom = path_stuff(X, Y)
+    # best_recon = best_recon[:, unsorter]
 
-    for ii, lbda in enumerate(lambda_path):
-        tt = time()
-        print(ii, f'current lambda {lbda}')
-        param_alpha['lambda1'] = alphaw * lbda
-        param_alpha['lambda2'] = (1 - alphaw) * lbda
-        W0 = np.linalg.lstsq(X, Y, rcond=None)[0]
-        W0.clip(min=0)
-        W0 = np.asfortranarray(W0)
-        W[:] = spams.fistaFlat(Y, X, W0, **param_alpha)
-        W0[:] = W
-        print(f'abs sum sol {np.abs(W0).sum()}, min max {W0.min(), W0.max()}, abs min max {np.abs(W0).min(), np.abs(W0).max()}, nonzero {np.sum(W0 !=0) / W0.size}')
-        print(f'time {time() - tt}')
+    X = np.asfortranarray(X)
+    Y = np.asfortranarray(Y)
+    best_sols = np.asfortranarray(best_sols.T)
+
+    # print(X.shape, Y.shape, best_sols.shape, np.median(best_lambdas), np.mean(best_lambdas), best_lambdas.min(), best_lambdas.max())
+
+    # lbda = np.mean(best_lambdas)
+    param_alpha = {}
+    param_alpha['regul'] = 'fused-lasso'
+    param_alpha['loss'] = 'square'
+    param_alpha['pos'] = False
+    # param_alpha['admm'] = True
+    param_alpha['lambda2'] = 0.15
+    param_alpha['lambda3'] = 1e-6
+
+    alpha = np.zeros_like(best_sols)
+    best_lambdas[best_lambdas == 0] = 1e-6
+
+    for nn in range(alpha.shape[1]):
+        param_alpha['lambda1'] = best_lambdas[nn]
+        alpha[:, nn:nn+1] = spams.fistaFlat(Y[:, nn:nn+1], X, best_sols[:, nn:nn+1], **param_alpha)
+        # print(nn, alpha.shape[1], best_lambdas[nn], X.shape, X[unsorter].shape, alpha[unsorter].shape, alpha.shape)
+    best_recon = (X @ alpha)[unsorter].T
+    del X, alpha, Y, best_sols
+
+    # best_recon = np.linalg.lstsq(X, Y, rcond=-1)[0].T @ X.T
+    # print(X.shape, Y.shape, best_recon.shape, np.linalg.lstsq(X, Y, rcond=-1)[0].shape)
+    # best_recon = Y.copy().T
+    # print('sort stuff')
+    # print(best_recon.shape, X.shape, Y.shape)
+    # print(best_recon.shape, X.shape, Y.shape)
+    # print(sorter)
+    # print(unsorter)
+    # print(best_recon.shape)
+
+    # # param_alpha['L'] = int(0.5 * Y.shape[0])
+    # param_alpha['pos'] = True
+    # param_alpha['regul'] = 'fused-lasso'
+    # # param_alpha['admm'] = True
+    # param_alpha['loss'] = 'square'
+    # # param_alpha['verbose'] = True
+    # param_alpha['admm'] = False
+
+    # # lambda_max = 1
+
+    # # def soft_thresh(x, gamma):
+    # #     return np.sign(x) * np.max(0, np.abs(x) - gamma)
+
+    # # maxlambda = np.linalg.norm(soft_thresh(X.T @ Y / Y.shape[1]))
+
+    # # lambda_min = lambda_max / 100
+    # # nlambas = 1
+    # # lambda_path = np.logspace(lambda_max, lambda_min, nlambas)
+    # # alphaw = 0.95
+
+    # X = param_alpha['D']
+    # W = np.zeros((X.shape[1], Y.shape[1]), dtype=dtype, order='F')
+    # W0 = np.zeros((X.shape[1], Y.shape[1]), dtype=dtype, order='F')
+
+    # # from scipy.optimize import lsq_linear
+    # from time import time
+    # tt = time()
+    # # W0 = lsq_linear(X, Y, bounds=(0, np.inf))['x']
+    # # print(f'time nnls {time() - tt}')
+    # W0 = np.linalg.lstsq(X, Y, rcond=None)[0]
+
+    # if param_alpha['pos']:
+    #     W0.clip(min=0)
+
+    # del param_alpha['mode']
+    # del param_alpha['D']
+    # from time import time
+
+    # for ii, lbda in enumerate(lambda_path):
+    #     tt = time()
+    #     print(ii, f'current lambda {lbda}')
+    #     param_alpha['lambda1'] = alphaw * lbda
+    #     param_alpha['lambda2'] = (1 - alphaw) * lbda
+    #     W0 = np.linalg.lstsq(X, Y, rcond=None)[0]
+    #     W0.clip(min=0)
+    #     W0 = np.asfortranarray(W0)
+    #     W[:] = spams.fistaFlat(Y, X, W0, **param_alpha)
+    #     W0[:] = W
+    #     print(f'abs sum sol {np.abs(W0).sum()}, min max {W0.min(), W0.max()}, abs min max {np.abs(W0).min(), np.abs(W0).max()}, nonzero {np.sum(W0 !=0) / W0.size}')
+    #     print(f'time {time() - tt}')
 
     Y = np.zeros(Y_full_shape, dtype=dtype, order='F')
-    Y[:, train_idx] = X @ W
+    Y[:, train_idx] = best_recon.T
+    # Y[:, train_idx] = best_freedom.T
+    # best_sols, best_recon, best_lambdas, best_freedom
     out = col2im_nd(Y, block_size, orig_shape, overlap)
 
-    param_alpha['mode'] = 1
-    param_alpha['D'] = X
+    # param_alpha['mode'] = 1
+    # param_alpha['D'] = X
 
     return out
 
-def frobenius_sort(bval, bvec, bdelta=None, base=(1,0,0)):
+def frobenius_sort(bval, bvec, bdelta=None, base=None):
+
+    def Cb(bval1, bval2, l=1):
+        logbval1 = np.log(bval1, out=np.zeros_like(bval1), where=bval1>1e-5)
+        logbval2 = np.log(bval2, out=np.zeros_like(bval2), where=bval2>1e-5)
+
+        return np.exp(-(logbval1 - logbval2)**2 / (2 * l**2))
+
+    def Ctheta(bvec1, bvec2):
+        # print(np.inner(bvec1, bvec2))
+        return np.arccos(np.inner(bvec1, bvec2)).squeeze()
+
+    def distance(bval1, bvec1, bval2, bvec2):
+        # print(bval1, bvec1, bval2, bvec2)
+        # print(Ctheta(bvec1, bvec2))
+        # print(Cb(bval1, bval2))
+        return Ctheta(bvec1, bvec2) * Cb(bval1, bval2)
+
     if bdelta is None:
-        bdelta = 1
+        bdelta = np.ones_like(bval)
 
-    bmatrix = bval/3 * (np.eye(3) + bdelta * np.diag([-1, -1, 2]))
+    if base is None:
+        # base_bvec = np.array([[1, 0, 0], [0, 0, 0], [0, 0, 0]])
+        base_bvec = np.array([1, 0, 0])
+        base_bval = np.mean(bval)
+    else:
+        base_bval, base_bvec = base
+
+    bvec = bvec / np.linalg.norm(bvec, axis=0, keepdims=True)
+    base_bvec = base_bvec / np.linalg.norm(base_bvec)
+    base_bvec = base_bvec[None, :]
+
+    assert base_bvec.ndim == 2
+    assert len(bval) == bvec.shape[0]
+    assert len(bval) == len(bdelta)
+
+    # bmatrix = bval/3 * (np.eye(3) + bdelta * np.diag([-1, -1, 2]))
+
+    # bxx = bval / 3 * (1 - bdelta)
+    # byy = bval / 3 * (1 - bdelta)
+    # bzz = bval / 3 * (1  + 2*bdelta)
+
+    # bmatrix = np.diag([bxx, byy, bzz])
+    # bmatrix = bval / 3 * (np.eye(3) + bdelta * np.diag([-1, -1, 2]))
+
+    # N = len(bval)
+    # bmatrix = np.zeros((N, 3, 3))
+    # for i in range(N):
+    #     bmatrix[i] = bval[i]**2 * np.outer(bvec[i], bvec[i])
+
+    # bmatrix_vec = bval * np.array([bvec[:,0]**2, 2*bvec[:,0] * bvec[:,1], 2*bvec[:,0] * bvec[:,2],
+    #                                bvec[:,1]**2, 2*bvec[:,1] * bvec[:,2], bvec[:,2]**2]).T
+
+    # bmatrix = np.zeros([N, 3, 3])
+    # for i in range(N):
+    #     bmatrix[i, 0] = bmatrix_vec[i, :3]
+    #     bmatrix[i, 1, 1:] = bmatrix_vec[i, 3:5]
+    #     bmatrix[i, 2, 2] = bmatrix_vec[i, 5]
+    #     bmatrix[i] = bmatrix[i] + bmatrix[i].T - np.eye(3) * np.diag(bmatrix[i])
 
 
-    assert np.trace(np.allclose(bmatrix, bval))
+    # print(np.abs(np.trace(bmatrix, axis1=-2, axis2=-1) - bval).max())
+    # print(bval)
+    # assert np.allclose(np.trace(bmatrix, axis1=-2, axis2=-1), bval)
 
-    norm = np.linalg.norm(base, bmatrix, ord='fro', axis=-1)
-    sorted = np.argsort(norm)
-    return sorted
+    distance_all = distance(base_bval, base_bvec, bval, bvec)
+    # print(distance_all)
+    # print(distance_all.shape)
+    # norm = np.linalg.norm(base - bmatrix, ord='fro', axis=0)
+    sorter = np.argsort(distance_all)
+    return sorter

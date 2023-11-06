@@ -1,10 +1,10 @@
 import numpy as np
 
-from tqdm.autonotebook import tqdm
+# from tqdm.autonotebook import tqdm
 # from scipy.linalg import  null_space, cholesky_banded, cho_solve_banded
 import scipy.linalg as la
-import scipy.sparse as ssp
-import qpsolvers
+# import scipy.sparse as ssp
+# import qpsolvers
 
 from nlsam.inner_path import inner_path
 
@@ -88,7 +88,11 @@ from nlsam.inner_path import inner_path
 #     return qr_impl
 
 
-def path_stuff(X, y, penalty='fused', nsteps=500, eps=1e-8, lmin=1e-5, l2=1e-6, l1=0, dtype=np.float32, return_lambdas=True):
+def path_stuff(X, y, penalty='fused', nsteps=None, eps=1e-8, lmin=1e-5, l2=1e-6, l1=0, dtype=np.float32, return_lambdas=False):
+
+    if nsteps is None:
+        nsteps = int(3 * max(X.shape))
+
     if nsteps <= 0 or eps < 0 or lmin < 0 or l2 < 0 or l1 < 0:
         error = 'Parameter error'
         raise ValueError(error)
@@ -96,9 +100,13 @@ def path_stuff(X, y, penalty='fused', nsteps=500, eps=1e-8, lmin=1e-5, l2=1e-6, 
     if y.ndim == 1:
         y = y[:, None]
 
+    var = np.var(y, axis=0)
     nold = X.shape[0] # This is the original shape, which is modified later on if l2 > 0
     N = y.shape[1]
+    m = X.shape[0]
     p = X.shape[1]
+    yold = y
+    Xold = X
 
     if penalty == 'fused':
         D = np.eye(p-1, p, k=1) - np.eye(p-1, p)
@@ -127,12 +135,11 @@ def path_stuff(X, y, penalty='fused', nsteps=500, eps=1e-8, lmin=1e-5, l2=1e-6, 
         y = np.vstack((y, np.zeros((p, N))))
         X = np.vstack((X, np.sqrt(l2) * np.eye(p)))
 
-    n = X.shape[0]
-    m = D.shape[0]
-    B = np.zeros(m, dtype=bool)
-    S = np.zeros(m, dtype=np.int8)
-    muk = np.zeros(m)
-    var = np.var(y, axis=0)
+    # n = X.shape[0]
+    d = D.shape[0]
+    # B = np.zeros(m, dtype=bool)
+    # S = np.zeros(m, dtype=np.int8)
+    # muk = np.zeros(m)
 
     # all_mus = [None] * N
     # all_lambdas = [None] * N
@@ -147,7 +154,7 @@ def path_stuff(X, y, penalty='fused', nsteps=500, eps=1e-8, lmin=1e-5, l2=1e-6, 
 
     # Xpinv = np.linalg.pinv(X)
     # Special form if we have the fused penalty
-    DDt_diag_banded = np.vstack([np.full(m, -1), np.full(m, 2)])
+    DDt_diag_banded = np.vstack([np.full(d, -1), np.full(d, 2)])
     DDt_diag_banded[0, 0] = 0
     L_banded = la.cholesky_banded(DDt_diag_banded, lower=False, check_finite=False)
 
@@ -155,20 +162,23 @@ def path_stuff(X, y, penalty='fused', nsteps=500, eps=1e-8, lmin=1e-5, l2=1e-6, 
     # Dproj = D @ Xpinv
 
     # step 1
-    H = np.ones([p, 1])
+    # print('in step 1')
+    H = np.ones([p, 1]) / p
     # XH = X@H
     XH = X.mean(axis=1, keepdims=True)
     # Q, R = np.linalg.qr(XH)
     Xty = X.T @ y
+    HtXty = Xty.mean(axis=0, keepdims=True)
     # b = scipy.linalg.solve_triangular(R.T, H.T @ Xty, lower=True, check_finite=False)
     # mid = scipy.linalg.solve_triangular(R, b, check_finite=False)
 
     # rhs = np.linalg.lstsq(XH.T @ XH, H.T @ Xty, rcond=None)[0]
-    rhs = np.linalg.lstsq(XH.T @ XH, Xty.mean(axis=0, keepdims=True), rcond=None)[0]
+    rhs = np.linalg.lstsq(XH.T @ XH, HtXty, rcond=None)[0]
     v = Xty - X.T @ XH @ rhs
     u0 = la.cho_solve_banded((L_banded, False), D @ v, check_finite=False)
 
     # step 2
+    # print('in step 2')
     t = np.abs(u0)
     i0 = np.argmax(t, axis=0).astype(np.int16)
     # h0 = t[i0, range(N)].astype(np.float32)
@@ -200,41 +210,94 @@ def path_stuff(X, y, penalty='fused', nsteps=500, eps=1e-8, lmin=1e-5, l2=1e-6, 
 
     all_l2_error = [None] * N
     all_Cps = [None] * N
+    all_AIC = [None] * N
+    all_AICc = [None] * N
+    all_Cps_v2 = [None] * N
     all_obj = [None] * N
+    # all_poly = [None] * N
     all_best_idx = np.zeros(N, dtype=np.int16)
+    # all_best_poly = np.zeros(N, dtype=np.int16)
+    all_best_sem = np.zeros(N, dtype=np.int16)
 
     all_mus, all_lambdas, all_betas, all_dfs, all_K = inner_path(X, y, D, Xty, i0, S0, h0, lmin, nsteps, eps)
-    print(all_mus.shape, all_lambdas.shape, all_betas.shape, all_dfs.shape, all_K.shape)
-    print(u0.shape, np.shape(H @ rhs))
+    # print(all_mus.shape, all_lambdas.shape, all_betas.shape, all_dfs.shape, all_K.shape)
+    # print(u0.shape, np.shape(H @ rhs))
     all_mus[:, 0] = u0.T
     # all_lambdas[:, 0] = h0[i]
     all_betas[:, 0] = rhs.T @ H.T
     all_dfs[:, 0] = 1
+    dtype = np.float32
+    all_freedom = np.zeros((N, nsteps))
 
+    # degree = 10
 
     for i in range(N):
         k = all_K[i]
-        print(i, all_K[i])
-        lambdas = np.array(all_lambdas[i][:k+1], dtype=dtype).T
-        betas = np.array(all_betas[i][:k+1], dtype=dtype).T
-        dfs = np.array(all_dfs[i][:k+1], dtype=dtype)
-        l2_error = np.sum((y[:, i:i+1] - X @ betas)**2, axis=0, dtype=dtype)
+        # print(i, all_K[i], all_dfs[i, :k][-1], all_dfs[i, :k+1][-1], all_dfs[i].max())
+        lambdas = np.asarray(all_lambdas[i][:k], dtype=dtype).T
+        betas = np.asarray(all_betas[i][:k], dtype=dtype).T
+        dfs = np.asarray(all_dfs[i][:k], dtype=dtype)
+        l2_error = np.sum((yold[:, i:i+1] - Xold @ betas)**2, axis=0, dtype=dtype)
         obj = l2_error + lambdas * np.abs(D @ betas).sum(axis=0, dtype=dtype) + l2 * np.sum(betas**2, axis=0, dtype=dtype)
-        Cps = l2_error - n * var[i] + 2 * var[i] * dfs
+        Cps = l2_error - m * var[i] + 2 * var[i] * dfs
+        Cps_v2 = (l2_error + 2*dfs*var[i]) / m
+        AIC = 2*p + m * np.log(l2_error / dfs)
+        # AICc = AIC + (2*dfs**2 + 2*dfs) / (m - dfs - 1)
+        AICc = AIC + (2*dfs * (dfs + 1)) / (m - dfs - 1)
+        # K = (dfs * p) + p * (p + 1) / 2
+        # AICc = AIC + (2*K * (dfs + 1 + p)) / (m - dfs - 1 - p)
+        # AICc = AIC + 2 * (K * (K + dfs)) / (m*p - K - dfs)
+        # AICc = AIC + 2 * (dfs * (dfs + 1)) / (m - dfs - 1)
+        AICc[~np.isfinite(AICc)] = np.nan
         best_idx = np.argmin(Cps)
-        print(best_idx, Cps.shape, obj.shape)
+        # print('best idx', best_idx, Cps.shape, obj.shape)
 
         # all_lambdas[i] = lambdas
         # all_betas[i] = betas
         # all_dfs[i] = dfs
         all_l2_error[i] = l2_error
         all_Cps[i] = Cps
+        all_AIC[i] = AIC
+        all_AICc[i] = AICc
+        all_Cps_v2[i] = Cps_v2
         all_obj[i] = obj
         all_best_idx[i] = best_idx
+        all_freedom[i, :len(dfs)] = dfs
 
+        sem = np.nanstd(AICc) / np.sqrt(len(AICc))
+        argmin = np.nanargmin(AICc)
+        absmin = np.abs(np.nanmin(AICc) - (AICc - sem))
+        best_sem = np.nanargmin(absmin[:argmin+1]) # only allow simpler models on the left
+
+        # position on the right if needed
+        if np.nanmin(AICc) < (AICc[best_sem] - sem):
+            best_sem += 1
+        all_best_sem[i] = best_sem
+        # poly = np.polyfit(range(len(AICc)), AICc, degree)
+        # all_poly[i] = np.polyval(poly, range(len(AICc)))
+        # best_poly = np.argmin(all_poly[i])
+        # all_best_poly[i] = best_poly
+        # print('best poly idx', best_sem, AICc.shape, obj.shape, '\n')
+
+
+    # Truncate output to max elements
+    maxK = np.max(all_K)
+    all_betas = all_betas[:, :maxK]
+    all_lambdas = all_lambdas[:, :maxK]
+    all_freedom = all_freedom[:, :maxK]
+    # best_sols = all_betas[:, all_best_idx]
+    best_sols = all_betas[range(N), all_best_sem]
+    best_recon = best_sols @ Xold.T
+    best_lambdas = all_lambdas[range(N), all_best_sem]
+    best_freedom = all_freedom[range(N), all_best_sem]
+    # best_polysols = all_betas[:, best_poly]
+    # best_polyrecon = Xold @ best_polysols
+
+    # print('chosen lambdas', )
+    # print('chosen dfs', all_freedom[range(N), all_best_sem])
     if return_lambdas:
-        return all_betas, all_lambdas, all_Cps, all_best_idx, all_obj
-    return all_betas
+        return all_betas, all_lambdas, all_Cps, all_best_idx, all_obj, best_sols, best_recon
+    return best_sols, best_recon, best_lambdas, best_freedom
 
 
 

@@ -17,6 +17,8 @@ import scipy.linalg as la
 
 from numpy.linalg._umath_linalg import qr_r_raw_m, qr_r_raw_n
 from libc.math cimport sqrt
+from tqdm import trange
+
 # from scipy.linalg._decomp_update import qr_insert, qr_delete
 
 cdef inline double[::1] dpbtrs(double[::1,:] AB, double[::1] B, bint lower=False, bint overwrite_b=False):
@@ -463,7 +465,7 @@ def inner_path(np.ndarray[double, ndim=2] X,
     Q_orig, R_orig = np.linalg.qr(X.mean(axis=1, keepdims=True))
     # lmin = max(lmin, eps)
 
-    for i in range(N):
+    for i in trange(N):
         B[:] = 0
         S[:] = 0
         # newH[:] = 1
@@ -579,40 +581,52 @@ def inner_path(np.ndarray[double, ndim=2] X,
             # print('consec', consec)
             all_indices = np.nonzero(B)[0]
             # print('indices', all_indices, cutoff)
-            idx = np.nonzero(all_indices == cutoff)[0]
-            # all_indices += 1
-            # print(consec)
+            # print(all_indices)
+            # print(cutoff)
+            # print(np.nonzero(B))
+            # print(np.nonzero(~B))
             # print(nsplits, nsplits_prev)
-            # print(all_indices, idx, cutoff, all_indices.shape, all_indices.ndim)
-            # raise ValueError()
-            if nsplits > nsplits_prev:
+
+            if len(all_indices) == 0: # Everything is connected in one graph
+                indices = np.nonzero(~B)[0]
                 addcol = 2
                 delcol = 1
-                if idx == 0:
-                    indices = slice(0, all_indices[idx] + 1)
-                else:
-                    indices = slice(all_indices[idx - 1] + 1, all_indices[idx] + 1)
-                # slice on the right
-                # if idx == 0:
-                #     indices = slice(0, all_indices[idx] + 1)
-                # # elif idx == len(all_indices) - 1:
-                #     # indices = slice(all_indices[idx-1] + 1, m + 1)
-                # else:
-                #     indices = slice(all_indices[idx-1] + 1, all_indices[idx] + 1)
+                idx = 0
+                all_indices = [0]
             else:
-                addcol = 1
-                delcol = 2
-                # print('in delcol', addcol, delcol, idx, cutoff ,all_indices)
-                # if all_indices[idx] == 1:
-                    # indices = slice(0, all_indices[0])
-                if idx == 0:
-                    indices = slice(0, all_indices[0] + 1)
+                idx = np.nonzero(all_indices == cutoff)[0]
+                # all_indices += 1
+                # print(consec)
+                # print(all_indices, idx, cutoff, all_indices.shape, all_indices.ndim)
+                # raise ValueError()
+                if nsplits > nsplits_prev:
+                    addcol = 2
+                    delcol = 1
+                    if idx == 0:
+                        indices = slice(0, all_indices[idx] + 1)
+                    else:
+                        indices = slice(all_indices[idx - 1] + 1, all_indices[idx] + 1)
+                    # slice on the right
+                    # if idx == 0:
+                    #     indices = slice(0, all_indices[idx] + 1)
+                    # # elif idx == len(all_indices) - 1:
+                    #     # indices = slice(all_indices[idx-1] + 1, m + 1)
+                    # else:
+                    #     indices = slice(all_indices[idx-1] + 1, all_indices[idx] + 1)
                 else:
-                    indices = slice(all_indices[idx - 1] + 1, all_indices[idx] + 1)
-                # slice on the left
-                # if idx == 0:
-                    # indices = slice(0, all_indices[idx] + 1)
-                # idx += 1
+                    addcol = 1
+                    delcol = 2
+                    # print('in delcol', addcol, delcol, idx, cutoff ,all_indices)
+                    # if all_indices[idx] == 1:
+                        # indices = slice(0, all_indices[0])
+                    if idx == 0:
+                        indices = slice(0, all_indices[0] + 1)
+                    else:
+                        indices = slice(all_indices[idx - 1] + 1, all_indices[idx] + 1)
+                    # slice on the left
+                    # if idx == 0:
+                        # indices = slice(0, all_indices[idx] + 1)
+                    # idx += 1
 
             # print(idx, all_indices, cutoff, len(all_indices))
 
@@ -654,12 +668,18 @@ def inner_path(np.ndarray[double, ndim=2] X,
             # print('QR', Q@R)
             # print('new_HtXty', new_HtXty)
             # # print(new_HtDts)
-            # print(cutoff, indices, all_indices, idx, consec, todel, toins)
             # print('QR update', k, idx ,indices, cutoff, addcol, delcol, consec)
             # print('QR update', Q.shape, R.shape, idx, delcol, cutoff)
-            Q, R = la.qr_delete(Q, R, todel[0], p=delcol, which='col', check_finite=False)
-            # print('QR update', Q.shape, R.shape)
-            Q, R = la.qr_insert(Q, R, newXH, toins, which='col', overwrite_qru=False, check_finite=False)
+            try:
+                Q, R = la.qr_delete(Q, R, todel[0], p=delcol, which='col', check_finite=False)
+                # print('QR update', Q.shape, R.shape)
+                Q, R = la.qr_insert(Q, R, newXH, toins, which='col', overwrite_qru=False, check_finite=False)
+            except np.linalg.LinAlgError:
+                print(cutoff, indices, all_indices, idx, consec, todel, toins)
+                print(Q)
+                print(R)
+                print(newXH)
+                raise np.linalg.LinAlgError
             # print('QR update', Q.shape, R.shape)
             # print('QR updated', Q@R)
 
@@ -797,7 +817,7 @@ def inner_path(np.ndarray[double, ndim=2] X,
 
                 # step 3b
                 # hitting time
-                t = a / (b + np.sign(a))
+                t = a / (b + np.sign(a) + eps)
                 # numerical issues fix
                 t[t > lambdas[k] + eps] = 0
                 # t[t >= lambdas[k]] = 0
