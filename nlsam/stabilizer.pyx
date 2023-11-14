@@ -51,7 +51,7 @@ def multiprocess_stabilization(const floating[:,:,:] data, const floating1[:,:,:
     return out, eta
 
 
-cdef double chi_to_gauss(double m, double eta, double sigma, double N, double alpha, bint use_nan) nogil:
+cdef double chi_to_gauss(double m, double eta, double sigma, double N, double alpha, bint use_nan) noexcept nogil:
     """Maps the noisy signal intensity from a Rician/Non central chi distribution
     to its gaussian counterpart. See p. 4 of [1] eq. 12.
 
@@ -103,7 +103,7 @@ cdef double chi_to_gauss(double m, double eta, double sigma, double N, double al
     return inv_cdf_gauss
 
 
-cdef inline double _marcumq_cython(double a, double b, double M, double eps=1e-8) nogil:
+cdef inline double _marcumq_cython(double a, double b, double M, double eps=1e-8) noexcept nogil:
     """Computes the generalized Marcum Q function of order M.
     http://en.wikipedia.org/wiki/Marcum_Q-function
 
@@ -152,7 +152,7 @@ cdef inline double _marcumq_cython(double a, double b, double M, double eps=1e-8
 
 
 cdef double fixed_point_finder(double m_hat, double sigma, double N,
-    bint clip_eta=True, int max_iter=100, double eps=1e-6) nogil:
+    bint clip_eta=True, int max_iter=100, double eps=1e-6) noexcept nogil:
     """Fixed point formula for finding eta. Table 1 p. 11 of [1]
 
     Input
@@ -220,13 +220,13 @@ cdef double fixed_point_finder(double m_hat, double sigma, double N,
         return t1
 
 
-cdef inline double _beta(double N) nogil:
+cdef inline double _beta(double N) noexcept nogil:
     """Helper function for xi, see p. 3 [1] just after eq. 8.
     Generalized version for non integer N"""
     return sqrt(2) * gamma(N + 0.5) / gamma(N)
 
 
-cdef inline double _fixed_point_k(double eta, double m, double sigma, double N) nogil:
+cdef inline double _fixed_point_k(double eta, double m, double sigma, double N) noexcept nogil:
     """Helper function for fixed_point_finder, see p. 11 [1] eq. D2."""
     cdef:
         double fpg, num, denom, h1f1m, h1f1p
@@ -242,7 +242,7 @@ cdef inline double _fixed_point_k(double eta, double m, double sigma, double N) 
     return eta - num / denom
 
 
-cdef inline double _fixed_point_k_v2(double eta, double m, double sigma, double N) nogil:
+cdef inline double _fixed_point_k_v2(double eta, double m, double sigma, double N) noexcept nogil:
     """Helper function for fixed_point_finder, see p. 11 [1] eq. D3.
 
     This is a secret equation scheme which gives rise to a different fixed point iteration
@@ -260,7 +260,7 @@ cdef inline double _fixed_point_k_v2(double eta, double m, double sigma, double 
 
     return eta + num / denom
 
-cdef inline double xi(double eta, double sigma, double N) nogil:
+cdef inline double xi(double eta, double sigma, double N) noexcept nogil:
     """Standard deviation scaling factor formula, see p. 3 of [1], eq. 10.
 
     Input
@@ -300,7 +300,7 @@ cdef inline double xi(double eta, double sigma, double N) nogil:
 
 
 # Helper function for the root finding loop
-cdef inline double k(double theta, double N, double r) nogil:
+cdef inline double k(double theta, double N, double r) noexcept nogil:
     cdef:
         # Fake SNR value for xi
         double eta = theta
@@ -317,7 +317,7 @@ cdef inline double k(double theta, double N, double r) nogil:
     return theta - num / denom
 
 
-cdef double root_finder(double r, double N, int max_iter=500, double eps=1e-6) nogil:
+cdef double root_finder(double r, double N, int max_iter=500, double eps=1e-6) noexcept nogil:
     cdef:
         double lower_bound = sqrt((2*N / xi(0.0, 1.0, N)) - 1)
         double t0, t1 = 0.0
@@ -354,7 +354,7 @@ def root_finder_loop(const floating[:] data, const floating1[:] sigma, const flo
     return corrected_sigma
 
 
-cdef inline bint check_high_SNR(double eta, double sigma, double N) nogil:
+cdef inline bint check_high_SNR(double eta, double sigma, double N) noexcept nogil:
     '''If the SNR is high enough against N, these corrections factors change basically nothing, so may as well return early.'''
     cdef:
         double SNR = eta / sigma

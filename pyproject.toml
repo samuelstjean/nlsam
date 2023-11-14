@@ -1,5 +1,5 @@
 [build-system]
-requires = ["cython>=0.29.14",
+requires = ["Cython>=0.29.33",
             "scipy>=1.5",
             "oldest-supported-numpy",
             "setuptools",
