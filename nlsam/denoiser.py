@@ -9,10 +9,12 @@ from nlsam.angular_tools import angular_neighbors, split_per_shell, greedy_set_f
 from nlsam.path_stuff import path_stuff
 from autodmri.blocks import extract_patches
 
+from itertools import pairwise
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
 import spams
+import scipy.sparse as ssp
 
 logger = logging.getLogger('nlsam')
 
@@ -126,6 +128,14 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     if split_shell:
         logger.info('Data will be split in neighborhoods for each shells separately.')
         neighbors = split_per_shell(bvals, bvecs, angular_size, dwis, is_symmetric=is_symmetric, bval_threshold=bval_threshold)
+        # print(type(neighbors))
+        if angular_size >= len(bvals):
+            all_data = True
+            # print(list(b0_loc))
+            neighbors.insert(0, [tuple(b0_loc)])
+            # print(neighbors)
+        else:
+            all_data = False
 
         if subsample:
             for n in range(len(neighbors)):
@@ -133,30 +143,37 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
         indexes = [x for shell in neighbors for x in shell]
     else:
-        local_size = min(angular_size, len(dwis)) - len(b0_loc)
-        neighbors = angular_neighbors(sym_bvecs, local_size) % data.shape[-1]
-        neighbors = neighbors[:data.shape[-1]]  # everything was doubled for symmetry
-
-        full_indexes = [(dwi,) + tuple(neighbors[dwi]) for dwi in dwis]
-        # for dwi in dwis:
-        #     print((dwi,) + tuple(neighbors[dwi]))
-        #     print(np.min(neighbors[dwi]), np.max(neighbors[dwi]))
-        # 1/0
-        if subsample:
-            indexes = greedy_set_finder(full_indexes)
+        if angular_size >= len(bvals):
+            indexes = [np.arange(len(bvals))]
+            all_data = True
         else:
-            indexes = full_indexes
-        print('dwis is ', dwis, bvecs.shape, data.shape, sym_bvecs.shape)
-        # print('full_indexes is ', full_indexes)
-        print('b0_loc is ', b0_loc)
-        print('indexes is ', len(indexes[0]), indexes)
-        print('neighbors is ', np.min(neighbors), np.max(neighbors), )
+            all_data = False
+            local_size = min(angular_size, len(dwis)) - len(b0_loc)
+            neighbors = angular_neighbors(sym_bvecs, local_size) % data.shape[-1]
+            neighbors = neighbors[:data.shape[-1]]  # everything was doubled for symmetry
+
+            full_indexes = [(dwi,) + tuple(neighbors[dwi]) for dwi in dwis]
+            # for dwi in dwis:
+            #     print((dwi,) + tuple(neighbors[dwi]))
+            #     print(np.min(neighbors[dwi]), np.max(neighbors[dwi]))
+            # 1/0
+            if subsample:
+                indexes = greedy_set_finder(full_indexes)
+            else:
+                indexes = full_indexes
+    print('dwis is ', dwis, bvecs.shape, data.shape, sym_bvecs.shape)
+    # print('full_indexes is ', full_indexes)
+    print('b0_loc is ', b0_loc)
+    print('indexes is ', len(indexes))
+    for ll in indexes:
+        print(len(ll), ll)
+    # print('neighbors is ', np.min(neighbors), np.max(neighbors), )
     #     for ff in full_indexes:
-    #         print(ff, len(ff), ff[:30][-1], local_size, data.shape, bvecs.shape)
+            # print(ff, len(ff), ff[:30][-1], local_size, data.shape, bvecs.shape)
     # 1/0
     # If we have more b0s than indexes, then we have to add a few more blocks since
     # we won't do a full cycle. If we have more b0s than indexes after that, then it breaks.
-    if split_shell:
+    if split_shell or all_data:
         pass
     else:
         if num_b0s > len(indexes):
@@ -177,30 +194,45 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         # print(dwis)
         # print(idx)
         # idx = dwis[idx]
-        to_denoise = np.empty(data.shape[:-1] + (len(idx) + 1,), dtype=dtype)
-        b0_block_size = tuple(block_size[:-1]) + ((len(idx) + 1,))
-        # Full overlap for dictionary learning
+        if all_data:
+            to_denoise = np.empty(data.shape[:-1] + (len(idx),), dtype=dtype)
+            b0_block_size = tuple(block_size[:-1]) + ((len(idx),))
+            # Full overlap for dictionary learning
+
+            # current_b0 = 0
+            volumes = list(idx)
+
+            # to_denoise[..., 0] = data[..., current_b0].squeeze()
+            to_denoise[:] = data[..., idx]
+        else:
+            to_denoise = np.empty(data.shape[:-1] + (len(idx) + 1,), dtype=dtype)
+            b0_block_size = tuple(block_size[:-1]) + ((len(idx) + 1,))
+            # Full overlap for dictionary learning
+
+            current_b0 = tuple((next(split_b0s_idx),))
+            volumes = list(current_b0 + idx)
+
+            to_denoise[..., 0] = data[..., current_b0].squeeze()
+            to_denoise[..., 1:] = data[..., idx]
+
         overlap = np.array(b0_block_size, dtype=np.int16) - 1
+        print('overlap 1', overlap)
+        # overlap = 0,0,0, overlap[-1]
+        divider[volumes] += 1
 
-        current_b0 = tuple((next(split_b0s_idx),))
+        logger.info(f'Now denoising volumes {volumes} / block {i} out of {len(indexes)}.')
 
-        to_denoise[..., 0] = data[..., current_b0].squeeze()
-        to_denoise[..., 1:] = data[..., idx]
-        divider[list(current_b0 + idx)] += 1
-
-        logger.info(f'Now denoising volumes {current_b0 + idx} / block {i} out of {len(indexes)}.')
-
-        data_denoised[..., current_b0 + idx] += local_denoise(to_denoise,
-                                                              b0_block_size,
-                                                              overlap,
-                                                              variance,
-                                                              bvals[list(current_b0 + idx)],
-                                                              bvecs[list(current_b0 + idx)],
-                                                              n_iter=n_iter,
-                                                              mask=mask,
-                                                              dtype=dtype,
-                                                              n_cores=n_cores,
-                                                              verbose=verbose)
+        data_denoised[..., volumes] += local_denoise(to_denoise,
+                                                    b0_block_size,
+                                                    overlap,
+                                                    variance,
+                                                    bvals[volumes],
+                                                    bvecs[volumes],
+                                                    n_iter=n_iter,
+                                                    mask=mask,
+                                                    dtype=dtype,
+                                                    n_cores=n_cores,
+                                                    verbose=verbose)
     data_denoised /= divider
 
     # If we averaged b0s but didn't go through them because we did not have enough blocks,
@@ -246,19 +278,30 @@ def local_denoise(data, block_size, overlap, variance, bvals, bvecs, n_iter=10, 
     param_D = {}
     param_D['verbose'] = False
     param_D['posAlpha'] = True
-    param_D['posD'] = False
-    param_D['modeD'] = 2
+    param_D['posD'] = True
+    param_D['modeD'] = 1
     param_D['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
+    param_D['lambda2'] = 1e-6
     param_D['gamma1'] = 0.05
     param_D['gamma2'] = 0.05
-    param_D['K'] = int(np.prod(block_size) * 2.5)
-    param_D['iter'] = 1500
-    param_D['regul'] = 'fused-lasso'
-    # param_D['batchsize'] = 500
+    param_D['K'] = int(np.prod(block_size) * 1.5)
+    param_D['iter'] = 2
+    param_D['regul'] = 'graph-ridge' #'fused-lasso'
+    param_D['batchsize'] = 150
     param_D['numThreads'] = n_cores
+    param_D['verbose'] = True
 
     if 'D' in param_alpha:
         param_D['D'] = param_alpha['D']
+        ratio = param_alpha['D'].shape[1] / param_alpha['D'].shape[0]
+    else:
+        ratio = param_D['K'] / np.prod(block_size)
+
+    graph = make_groups(bvals, ratio)
+    # print(param_D['K'], graph['groups_var'].shape)
+    param_D['graph'] = graph
+    param_D['tree'] = None
+    param_D['K'] = graph['groups_var'].shape[0] # to account for the variability from np.ceil
 
     mask_col = extract_patches(mask, block_size[:-1], (1, 1, 1), flatten=False)
     axis = tuple(range(mask_col.ndim//2, mask_col.ndim))
@@ -267,10 +310,14 @@ def local_denoise(data, block_size, overlap, variance, bvals, bvecs, n_iter=10, 
     print('in small slicer', data.shape, mask.shape, X.shape, train_idx.shape, block_size)
     train_data = np.asfortranarray(X[:, train_idx])
     train_data /= np.sqrt(np.sum(train_data**2, axis=0, keepdims=True), dtype=dtype)
+    print('weights', graph['eta_g'], graph['groups_var'].shape)
 
+    tt = time()
     param_alpha['D'] = spams.structTrainDL(train_data, **param_D)
     param_alpha['D'][np.isnan(param_alpha['D'])] = 0
+    print('time train', time() - tt)
     print(param_alpha['D'])
+    del train_idx, train_data, X, mask_col
     # param_alpha['D'] /= np.sqrt(np.sum(param_alpha['D']**2, axis=0, keepdims=True, dtype=dtype))
     # prune zeros
     bad = np.abs(param_alpha['D']).sum(axis=0) == 0
@@ -278,16 +325,14 @@ def local_denoise(data, block_size, overlap, variance, bvals, bvecs, n_iter=10, 
     param_D['D'] = param_alpha['D']
 
     print('D stuff', param_alpha['D'].shape, np.sum(param_alpha['D'] != 0),  np.sum(param_alpha['D'] == 0), np.sum(np.isnan(param_alpha['D'])), param_alpha['D'].size, np.nanmin(param_alpha['D']), np.nanmax(param_alpha['D']), np.nanmean(param_alpha['D']))
-    print('X stuff', X.shape, np.nanmin(X), np.nanmax(X), np.nanmean(X))
-    print('train_data stuff', np.nanmin(train_data), np.nanmax(train_data), np.nanmean(train_data))
-
+    # print('X stuff', X.shape, np.nanmin(X), np.nanmax(X), np.nanmean(X))
+    # print('train_data stuff', np.nanmin(train_data), np.nanmax(train_data), np.nanmean(train_data))
     # print(param_D['D'].shape)
     # print(param_D['D'].sum(axis=1))
     # print(param_D['D'].sum(axis=0))
     # print(bad)
     # print('D stuff', param_alpha['D'].shape, np.sum(param_alpha['D'] != 0),  np.sum(param_alpha['D'] == 0), np.sum(np.isnan(param_alpha['D'])), param_alpha['D'].size, np.nanmin(param_alpha['D']), np.nanmax(param_alpha['D']), np.nanmean(param_alpha['D']))
     # 1/0
-    del train_idx, train_data, X, mask_col
     param_alpha['numThreads'] = n_cores
     param_D['numThreads'] = n_cores
     # print(param_D['D'])
@@ -312,6 +357,7 @@ def local_denoise(data, block_size, overlap, variance, bvals, bvecs, n_iter=10, 
                                                                 current_slice,
                                                                 bvals,
                                                                 bvecs,
+                                                                graph,
                                                                 dtype,
                                                                 n_iter)
                                                                 for current_slice in progress_slicer)
@@ -330,7 +376,7 @@ def local_denoise(data, block_size, overlap, variance, bvals, bvecs, n_iter=10, 
     return data_subset
 
 
-def processer(data, mask, variance, block_size, overlap, param_alpha, param_D, current_slice, bvals, bvecs,
+def processer(data, mask, variance, block_size, overlap, param_alpha, param_D, current_slice, bvals, bvecs, graph,
               dtype=np.float64, n_iter=10, gamma=3, tau=1, tolerance=1e-5):
 
     # Fetch the current slice for parallel processing since now the arrays are dumped and read from disk
@@ -351,46 +397,67 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D, c
 
     Y = im2col_nd(data, block_size, overlap)
     Y_full_shape = Y.shape
+    print('Yfull', Y.mean(), Y.shape, mask_array.shape)
     Y = Y[:, train_idx].astype(dtype)
-    # print('after blocking 2')
+    print('after blocking 2', Y.shape,Y_full_shape,data.shape, param_alpha['D'].shape, block_size, overlap)
+    print('Ymask', Y.mean(), Y.shape, mask_array.shape)
+    1/0
 
     X = param_alpha['D']
 
-    sorter = frobenius_sort(bvals, bvecs)
-    unsorter = sorter.argsort()
+    # sorter = frobenius_sort(bvals, bvecs)
+    # unsorter = sorter.argsort()
     # sorter = np.arange(len(bvals))
     # unsorter = np.arange(len(bvals))
 
     # print('before sort',X.shape, Y.shape)
-    X = X[sorter]
-    Y = Y[sorter]
+    # X = X[sorter]
+    # Y = Y[sorter]
 
-    best_sols, best_recon, best_lambdas, best_freedom = path_stuff(X, Y)
+    # best_sols, best_recon, best_lambdas, best_freedom = path_stuff(X, Y)
     # best_recon = best_recon[:, unsorter]
+    best_sols = np.linalg.lstsq(X, Y, rcond=-1)[0].T
 
     X = np.asfortranarray(X)
     Y = np.asfortranarray(Y)
     best_sols = np.asfortranarray(best_sols.T)
+    # best_lambdas = np.ones(Y.shape[1]) * 0.05
 
     # print(X.shape, Y.shape, best_sols.shape, np.median(best_lambdas), np.mean(best_lambdas), best_lambdas.min(), best_lambdas.max())
 
     # lbda = np.mean(best_lambdas)
     param_alpha = {}
-    param_alpha['regul'] = 'fused-lasso'
+    param_alpha['regul'] = 'sparse-group-lasso-l2' #'multi-task-graph'# 'fused-lasso' 'l1l2' #
     param_alpha['loss'] = 'square'
-    param_alpha['pos'] = False
-    # param_alpha['admm'] = True
-    param_alpha['lambda2'] = 0.15
-    param_alpha['lambda3'] = 1e-6
+    param_alpha['pos'] = True
+    param_alpha['intercept'] = True
+    param_alpha['L0'] = 0.1
+    param_alpha['lambda1'] = 0.05
+    param_alpha['lambda2'] = 0.05
+    # param_alpha['lambda3'] = 1e-6
 
     alpha = np.zeros_like(best_sols)
-    best_lambdas[best_lambdas == 0] = 1e-6
+    # best_sols[:] = 0
+    # best_lambdas[best_lambdas == 0] = 1e-6
+    if param_alpha['pos']:
+        best_sols.clip(min=0, out=best_sols)
 
-    for nn in range(alpha.shape[1]):
-        param_alpha['lambda1'] = best_lambdas[nn]
-        alpha[:, nn:nn+1] = spams.fistaFlat(Y[:, nn:nn+1], X, best_sols[:, nn:nn+1], **param_alpha)
-        # print(nn, alpha.shape[1], best_lambdas[nn], X.shape, X[unsorter].shape, alpha[unsorter].shape, alpha.shape)
-    best_recon = (X @ alpha)[unsorter].T
+    # graph = make_groups(bvals, X.shape[1] / X.shape[0])
+    print(graph['eta_g'].shape)
+    print(graph['groups'].shape)
+    print(graph['groups_var'].shape)
+    print(Y.shape, X.shape, best_sols.shape, X.shape[1] / X.shape[0])
+    print('Ymean', Y.mean())
+    print('Xmean', X.mean())
+    # alpha = spams.fistaFlat(Y, X, best_sols, **param_alpha)
+    alpha = spams.fistaGraph(Y, X, best_sols, graph, **param_alpha)
+    print('nonzero stuff', alpha.shape, alpha.size, alpha.min(), alpha.max(), np.sum(alpha==0), np.sum(alpha!=0), 'ratio nz', np.sum(alpha!=0)/alpha.size)
+    # for nn in tqdm(range(alpha.shape[1])):
+    #     param_alpha['lambda1'] = best_lambdas[nn]
+    #     alpha[:, nn:nn+1] = spams.fistaFlat(Y[:, nn:nn+1], X, best_sols[:, nn:nn+1], **param_alpha)
+    #     # print(nn, np.sum(alpha != 0), alpha.size, param_alpha['lambda2'], Y[:, nn:nn+1].mean(), best_lambdas[nn], X.shape, alpha.shape)
+    best_recon = (X @ alpha).T
+    # best_recon = (X @ alpha)[unsorter].T
     del X, alpha, Y, best_sols
 
     # best_recon = np.linalg.lstsq(X, Y, rcond=-1)[0].T @ X.T
@@ -536,3 +603,32 @@ def frobenius_sort(bval, bvec, bdelta=None, base=None):
     # norm = np.linalg.norm(base - bmatrix, ord='fro', axis=0)
     sorter = np.argsort(distance_all)
     return sorter
+
+
+def make_groups(bvals, ratio, b0_threshold=10, l=1):
+    bvals = np.copy(bvals)
+    bvals[bvals < b0_threshold] = 1e-15
+    unique_bvals = np.unique(bvals)
+    mean_bval = np.mean(bvals)
+    ngroups = len(unique_bvals)
+
+    weigths = np.exp(-(np.log(mean_bval) - np.log(unique_bvals))**2 / (2 * l**2))
+    groups = np.zeros([ngroups, ngroups], dtype=bool)
+    groups_var = [bvalue == unique_bvals for bvalue in bvals]
+    # groups_var = np.array(groups_var, dtype=bool)
+    each = np.ceil(np.sum(groups_var, axis=0) * ratio)
+    groups_var = np.zeros([int(each.sum()), ngroups], dtype=bool)
+
+    indexes = [0] + list(np.int16(each.cumsum()))
+    for i, (gv1, gv2) in enumerate(pairwise(indexes)):
+        # print(gv1, gv2, i)
+        idx = np.index_exp[gv1:gv2, i]
+        groups_var[idx] = 1
+
+    groups = ssp.csc_array(groups)
+    groups_var = ssp.csc_array(groups_var)
+
+    graph = {'eta_g': weigths,
+             'groups' : groups, # Are groups a subgroup of another group?
+             'groups_var' : groups_var}  # Are groups sharing elements?
+    return graph

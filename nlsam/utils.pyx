@@ -2,7 +2,7 @@
 
 import numpy as np
 
-cdef void _im2col3D(double[:,:,::1] A, double[::1,:] R, int[:] size) nogil:
+cdef void _im2col3D(double[:,:,::1] A, double[::1,:] R, int[:] size) noexcept nogil:
 
     cdef:
         Py_ssize_t k = 0, l = 0
@@ -50,7 +50,7 @@ cdef void _im2col3D_overlap(double[:,:,::1] A, double[::1,:] R, int[:] size, int
                 k += 1
 
 
-cdef void _im2col4D(double[:,:,:,::1] A, double[::1,:] R, int[:] size) nogil:
+cdef void _im2col4D(double[:,:,:,::1] A, double[::1,:] R, int[:] size) noexcept nogil:
 
     cdef:
         Py_ssize_t k = 0, l = 0
@@ -85,7 +85,7 @@ def im2col_nd(A, block_shape, overlap):
     block_shape = np.array(block_shape, dtype=np.int32)
     overlap = np.array(overlap, dtype=np.int32)
 
-    if (overlap.any() < 0) or ((block_shape < overlap).any()):
+    if (overlap < 0).any() or ((block_shape < overlap).any()):
         raise ValueError('Invalid overlap value, it must lie between 0 and min(block_size)-1', overlap, block_shape)
 
     A = padding(A, block_shape, overlap)
@@ -142,7 +142,7 @@ cdef void _col2im3D_overlap(double[:,:,::1] A, double[:,:,::1] div, double[::1,:
                 k += 1
 
 
-cdef void _col2im3D(double[:,:,::1] A, double[:,:,::1] div, double[::1,:] R, double[:] weights, int[:] block_shape) nogil:
+cdef void _col2im3D(double[:,:,::1] A, double[:,:,::1] div, double[::1,:] R, double[:] weights, int[:] block_shape) noexcept nogil:
 
     cdef:
         Py_ssize_t k = 0, l = 0
@@ -167,7 +167,7 @@ cdef void _col2im3D(double[:,:,::1] A, double[:,:,::1] div, double[::1,:] R, dou
                 k += 1
 
 
-cdef void _col2im4D(double[:,:,:,::1] A, double[:,:,::1] div, double[::1,:] R, double[:] weights, int[:] block_shape) nogil:
+cdef void _col2im4D(double[:,:,:,::1] A, double[:,:,::1] div, double[::1,:] R, double[:] weights, int[:] block_shape) noexcept nogil:
     cdef:
         Py_ssize_t k = 0, l = 0
         Py_ssize_t a, b, c, d, m, n, o, p
@@ -204,7 +204,7 @@ def col2im_nd(R, block_shape, end_shape, overlap, weights=None):
     overlap = np.array(overlap, dtype=np.int32)
     dtype = np.float64
 
-    if (overlap.any() < 0) or ((block_shape < overlap).any()):
+    if (overlap < 0).any() or ((block_shape < overlap).any()):
         raise ValueError(f'Invalid overlap value, it must lie between 0 and {min(block_shape) - 1}', overlap, block_shape)
 
     if weights is None:
@@ -255,6 +255,9 @@ def padding(A, block_shape, overlap):
         return A
 
     padding = np.array(shape) + fit
+    if A.ndim == 4:
+        padding = np.append(padding,  A.shape[3])
+
     padded = np.zeros(padding, dtype=A.dtype)
     padded[:shape[0], :shape[1], :shape[2]] = A
 

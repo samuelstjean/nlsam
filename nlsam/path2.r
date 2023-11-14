@@ -1,10 +1,11 @@
-# We compute a solution path of the trend filtering dual problem:
+# We compute a solution path of the sparse fused lasso dual problem:
 #
 # \hat{u}(\lambda) =
 # \argmin_u \|y - (X^+)^T D^T u\|_2^2 \rm{s.t.} \|\u\|_\infty \leq \lambda
 #
-# where D is a trend filtering matrix, and X has full column rank, X^+ being
-# its pseudoinverse.
+# where D is (a multiple of) incidence matrix of a given graph, row-
+# binded with (a multiple of) the identity matrix, and X is a full column
+# rank predictor matrix, X^+ being its pseudoinverse.
 #
 # Fortuitously, we never have to fully invert X (i.e. compute its pseudo-
 # inverse).
@@ -13,16 +14,18 @@
 # for all solutions corresponding to lambda in (lambda_k,lambda_{k-1}),
 # the open interval to the *right* of the current lambda_k.
 
-dualpathTrendX <- function(y, pos, X, D, ord, approx=FALSE, maxsteps=2000,
-                           minlam=0, rtol=1e-7, btol=1e-7, eps=1e-4,
-                           verbose=FALSE, object=NULL) {
+dualpathFusedL1X <- function(y, X, D, D0, gamma, approx=FALSE, maxsteps=2000,
+                             minlam=0, rtol=1e-7, btol=1e-7, eps=1e-4,
+                             verbose=FALSE, object=NULL) {
   # If we are starting a new path
   if (is.null(object)) {
     m = nrow(D)
     p = ncol(D)
     n = length(y)
+    numedges = m-p
+    numnodes = p
 
-    # Modify y,X in the case of a ridge penalty, but
+    # Modify y,X,n in the case of a ridge penalty, but
     # keep the originals
     y0 = y
     X0 = X
@@ -33,33 +36,41 @@ dualpathTrendX <- function(y, pos, X, D, ord, approx=FALSE, maxsteps=2000,
     }
 
     # Find the minimum 2-norm solution, using some linear algebra
-    # tricks and a little bit of discrete calculus
-    if (is.null(pos)) pos = 1:p
-    Pos = matrix(rep(pos,each=ord),ord,p)
-    basis = matrix(0,p,ord+1)    # Basis for null(D)
-    basis[,1] = rep(1,p)
-    for (i in Seq(2,ord+1)) {
-      ii = Seq(1,i-1)
-      basis[,i] = apply(pmax(Pos[ii,,drop=FALSE]-pos[ii],0),
-             2,prod)/factorial(i-1)
+    # tricks and a little bit of graph theory
+    L = abs(crossprod(D0))
+    diag(L) = 0
+    gr = graph.adjacency(L,mode="upper") # Underlying graph
+    cl = clusters(gr)
+    q = cl$no                            # Number of clusters
+    i = cl$membership                    # Cluster membership
+
+    # First we project y onto the row space of D*X^+
+    xy = t(X)%*%y
+    g = xy
+
+    # Here we perform our usual fused lasso solve but
+    # with g in place of y
+    x = numeric(p)
+
+    # For efficiency, don't loop over singletons
+    tab = tabulate(i)
+    oo = which(tab[i]==1)
+    if (length(oo)>0) {
+      x[oo] = g[oo]/(diag(L)[oo])
+      }
+
+    # Now all groups with at least two elements
+    oi = order(i)
+    cs = cumsum(tab)
+    grps = which(tab>1)
+    for (j in grps) {
+      oo = oi[Seq(cs[j]-tab[j]+1,cs[j])]
+      Lj = crossprod(Matrix(D[,oo],sparse=TRUE))
+      x[oo] = as.numeric(solve(Lj,g[oo]))
     }
 
-    # First project onto the row space of D*X^+
-    xy = t(X)%*%y
-    A = X%*%basis
-    z = t(basis)%*%xy
-    R = qr.R(qr(A))
-    e = backsolve(R,forwardsolve(R,z,upper.tri=TRUE,transpose=TRUE))
-    # Note: using a QR here is preferable than simply calling
-    # e = solve(crossprod(A),z), for numerical stablity. Plus,
-    # it's not really any slower
-    g = xy-t(X)%*%(A%*%e)
-
-   # Here we perform our usual trend filter solve but
-    # with g in place of y
-    x = qr(t(D))
-    uhat = backsolveSparse(x,g)  # Dual solution
-    betahat = basis%*%e          # Primal solution
+    uhat = as.numeric(D%*%x)     # Dual solution
+    betahat = numeric(p)         # Primal solution
     ihit = which.max(abs(uhat))  # Hitting coordinate
     hit = abs(uhat[ihit])        # Critical lambda
     s = sign(uhat[ihit])         # Sign
@@ -77,20 +88,36 @@ dualpathTrendX <- function(y, pos, X, D, ord, approx=FALSE, maxsteps=2000,
     lams = numeric(buf)        # Critical lambdas
     h = logical(buf)           # Hit or leave?
     df = numeric(buf)          # Degrees of freedom
-    u = matrix(0,m,buf)        # Dual solutions
-    beta = matrix(0,p,buf)     # Primal solutions
 
     lams[1] = hit
     h[1] = TRUE
-    df[1] = ncol(basis)
+    df[1] = 0
+
+    u = matrix(0,m,buf)      # Dual solutions
+    beta = matrix(0,p,buf)   # Primal solutions
     u[,1] = uhat
     beta[,1] = betahat
 
-    # Update our basis
-    newbv = apply(pmax(Pos-pos[Seq(ihit+1,ihit+ord)],0),
-      2,prod)/factorial(ord)
-    newbv[Seq(1,ihit+ord)] = 0 # Only needed when ord=0
-    basis = cbind(basis,newbv)
+    # Special interior set over nodes
+    I0 = rep(TRUE,numnodes)
+
+    # Update the graph if we need to, otherwise
+    # update the special interior set
+    if (ihit <= numedges) {
+      ed = which(D[ihit,]!=0)
+      gr[ed[1],ed[2]] = 0             # Delete edge
+      newcl = subcomponent(gr,ed[1])  # New cluster
+      oldcl = which(i==i[ed[1]])      # Old cluster
+      # If these two clusters aren't the same, update
+      # the memberships
+      if (length(newcl)!=length(oldcl) || any(sort(newcl)!=sort(oldcl))) {
+        i[newcl] = q+1
+        q = q+1
+      }
+    }
+    else {
+      I0[ihit-numedges] = FALSE
+    }
 
     # Other things to keep track of, but not return
     r = 1                      # Size of boundary set
@@ -101,9 +128,9 @@ dualpathTrendX <- function(y, pos, X, D, ord, approx=FALSE, maxsteps=2000,
     k = 2                      # What step are we at?
   }
 
-  # If iterating an already existing path
+  # If iterating already started path
   else {
-    # Grab variables from outer object to construct the path
+    # Grab variables from outer object
     lambda = NULL
     for (j in 1:length(object)) {
       if (names(object)[j] != "pathobjs") {
@@ -139,37 +166,102 @@ dualpathTrendX <- function(y, pos, X, D, ord, approx=FALSE, maxsteps=2000,
       }
 
       ##########
-      # No updating, just recompute these every time
-      x = qr(t(D1))
       Ds = as.numeric(t(D2)%*%s)
 
       # Precomputation for the hitting times: first we project
       # y and Ds onto the row space of D1*X^+
-      A = X%*%basis
-      z = t(basis)%*%cbind(xy,Ds)
-      R = qr.R(qr(A))
-      e = backsolve(R,forwardsolve(R,z,upper.tri=TRUE,transpose=TRUE))
-      # Note: using a QR here is preferable than simply calling
-      # e = solve(crossprod(A),z), for numerical stablity. Plus,
-      # it's not really any slower
+      A = matrix(0,n,q)
+      z = matrix(0,q,2)
+      nz = rep(FALSE,q)
+
+      # For efficiency, don't loop over singletons
+      tab = tabulate(i)
+      oo = which(tab[i]==1)
+      oo2 = oo[!I0[oo]]
+      if (length(oo2)>0) {
+        j = i[oo2]
+        A[,j] = X[,oo2,drop=FALSE]
+        z[j,1] = xy[oo2]
+        z[j,2] = Ds[oo2]
+        nz[j] = TRUE
+      }
+
+      # Now consider all groups with at least two elements
+      grps = which(tab>1)
+      for (j in grps) {
+        oo = which(i==j)
+        if (all(!I0[oo])) {
+          A[,j] = rowMeans(X[,oo,drop=FALSE])
+          z[j,1] = mean(xy[oo])
+          z[j,2] = mean(Ds[oo])
+          nz[j] = TRUE
+        }
+      }
+
+      nzq = sum(nz)
+      e = matrix(0,q,2)
+      if (nzq>0) {
+        R = qr.R(qr(A[,nz]))
+        e[nz,] = backsolve(R,forwardsolve(R,z[nz,,drop=FALSE],upper.tri=TRUE,transpose=TRUE))
+        # Note: using a QR here is preferable than simply calling
+        # e[nz,] = solve(crossprod(A[,nz]),z[nz,,drop=FALSE]), for
+        # numerical stablity. Plus, it's not really any slower
+      }
       ea = e[,1]
       eb = e[,2]
       ga = xy-t(X)%*%(A%*%ea)
       gb = Ds-t(X)%*%(A%*%eb)
-      fa = basis%*%ea
-      fb = basis%*%eb
 
       # If the interior is empty, then nothing will hit
       if (r==m) {
+        fa = ea[i]
+        fb = eb[i]
         hit = 0
       }
 
       # Otherwise, find the next hitting time
       else {
-        # Here we perform our usual trend filter solve but
+        # Here we perform our usual fused lasso solve but
         # with ga in place of y and gb in place of Ds
-        a = backsolveSparse(x,ga)
-        b = backsolveSparse(x,gb)
+        xa = xb = numeric(p)
+        fa = fb = numeric(p)
+
+        # For efficiency, don't loop over singletons
+        oo = which(tab[i]==1)
+        fa[oo] = ea[i][oo]
+        fb[oo] = eb[i][oo]
+        oo1 = oo[I0[oo]]
+        if (length(oo1)>0) {
+          Ldiag = diag(crossprod(Matrix(D1[,oo1],sparse=TRUE)))
+          xa[oo1] = ga[oo1]/Ldiag
+          xb[oo1] = gb[oo1]/Ldiag
+        }
+
+        # Now all groups with at least two elements
+        oi = order(i)
+        cs = cumsum(tab)
+        grps = which(tab>1)
+        for (j in grps) {
+          oo = oi[Seq(cs[j]-tab[j]+1,cs[j])]
+          fa[oo] = ea[j]/length(oo)
+          fb[oo] = eb[j]/length(oo)
+          gaj = ga[oo]
+          gbj = gb[oo]
+
+          if (any(I0[oo])) {
+            Lj = crossprod(Matrix(D1[,oo],sparse=TRUE))
+            xa[oo] = as.numeric(solve(Lj,gaj))
+            xb[oo] = as.numeric(solve(Lj,gbj))
+          }
+          else {
+            Lj = crossprod(Matrix(D1[,oo[-1]],sparse=TRUE))
+            xa[oo][-1] = as.numeric(solve(Lj,(gaj-mean(gaj))[-1]))
+            xb[oo][-1] = as.numeric(solve(Lj,(gbj-mean(gbj))[-1]))
+          }
+        }
+
+        a = as.numeric(D1%*%xa)
+        b = as.numeric(D1%*%xb)
         shits = Sign(a)
         hits = a/(b+shits)
 
@@ -217,17 +309,29 @@ dualpathTrendX <- function(y, pos, X, D, ord, approx=FALSE, maxsteps=2000,
         # Record the critical lambda and properties
         lams[k] = hit
         h[k] = TRUE
-        df[k] = ncol(basis)
+        df[k] = nzq
         uhat = numeric(m)
         uhat[B] = hit*s
         uhat[I] = a-hit*b
         betahat = fa-hit*fb
 
-        # Update our basis
-        newbv = apply(pmax(Pos-pos[Seq(I[ihit]+1,I[ihit]+ord)],0),
-          2,prod)/factorial(ord)
-        newbv[Seq(1,I[ihit]+ord)] = 0 # Only needed when ord=0
-        basis = cbind(basis,newbv)
+        # Update our graph if we need to, otherwise
+        # update the special interior set
+        if (I[ihit] <= numedges) {
+          ed = which(D1[ihit,]!=0)
+          gr[ed[1],ed[2]] = 0             # Delete edge
+          newcl = subcomponent(gr,ed[1])  # New cluster
+          oldcl = which(i==i[ed[1]])      # Old cluster
+          # If these two clusters aren't the same, update
+          # the memberships
+          if (length(newcl)!=length(oldcl) || any(sort(newcl)!=sort(oldcl))) {
+            i[newcl] = q+1
+            q = q+1
+          }
+        }
+        else {
+          I0[I[ihit]-numedges] = FALSE
+        }
 
         # Update all other variables
         r = r+1
@@ -248,14 +352,32 @@ dualpathTrendX <- function(y, pos, X, D, ord, approx=FALSE, maxsteps=2000,
         # Record the critical lambda and properties
         lams[k] = leave
         h[k] = FALSE
-        df[k] = ncol(basis)
+        df[k] = nzq
         uhat = numeric(m)
         uhat[B] = leave*s
         uhat[I] = a-leave*b
         betahat = fa-leave*fb
 
-        # Update our basis
-        basis = basis[,-(ord+1+ileave)]
+        # Update our graph if we need to, otherwise
+        # update the special interior set
+        if (B[ileave] <= numedges) {
+          ed = which(D2[ileave,]!=0)
+          gr[ed[1],ed[2]] = 1             # Add edge
+          newcl = subcomponent(gr,ed[1])  # New cluster
+          oldcl = which(i==i[ed[1]])      # Old cluster
+          # If these two clusters aren't the same, update
+          # the memberships
+          if (length(newcl)!=length(oldcl) || !all(sort(newcl)==sort(oldcl))) {
+            newno = i[ed[2]]
+            oldno = i[ed[1]]
+            i[oldcl] = newno
+            i[i>oldno] = i[i>oldno]-1
+            q = q-1
+          }
+        }
+        else {
+          I0[B[ileave]-numedges] = TRUE
+        }
 
         # Update all other variables
         r = r-1
@@ -313,16 +435,16 @@ dualpathTrendX <- function(y, pos, X, D, ord, approx=FALSE, maxsteps=2000,
   # The least squares solution (lambda=0)
   bls = NULL
   if (completepath) bls = fa
-
   if (verbose) cat("\n")
-  # Save elements needed for continuing the path
-  pathobjs = list(type="trend.x", r=r, B=B, I=I, Q1=NA, approx=approx,
-    Q2=NA, k=k, df=df, D1=D1, D2=D2, Ds=Ds, ihit=ihit, m=m, n=n, p=p,
-    q=q, h=h, q0=NA, rtol=rtol, btol=btol, eps=eps, s=s, y=y, ord=ord,
-    pos=pos, Pos=Pos, basis=basis, xy=xy)
+
+  # Save needed elements for continuing the path
+  pathobjs = list(type="fused.l1.x" ,r=r, B=B, I=I, Q1=NA, approx=approx,
+    Q2=NA, k=k, df=df, D1=D1, D2=D2, Ds=Ds, ihit=ihit, m=m, n=n, p=p, q=q,
+    h=h, q0=NA, rtol=rtol, btol=btol, eps=eps, s=s, y=y, gr=gr, i=i,
+    numedges=numedges, I0=I0, xy=xy)
 
   colnames(u) = as.character(round(lams,3))
   colnames(beta) = as.character(round(lams,3))
   return(list(lambda=lams,beta=beta,fit=X0%*%beta,u=u,hit=h,df=df,y=y0,X=X0,
-              completepath=completepath,bls=bls,pathobjs=pathobjs))
+              completepath=completepath,bls=bls,gamma=gamma,pathobjs=pathobjs))
 }

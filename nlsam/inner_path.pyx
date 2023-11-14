@@ -418,9 +418,10 @@ def inner_path(np.ndarray[double, ndim=2] X,
 
     cdef:
         int N = y.shape[1]
-        int p = X.shape[1]
         int n = X.shape[0]
         int m = D.shape[0]
+        int p = D.shape[1]
+        int nedges = m - p
         int i, k, i0_local, splits, df, idx, r, cutoff, nextidx, coord
         double lambdak, lk, hk
         list new_HtXty, new_HtDts
@@ -431,7 +432,12 @@ def inner_path(np.ndarray[double, ndim=2] X,
         np.ndarray[double, ndim=2] R
         np.ndarray[double, ndim=1] t
         np.ndarray[double, ndim=1] tl
+        # bint[:] B2 = np.ones(p, dtype=bint)
         # np.ndarray[np.int64_t, ndim=1] indices
+
+    # if it's negative, then D has no sparse diagonal component so we deactivate it
+    if nedges < 0:
+        nedges = int(1e30)
 
     # np.int16_t[:] K = np.zeros(N, dtype=np.int16)
     XtX = X.T @ X
@@ -441,6 +447,7 @@ def inner_path(np.ndarray[double, ndim=2] X,
     # DtD = DtD.astype(bool)
 
     B = np.zeros(m, dtype=bool)
+    B2 = np.ones(m, dtype=bool)
     S = np.zeros(m, dtype=np.int16)
     Xty_local = np.zeros(p)
     # H0 = np.ones((p, 1)) / p
@@ -467,6 +474,7 @@ def inner_path(np.ndarray[double, ndim=2] X,
 
     for i in trange(N):
         B[:] = 0
+        B2[:] = 1
         S[:] = 0
         # newH[:] = 1
         muk[:] = 0
@@ -594,42 +602,49 @@ def inner_path(np.ndarray[double, ndim=2] X,
                 idx = 0
                 all_indices = [0]
             else:
-                idx = np.nonzero(all_indices == cutoff)[0]
-                # all_indices += 1
-                # print(consec)
-                # print(all_indices, idx, cutoff, all_indices.shape, all_indices.ndim)
-                # raise ValueError()
-                if nsplits > nsplits_prev:
-                    addcol = 2
-                    delcol = 1
-                    if idx == 0:
-                        indices = slice(0, all_indices[idx] + 1)
-                    else:
-                        indices = slice(all_indices[idx - 1] + 1, all_indices[idx] + 1)
-                    # slice on the right
-                    # if idx == 0:
-                    #     indices = slice(0, all_indices[idx] + 1)
-                    # # elif idx == len(all_indices) - 1:
-                    #     # indices = slice(all_indices[idx-1] + 1, m + 1)
-                    # else:
-                    #     indices = slice(all_indices[idx-1] + 1, all_indices[idx] + 1)
+                # Update the sparse graph if the component is in B2
+                if cutoff > nedges:
+                    B2[cutoff - p] = False
+                # Update the main graph if the component is in B
                 else:
-                    addcol = 1
-                    delcol = 2
-                    # print('in delcol', addcol, delcol, idx, cutoff ,all_indices)
-                    # if all_indices[idx] == 1:
-                        # indices = slice(0, all_indices[0])
-                    if idx == 0:
-                        indices = slice(0, all_indices[0] + 1)
+                    idx = np.nonzero(all_indices == cutoff)[0]
+                    # all_indices += 1
+                    # print(consec)
+                    # print(all_indices, idx, cutoff, all_indices.shape, all_indices.ndim)
+                    # raise ValueError()
+                    if nsplits > nsplits_prev:
+                        addcol = 2
+                        delcol = 1
+                        if idx == 0:
+                            indices = slice(0, all_indices[idx] + 1)
+                        else:
+                            indices = slice(all_indices[idx - 1] + 1, all_indices[idx] + 1)
+                        # slice on the right
+                        # if idx == 0:
+                        #     indices = slice(0, all_indices[idx] + 1)
+                        # # elif idx == len(all_indices) - 1:
+                        #     # indices = slice(all_indices[idx-1] + 1, m + 1)
+                        # else:
+                        #     indices = slice(all_indices[idx-1] + 1, all_indices[idx] + 1)
                     else:
-                        indices = slice(all_indices[idx - 1] + 1, all_indices[idx] + 1)
-                    # slice on the left
-                    # if idx == 0:
-                        # indices = slice(0, all_indices[idx] + 1)
-                    # idx += 1
+                        addcol = 1
+                        delcol = 2
+                        # print('in delcol', addcol, delcol, idx, cutoff ,all_indices)
+                        # if all_indices[idx] == 1:
+                            # indices = slice(0, all_indices[0])
+                        if idx == 0:
+                            indices = slice(0, all_indices[0] + 1)
+                        else:
+                            indices = slice(all_indices[idx - 1] + 1, all_indices[idx] + 1)
+                        # slice on the left
+                        # if idx == 0:
+                            # indices = slice(0, all_indices[idx] + 1)
+                        # idx += 1
 
             # print(idx, all_indices, cutoff, len(all_indices))
 
+            # only B or B2 should chnage in one iteration :/
+            indices = np.nonzero(indices & ~B2)[0]
 
             # print('current', indices, idx, all_indices)
 
@@ -868,9 +883,13 @@ def inner_path(np.ndarray[double, ndim=2] X,
             # print(tl)
             # update matrices and stuff for next step
             if hk > lk: # variable enters the boundary
-                coord = np.nonzero(~B)[0][ik]
-                update_B = True
-                update_S = np.sign(a[ik])
+                if ik > nedges:
+                    coord = np.nonzero(~B2)[0][ik]
+                else:
+                    coord = np.nonzero(~B)[0][ik]
+                    update_B = True
+                    update_S = np.sign(a[ik])
+
                 lambdak = hk
                 # graph.delete_edges([(coord, coord + 1)])
                 cutoff = coord
@@ -893,9 +912,13 @@ def inner_path(np.ndarray[double, ndim=2] X,
                 # # print(np.abs(Q@R - XH).sum(), np.sum(np.diag(R) < 0))
                 # # print(np.abs(Q1@R1 - XH).sum(), np.sum(np.diag(R1) < 0), XH.shape, Q1.shape, R1.shape)
             elif lk > hk: # variable leaves the boundary
-                coord = np.nonzero(B)[0][ilk]
-                update_B = False
-                update_S = 0
+                if ilk > nedges:
+                    coord = np.nonzero(B2)[0][ilk]
+                else:
+                    coord = np.nonzero(B)[0][ilk]
+                    update_B = False
+                    update_S = 0
+
                 lambdak = lk
                 # print('remove cutoff', coord, lk, ilk, np.nonzero(B)[0])
 

@@ -117,7 +117,8 @@ def path_stuff(X, y, penalty='fused', nsteps=None, eps=1e-8, lmin=1e-5, l2=1e-6,
 
         D = np.eye(p-1, p, k=1) - np.eye(p-1, p)
         D = np.vstack((D, l1 * np.eye(p)))
-        raise ValueError('not supported yet')
+        m = D.shape[0]
+        p = D.shape[1]
     else:
         error = f'Penalty {penalty} is not implemented'
         raise ValueError(error)
