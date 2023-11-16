@@ -85,7 +85,7 @@ def im2col_nd(A, block_shape, overlap):
     block_shape = np.array(block_shape, dtype=np.int32)
     overlap = np.array(overlap, dtype=np.int32)
 
-    if (overlap < 0).any() or ((block_shape < overlap).any()):
+    if (overlap < 0).any() or (block_shape < overlap).any():
         raise ValueError('Invalid overlap value, it must lie between 0 and min(block_size)-1', overlap, block_shape)
 
     A = padding(A, block_shape, overlap)
@@ -97,7 +97,7 @@ def im2col_nd(A, block_shape, overlap):
     dim1 = np.prod(A.shape - block_shape + 1)
     dtype = np.float64
 
-    A = np.array(A, order='C', dtype=dtype)
+    A = np.array(A, dtype=dtype)
     R = np.zeros((dim0, dim1), dtype=dtype, order='F')
 
     # if A is zeros, R will also be zeros
@@ -166,6 +166,29 @@ cdef void _col2im3D(double[:,:,::1] A, double[:,:,::1] div, double[::1,:] R, dou
                             l += 1
                 k += 1
 
+cdef void _col2im4D_overlap(double[:,:,:,::1] A, double[:,:,::1] div, double[::1,:] R, double[:] weights, int[:] block_shape, int[:] overlap):
+    cdef:
+        Py_ssize_t k = 0, l = 0
+        Py_ssize_t a, b, c, d, m, n, o, p
+        Py_ssize_t x = A.shape[0], y = A.shape[1], z = A.shape[2], t = A.shape[3]
+        Py_ssize_t s0 = block_shape[0], s1 = block_shape[1], s2 = block_shape[2]
+        Py_ssize_t over0 = overlap[0], over1 = overlap[1], over2 = overlap[2]
+
+    # with nogil:
+    for a in range(0, x - s0, s0 - over0):
+        for b in range(0, y - s1, s1 - over1):
+            for c in range(0, z - s2, s2 - over2):
+
+                l = 0
+
+                for m in range(s0):
+                    for n in range(s1):
+                        for o in range(s2):
+                            for p in range(t):
+                                A[a+m, b+n, c+o, p] += R[l, k] * weights[k]
+                                l += 1
+                            div[a+m, b+n, c+o] += weights[k]
+                k += 1
 
 cdef void _col2im4D(double[:,:,:,::1] A, double[:,:,::1] div, double[::1,:] R, double[:] weights, int[:] block_shape) noexcept nogil:
     cdef:
@@ -213,22 +236,26 @@ def col2im_nd(R, block_shape, end_shape, overlap, weights=None):
         weights = np.asarray(weights, dtype=dtype)
 
     R = np.asarray(R, order='F', dtype=dtype)
-    A = np.zeros(end_shape, order='C', dtype=dtype)
-    div = np.zeros(end_shape[:3], order='C', dtype=dtype)
+    A = np.zeros(end_shape, dtype=dtype)
+    div = np.zeros(end_shape[:3], dtype=dtype)
 
     # if R is zeros, A will also be zeros
     if not np.any(R):
         return A
 
+    overlap = overlap[:3]
+
     if len(A.shape) == 3:
         block_shape = block_shape[:3]
-        overlap = overlap[:3]
 
         if np.sum(block_shape - overlap) > len(A.shape):
             _col2im3D_overlap(A, div, R, weights, block_shape, overlap)
         else:
             _col2im3D(A, div, R, weights, block_shape)
     elif len(A.shape) == 4:
+        # if np.any(overlap != 1):
+        #     _col2im4D_overlap(A, div, R, weights, block_shape, overlap)
+        # else:
         _col2im4D(A, div, R, weights, block_shape)
         div = div[..., None]
     else:
