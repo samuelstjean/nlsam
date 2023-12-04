@@ -25,9 +25,9 @@ def moments(data):
 voxels = 3
 window = 10**3
 ngrads = 75
-means = 1000 #np.random.randint(250, 750, size=[voxels, 1, ngrads])
+means = 1090 #np.random.randint(250, 750, size=[voxels, 1, ngrads])
 mus = means * np.ones([voxels, 1, ngrads])
-sigma = 25
+sigma = 125
 N = 25
 
 data = np.zeros((voxels, window, ngrads))
@@ -39,7 +39,7 @@ for _ in range(N):
 # data[:] = data**2
 
 nchi2 = np.sum(data, axis=-1) / sigma**2
-K = N * (2*N * ngrads)
+K = 2*N * ngrads
 lbda = N * np.sum(mus**2, axis=-1).squeeze() / sigma**2 # only N since half of the components are zero mean
 
 print(f'K = {K}, lbda = {lbda}')
