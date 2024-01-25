@@ -36,3 +36,7 @@ changelog = "https://github.com/samuelstjean/nlsam/blob/master/CHANGELOG.md"
 
 [project.scripts]
 nlsam_denoising = "nlsam.script:hook"
+
+
+[tool.setuptools.packages]
+find = {}  # Scanning implicit namespaces is active by default

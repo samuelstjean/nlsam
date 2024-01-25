@@ -34,7 +34,6 @@ commands_nlsam = [
 
 @pytest.mark.parametrize("command", commands_crop)
 def test_crop(command):
-    print(cwd)
     subprocess.run([command], shell=True, cwd=cwd, check=True)
 
 
