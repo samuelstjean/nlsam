@@ -35,4 +35,4 @@ changelog = "https://github.com/samuelstjean/nlsam/blob/master/CHANGELOG.md"
 
 
 [project.scripts]
-nlsam_denoising = "nlsam.script:hook"
+nlsam_denoising = "nlsam.scripts:main"

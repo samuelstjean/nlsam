@@ -519,7 +519,7 @@ def main():
             logger.info(f"Difference map saved as {os.path.realpath(args.save_difference)}")
 
 
-def hook():
+if __name__ == "__main__":
     # Until joblib.loky support pyinstaller, we use dask instead for the frozen binaries
     import sys
     frozen = getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
