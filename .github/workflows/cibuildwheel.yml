@@ -16,15 +16,15 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         name: Install Python
         with:
           python-version: '3.10'
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.12.3
+        uses: pypa/cibuildwheel@v2.16.2
         env:
           CIBW_ARCHS: "auto64"
           CIBW_SKIP: "pp* cp36-* cp37-* *musllinux* cp38-macosx_arm64"
@@ -39,17 +39,18 @@ jobs:
             chmod +x  {package}/nlsam/tests/test_scripts2.sh &&
             bash {package}/nlsam/tests/test_scripts2.sh
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
+          name: nlsam_${{ runner.os }}
           path: ./wheelhouse/*.whl
 
   build_sdist:
     name: Build source distribution
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         name: Install Python
         with:
           python-version: '3.10'
@@ -59,7 +60,7 @@ jobs:
           python -m pip install build
           python -m build --sdist
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           path: dist/*.tar.gz
 
@@ -70,9 +71,9 @@ jobs:
       matrix:
         os: [ubuntu-20.04, windows-2019, macos-11]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         name: Install Python
         with:
           python-version: '3.10'
@@ -90,15 +91,11 @@ jobs:
             pyinstaller ./scripts/nlsam_denoising -F --clean --add-data ${path}:./distributed/ --noupx
           fi
 
-      - uses: actions/upload-artifact@v3
-        with:
-          name: nlsam_${{ env.version }}_${{ runner.os }}
-          path: ./dist/nlsam_denoising*
-
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: nlsam_${{ env.version }}_${{ runner.os }}
           path: |
+                ./dist/nlsam_denoising*
                 CHANGELOG.md
                 README.md
                 LICENSE
