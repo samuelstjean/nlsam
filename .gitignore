@@ -61,3 +61,6 @@ target/
 
 nlsam.zip
 *.code-workspace
+log
+*.nii
+*.nii.gz

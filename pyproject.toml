@@ -32,3 +32,7 @@ dependencies = [
 homepage = "https://github.com/samuelstjean/nlsam"
 documentation = "https://nlsam.readthedocs.io/en/latest/"
 changelog = "https://github.com/samuelstjean/nlsam/blob/master/CHANGELOG.md"
+
+
+[project.scripts]
+nlsam_denoising = "nlsam.script:hook"

@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import os
 import argparse
 import logging
@@ -521,7 +519,7 @@ def main():
             logger.info(f"Difference map saved as {os.path.realpath(args.save_difference)}")
 
 
-if __name__ == "__main__":
+def hook():
     # Until joblib.loky support pyinstaller, we use dask instead for the frozen binaries
     import sys
     frozen = getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
