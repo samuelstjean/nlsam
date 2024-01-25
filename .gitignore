@@ -64,3 +64,4 @@ nlsam.zip
 log
 *.nii
 *.nii.gz
+wheelhouse/*
