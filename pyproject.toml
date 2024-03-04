@@ -2,10 +2,9 @@
 requires = ["Cython>=0.29.33",
             "scipy>=1.5",
             "oldest-supported-numpy",
-            "setuptools",
+            "setuptools>=60",
             "wheel"]
 build-backend = "setuptools.build_meta"
-
 
 [project]
 name = "nlsam"
@@ -32,3 +31,7 @@ dependencies = [
 homepage = "https://github.com/samuelstjean/nlsam"
 documentation = "https://nlsam.readthedocs.io/en/latest/"
 changelog = "https://github.com/samuelstjean/nlsam/blob/master/CHANGELOG.md"
+
+
+[project.scripts]
+nlsam_denoising = "nlsam.scripts:main"
