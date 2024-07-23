@@ -294,7 +294,7 @@ cdef inline double xi(double eta, double sigma, double N) noexcept nogil:
     # It starts to accumulate error around SNR ~ 1e4 though,
     # so we clip it to 1 (if needed) to stay on the safe side.
 
-    if fabs(out) > 1:
+    if fabs(out) > 1.0:
         out = 1.0
 
     return out
@@ -339,7 +339,7 @@ cdef double root_finder(double r, double N, int max_iter=500, double eps=1e-6) n
 
     return t1
 
-def root_finder_loop(const floating[:] data, const floating1[:] sigma, const floating2[:] N):
+def root_finder_loop(const floating[:] data, const floating1[:] sigma, const double[:] N):
 
     cdef:
         double theta, gaussian_SNR
@@ -350,7 +350,7 @@ def root_finder_loop(const floating[:] data, const floating1[:] sigma, const flo
         for idx in range(imax):
             theta = data[idx] / sigma[idx]
             gaussian_SNR = root_finder(theta, N[idx])
-            corrected_sigma[idx] = sigma[idx] / sqrt(xi(gaussian_SNR, 1, N[idx]))
+            corrected_sigma[idx] = sigma[idx] / sqrt(xi(gaussian_SNR, 1.0, N[idx]))
 
     return corrected_sigma
 
