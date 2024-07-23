@@ -1,4 +1,5 @@
 # cython: wraparound=False, cdivision=True, boundscheck=False, language_level=3, embedsignature=True, infer_types=True
+# distutils: define_macros=NPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION
 
 import numpy as np
 cimport numpy as np

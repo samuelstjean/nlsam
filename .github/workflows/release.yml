@@ -9,6 +9,10 @@ on:
 jobs:
     publish_artifacts:
       runs-on: ubuntu-latest
+      environment: release
+      permissions:
+        # IMPORTANT: this permission is mandatory for trusted publishing
+        id-token: write
       # upload to PyPI on every tag starting with 'v'
       # if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags/v')
       # alternatively, to publish when a GitHub Release is created, use the following rule:
@@ -17,18 +21,12 @@ jobs:
         - name: Download builds
           uses: actions/download-artifact@v4
           with:
-            name: artifact
             path: dist
+            pattern: cibw-*
+            merge-multiple: true
 
         - name: upload to pypi
           uses: pypa/gh-action-pypi-publish@release/v1
-          with:
-            verbose: true
-            print-hash: true
-            user: ${{ secrets.PYPI_USERNAME }}
-            password: ${{ secrets.PYPI_PASSWORD }}
-            # password: ${{ secrets.testpypi_password }}
-            # repository_url: https://test.pypi.org/legacy/
 
         - name: publish to github release
           uses: softprops/action-gh-release@v1

@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.7.2] - 2023-07-03
+
+- Support for numpy 2.0 and python 3.9 and up
+
 ## [0.7.1] - 2023-07-03
 
 - Some speed improvements internally
