@@ -31,6 +31,7 @@ jobs:
           CIBW_SKIP: "pp* *musllinux*"
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_TEST_REQUIRES: pytest
+          CIBW_TEST_COMMAND_WINDOWS: pytest --pyargs nlsam --verbose
           CIBW_TEST_COMMAND: >
             pytest --pyargs nlsam --verbose &&
             cd {package}/example &&
@@ -101,7 +102,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: nlsam_${{ env.version }}_${{ matrix.os }}_$RUNNER_ARCH
+          name: nlsam_${{ env.version }}_${{ runner.os }}_$${{ runner.arch }}
           path: |
                 ./dist/nlsam_denoising*
                 CHANGELOG.md
