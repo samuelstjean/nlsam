@@ -345,13 +345,12 @@ def root_finder_loop(const floating[:] data, const floating1[:] sigma, const flo
         double theta, gaussian_SNR
         Py_ssize_t imax = data.shape[0]
         float[:] corrected_sigma = np.zeros(data.shape[0], dtype=np.float32)
-        double[:] Ncast = np.array(N, dtype=np.float64)
 
     with nogil:
         for idx in range(imax):
             theta = data[idx] / sigma[idx]
             gaussian_SNR = root_finder(theta, N[idx])
-            corrected_sigma[idx] = sigma[idx] / sqrt(xi(gaussian_SNR, 1.0, Ncast[idx]))
+            corrected_sigma[idx] = sigma[idx] / sqrt(xi(gaussian_SNR, 1.0, N[idx]))
 
     return corrected_sigma
 

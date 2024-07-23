@@ -87,7 +87,7 @@ def root_finder_sigma(data, sigma, N, mask=None, verbose=False, n_cores=-1):
     """
     data = np.array(data)
     sigma = np.array(sigma)
-    N = np.array(N)
+    N = np.array(N, dtype=np.float64)
 
     if mask is None:
         mask = np.ones(data.shape[:-1], dtype=bool)
