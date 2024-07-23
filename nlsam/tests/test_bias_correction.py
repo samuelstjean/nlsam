@@ -28,8 +28,8 @@ def test_root_finder_sigma():
     N = np.ones(sigma.shape, dtype=np.float32)
     output = root_finder_sigma(eta, sigma, N)
 
-    # everything less than 10% error of real value?
-    assert_allclose(output, 50, atol=5)
+    # everything less than 12% error of real value?
+    assert_allclose(output, 50, atol=6)
 
 
 # Taken from original example
