@@ -134,8 +134,6 @@ jobs:
 
       - name: publish to github release
         uses: softprops/action-gh-release@v2
-        permissions:
-          contents: write
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: dist/*
