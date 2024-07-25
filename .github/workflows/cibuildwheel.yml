@@ -102,7 +102,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: nlsam_${{ env.version }}_${{ runner.os }}_$${{ runner.arch }}
+          name: nlsam_${{ env.version }}_${{ runner.os }}_${{ runner.arch }}
           path: |
                 ./dist/nlsam_denoising*
                 CHANGELOG.md

@@ -26,6 +26,7 @@ var/
 .ipynb_checkpoints
 .DS_Store
 pip-wheel-metadata/*
+*.whl
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
