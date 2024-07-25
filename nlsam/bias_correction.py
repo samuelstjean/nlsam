@@ -85,14 +85,14 @@ def root_finder_sigma(data, sigma, N, mask=None, verbose=False, n_cores=-1):
     output, ndarray
         Corrected sigma value, where sigma_gaussian = sigma / sqrt(xi)
     """
-    data = np.array(data)
-    sigma = np.array(sigma)
-    N = np.array(N)
+    data = np.asarray(data)
+    sigma = np.asarray(sigma)
+    N = np.asarray(N)
 
     if mask is None:
         mask = np.ones(data.shape[:-1], dtype=bool)
     else:
-        mask = np.array(mask, dtype=bool)
+        mask = np.asarray(mask, dtype=bool)
 
     # Force 3D/4D broadcasting if needed
     if sigma.ndim == (data.ndim - 1):

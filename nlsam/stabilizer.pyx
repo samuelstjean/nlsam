@@ -1,4 +1,5 @@
 # cython: wraparound=False, cdivision=True, boundscheck=False, language_level=3, embedsignature=True, infer_types=True
+# distutils: define_macros=NPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION
 
 import numpy as np
 cimport numpy as np
@@ -293,7 +294,7 @@ cdef inline double xi(double eta, double sigma, double N) noexcept nogil:
     # It starts to accumulate error around SNR ~ 1e4 though,
     # so we clip it to 1 (if needed) to stay on the safe side.
 
-    if fabs(out) > 1:
+    if fabs(out) > 1.0:
         out = 1.0
 
     return out
@@ -349,7 +350,7 @@ def root_finder_loop(const floating[:] data, const floating1[:] sigma, const flo
         for idx in range(imax):
             theta = data[idx] / sigma[idx]
             gaussian_SNR = root_finder(theta, N[idx])
-            corrected_sigma[idx] = sigma[idx] / sqrt(xi(gaussian_SNR, 1, N[idx]))
+            corrected_sigma[idx] = sigma[idx] / sqrt(xi(gaussian_SNR, 1.0, N[idx]))
 
     return corrected_sigma
 

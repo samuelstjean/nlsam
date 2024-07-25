@@ -26,15 +26,18 @@ var/
 .ipynb_checkpoints
 .DS_Store
 pip-wheel-metadata/*
+*.whl
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
+*.spec
 
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
+log
 
 # Unit test / coverage reports
 htmlcov/
@@ -43,6 +46,7 @@ htmlcov/
 .cache
 nosetests.xml
 coverage.xml
+*.html
 
 # Translations
 *.mo
@@ -61,3 +65,5 @@ target/
 
 nlsam.zip
 *.code-workspace
+*.nii.gz
+*.nii

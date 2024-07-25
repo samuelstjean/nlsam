@@ -90,8 +90,8 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     if not ((dtype == np.float32) or (dtype == np.float64)):
         raise ValueError(f'dtype should be either np.float32 or np.float64, but is {dtype}')
 
-    b0_loc = np.where(bvals <= b0_threshold)[0]
-    dwis = np.where(bvals > b0_threshold)[0]
+    b0_loc = np.flatnonzero(bvals <= b0_threshold)
+    dwis = np.flatnonzero(bvals > b0_threshold)
     num_b0s = len(b0_loc)
     variance = sigma**2
     angular_size = block_size[-1]
@@ -166,7 +166,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         to_denoise[..., 1:] = data[..., idx]
         divider[list(b0_loc + idx)] += 1
 
-        logger.info(f'Now denoising volumes {b0_loc + idx} / block {i} out of {len(indexes)}.')
+        logger.info(f'Now denoising volumes {np.hstack((b0_loc, idx))} / block {i} out of {len(indexes)}.')
 
         data_denoised[..., b0_loc + idx] += local_denoise(to_denoise,
                                                           b0_block_size,
