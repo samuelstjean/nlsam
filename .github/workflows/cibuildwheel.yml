@@ -22,7 +22,7 @@ jobs:
         shell: bash
         run: |
             wget https://github.com/indygreg/python-build-standalone/releases/download/20240726/cpython-3.12.4+20240726-aarch64-apple-darwin-install_only_stripped.tar.gz
-            tar -xcfv cpython-3.12.4+20240726-aarch64-apple-darwin-install_only_stripped.tar.gz
+            tar -xfv cpython-3.12.4+20240726-aarch64-apple-darwin-install_only_stripped.tar.gz
             ./python/bin/pip install nlsam pytest
             ./python/bin/pytest --pyargs nlsam --verbose
             tar -cfzv nlsam_mac_arm64.tar.gz ./python
