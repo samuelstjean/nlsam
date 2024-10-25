@@ -2,7 +2,7 @@
 
 ## [0.7.3]
 
-- Removed 'PIESNO' as a noise estimation method. Use 'auto' instead, which is the new default since 0.7, as it will automatically estimate N for you.
+- Removed `PIESNO` as a noise estimation method. Use `auto` instead, which is the new default since 0.7, as it will automatically estimate `N` for you.
 
 ## [0.7.2] - 2024-07-25
 
