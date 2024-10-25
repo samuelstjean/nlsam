@@ -1,8 +1,8 @@
 import numpy as np
-from numpy.testing import assert_almost_equal, assert_equal
+from numpy.testing import assert_allclose, assert_equal
 
-from nlsam.angular_tools import angular_neighbors, _angle, greedy_set_finder, split_per_shell
-
+from nlsam.angular_tools import angular_neighbors, _angle, greedy_set_finder, split_per_shell, read_bvals_bvecs
+from os.path import join, dirname
 
 def test_angular_neighbors():
 
@@ -29,7 +29,7 @@ def test_angle():
                [np.pi / 2,     np.pi / 2, np.pi / 2],
                [np.pi / 2,     np.pi / 2, 0]]
 
-    assert_almost_equal(angles, correct)
+    assert_allclose(angles, correct)
 
 
 def test_greedy_set_finder():
@@ -87,3 +87,17 @@ def test_split_per_shell():
 
     for n, ii in enumerate(idx):
         assert_equal(np.unique(greedy_set_finder(ii)), true_idx[n])
+
+
+def test_read_bvals_bvecs():
+    path = dirname(__file__)
+    fbvals = join(path, '../../example', 'bvals')
+    fbvecs = join(path, '../../example', 'bvecs')
+
+    bvals, bvecs = read_bvals_bvecs(fbvals, fbvecs)
+    zeros = bvals == 0
+    nonzeros = np.logical_not(zeros)
+    norm = np.linalg.norm(bvecs, axis=1)
+
+    assert_allclose(norm[nonzeros], 1.0)
+    assert_allclose(norm[zeros], 0)
