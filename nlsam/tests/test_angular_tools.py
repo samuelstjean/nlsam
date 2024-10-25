@@ -91,8 +91,8 @@ def test_split_per_shell():
 
 def test_read_bvals_bvecs():
     path = dirname(__file__)
-    fbvals = join(path, '../../example', 'bvals')
-    fbvecs = join(path, '../../example', 'bvecs')
+    fbvals = join(path, 'bvals')
+    fbvecs = join(path, 'bvecs')
 
     bvals, bvecs = read_bvals_bvecs(fbvals, fbvecs)
     zeros = bvals == 0
