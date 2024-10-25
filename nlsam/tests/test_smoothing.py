@@ -1,5 +1,5 @@
 import numpy as np
-from numpy.testing import assert_array_less, assert_equal, assert_array_equal, assert_raises, assert_allclose, assert_array_almost_equal_nulp
+from numpy.testing import assert_array_less, assert_equal, assert_array_equal, assert_raises, assert_allclose
 
 from nlsam.stabilizer import _test_xi as xi
 from nlsam.smoothing import local_standard_deviation, real_sh_descoteaux_from_index, sph_harm_ind_list, smooth_pinv
