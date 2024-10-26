@@ -4,5 +4,7 @@ include CHANGELOG.md
 include example/*
 include docs/*
 include nlsam/tests/test*.sh
+include nlsam/tests/bvals
+include nlsam/tests/bvecs
 exclude nlsam/*.c
 include nlsam/*.pyx

@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-12, macos-14]
+        os: [ubuntu-latest, windows-latest, macos-13, macos-14]
 
     steps:
       - uses: actions/checkout@v4
@@ -25,20 +25,6 @@ jobs:
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.21.3
-        env:
-          CIBW_BUILD_FRONTEND: "build"
-          CIBW_ARCHS: "auto64"
-          CIBW_SKIP: "pp* *musllinux*"
-          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
-          CIBW_TEST_REQUIRES: pytest
-          CIBW_TEST_COMMAND_WINDOWS: pytest --pyargs nlsam --verbose
-          CIBW_TEST_COMMAND: >
-            pytest --pyargs nlsam --verbose &&
-            cd {package}/example &&
-            chmod +x {package}/nlsam/tests/test_scripts1.sh &&
-            bash {package}/nlsam/tests/test_scripts1.sh &&
-            chmod +x {package}/nlsam/tests/test_scripts2.sh &&
-            bash {package}/nlsam/tests/test_scripts2.sh
 
       - name: Test against oldest supported numpy version
         shell: bash
@@ -78,7 +64,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, windows-2019, macos-12, macos-14]
+        os: [ubuntu-20.04, windows-2019, macos-13, macos-14]
     steps:
       - uses: actions/checkout@v4
 
