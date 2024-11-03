@@ -14,7 +14,7 @@ python -c 'import nibabel as nib; import numpy as np; d = nib.load("mask.nii.gz"
 python -c 'import nibabel as nib; import numpy as np; d = nib.load("mask.nii.gz").get_fdata(); nib.save(nib.Nifti1Image(np.random.rayleigh(10, d[40:50, 80:85].shape),np.eye(4)), "noise.nii.gz")'
 
 # Test on example dataset
-nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz bvals bvecs -m mask_crop.nii.gz -f --verbose -N 1 --noise_est local_std --sh_order 0 --block_size 2,2,2 --save_sigma sigma.nii.gz --cores 1
+nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz bvals bvecs -m mask_crop.nii.gz -f --verbose -N 1 --noise_est local_std --sh_order 0 --block_size 2,2,2 --save_sigma sigma.nii.gz
 check_return_code $?
 
 nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz bvals bvecs -m mask_crop.nii.gz -f --verbose --sh_order 0 -N 1 --load_sigma sigma.nii.gz --no_subsample --fix_implausible --no_clip_eta
@@ -36,4 +36,7 @@ nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz bvals bvecs -m mask_crop.nii.gz
 check_return_code $?
 
 nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz bvals bvecs -m mask_crop.nii.gz -f --verbose --sh_order 0 --no_denoising
+check_return_code $?
+
+nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz bvals bvecs -m mask_crop.nii.gz -f --verbose --defer
 check_return_code $?

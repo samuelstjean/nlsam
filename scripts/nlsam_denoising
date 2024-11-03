@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os
+import os.path
 import argparse
 import logging
 
@@ -93,7 +93,7 @@ def buildArgsParser():
                            help='If set, each shell/bvalue is processed separately by itself.')
 
     optionals.add_argument('--bval_threshold', metavar='int', default=25, type=int,
-                           help='Any bvalue within += bval_threshold of each others will be considered on the same shell (e.g. b=990 and b=1000 are on the same shell). Default 25')
+                           help='Any bvalue within +- bval_threshold of each others will be considered on the same shell (e.g. b=990 and b=1000 are on the same shell). Default 25')
 
     optionals.add_argument('--block_size', dest='spatial_block_size',
                            metavar='tuple', type=literal_eval, default=(3, 3, 3),
@@ -117,6 +117,10 @@ def buildArgsParser():
     g1.add_argument('--load_mhat', metavar='file',
                     help='Load this volume as a m_hat value estimation for the stabilization.\n'
                     'This is used to replace the argument --sh_order with another initialisation for the algorithm.')
+
+    g1.add_argument('--defer', action='store_true',
+                    help='If supplied, the bias correction loop is applied after denoising instead of before.\n'
+                    'Not compatible with --load_mhat and overrides --no_stabilization')
 
     g = optionals.add_mutually_exclusive_group()
 
@@ -237,6 +241,7 @@ def main():
     split_shell = args.split_shell
     block_size = np.array(args.spatial_block_size + (args.angular_block_size,))
     clip_eta = args.no_clip_eta
+    defer = args.defer
     logger = logging.getLogger('nlsam')
     verbose = args.verbose
 
@@ -427,9 +432,7 @@ def main():
     #  Stabilizer part
     ##################
 
-    if args.no_stabilization:
-        data_stabilized = data
-    else:
+    def apply_bias_correction(data, m_hat, sigma, N):
         logger.info("Now performing stabilization")
 
         # We may have a 3D sigma map, so broadcast to 4D for indexing
@@ -454,7 +457,13 @@ def main():
             nib.save(nib.Nifti1Image(data_stabilized, affine), args.save_stab)
             logger.info(f"Stabilized data saved as {os.path.realpath(args.save_stab)}")
 
-        del m_hat, eta
+        return data_stabilized
+
+    if args.no_stabilization or not defer:
+        data_stabilized = data
+    else:
+        data_stabilized = apply_bias_correction(data, m_hat, sigma, N)
+        del m_hat
 
     ##################
     #  Denoising part
@@ -487,11 +496,15 @@ def main():
                                       dtype=dtype,
                                       verbose=verbose)
 
-        nib.save(nib.Nifti1Image(data_denoised.astype(np.float32), affine, header), args.output)
+        if defer:
+            data_denoised = apply_bias_correction(data, data_denoised, sigma, N)
+
+        nib.save(nib.Nifti1Image(data_denoised, affine, header), args.output)
         logger.info(f"Denoised data saved as {os.path.realpath(args.output)}")
 
         if args.save_difference is not None:
-            nib.save(nib.Nifti1Image(np.abs(data_denoised - data).astype(np.float32), affine, header), args.save_difference)
+            diff = np.abs(data_denoised - data).astype(np.float32)
+            nib.save(nib.Nifti1Image(diff, affine, header), args.save_difference)
             logger.info(f"Difference map saved as {os.path.realpath(args.save_difference)}")
 
 
