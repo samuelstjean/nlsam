@@ -23,11 +23,26 @@ dependencies = [
     'joblib>=0.14.1',
     'autodmri>=0.2.1',
     'spams-bin>=2.6.2',
-    'tqdm>=4.56',
-    'dipy>=0.11']
+    'tqdm>=4.56']
 
 
 [project.urls]
 homepage = "https://github.com/samuelstjean/nlsam"
 documentation = "https://nlsam.readthedocs.io/en/latest/"
 changelog = "https://github.com/samuelstjean/nlsam/blob/master/CHANGELOG.md"
+
+[tool.cibuildwheel]
+build-frontend = "build"
+skip = "pp* *musllinux*"
+archs = ["auto64"]
+manylinux-x86_64-image = "manylinux_2_28"
+test-requires = ['pytest']
+test-command = """pytest --pyargs nlsam --verbose &&
+                cd {package}/example &&
+                chmod +x {package}/nlsam/tests/test_scripts1.sh &&
+                bash {package}/nlsam/tests/test_scripts1.sh &&
+                chmod +x {package}/nlsam/tests/test_scripts2.sh &&
+                bash {package}/nlsam/tests/test_scripts2.sh"""
+
+[tool.cibuildwheel.windows]
+test-command = "pytest --pyargs nlsam --verbose"
