@@ -10,12 +10,14 @@ from ast import literal_eval
 import nibabel as nib
 import numpy as np
 
-from nlsam.angular_tools import read_bvals_bvecs
 from nlsam.denoiser import nlsam_denoise
 from nlsam.smoothing import local_standard_deviation
 from nlsam.bias_correction import stabilization, root_finder_sigma
 
 from autodmri.estimator import estimate_from_nmaps, estimate_from_dwis
+
+from dipy.io.gradients import read_bvals_bvecs
+from dipy.denoise.noise_estimate import piesno
 
 DESCRIPTION = """
 Main script for the NLSAM denoising [1], including the bias correction framework from [2].
@@ -123,11 +125,13 @@ def buildArgsParser():
     g.add_argument('--noise_est',
                    dest='noise_method',
                    metavar='string',
-                   choices=['local_std', 'auto'],
+                   choices=['local_std', 'piesno', 'auto'],
                    default='auto',
                    help='Noise estimation method used for estimating sigma.\n'
                    'local_std : Compute local noise standard deviation '
                    'with correction factor. No a priori needed.\n'
+                   'piesno : Use PIESNO estimation, assumes the presence of '
+                   'background in the data.\n'
                    'auto (default): Automatically estimate sigma and N from background in the data.')
 
     g.add_argument('--load_sigma', metavar='file',
@@ -149,7 +153,7 @@ def buildArgsParser():
                           'Note that you also need to pass "auto" as a value for N since it also gets estimated')
 
     advanced.add_argument('--noise_mask', dest='save_piesno_mask', metavar='file',
-                          help='If supplied, output filename for saving the mask of noisy voxels found by the automatic estimation.')
+                          help='If supplied, output filename for saving the mask of noisy voxels found by PIESNO or the automatic estimation.')
 
     advanced.add_argument('--save_stab', metavar='file',
                           help='Path to save the intermediate noisy bias corrected volume.')
@@ -395,6 +399,28 @@ def main():
         if args.save_N is not None:
             nib.save(nib.Nifti1Image(N, affine), args.save_N)
             logger.info(f"N map saved as {os.path.realpath(args.save_N)}")
+
+    elif noise_method == 'piesno':
+        logger.info(f"Estimating noise with method {noise_method}")
+        sigma_1D, mask_noise = piesno(data, N=N, return_mask=True)
+        sigma = np.broadcast_to(sigma_1D[None, None, :, None], data.shape)
+
+        if args.save_piesno_mask is not None:
+            nib.save(nib.Nifti1Image(mask_noise.astype(np.int16), affine), args.save_piesno_mask)
+            logger.info(f"Mask of noisy voxels saved as {os.path.realpath(args.save_piesno_mask)}")
+
+        # If the detected noise standard deviation is low and the noise mask has few voxels,
+        # maybe something went wrong. We check here that at least 1% of noisy voxels
+        # were found and warn the user otherwise.
+        frac_noisy_voxels = np.sum(mask_noise) / np.size(mask_noise) * 100
+
+        if frac_noisy_voxels < 1:
+            logger.warning(f'PIESNO was used with N={N}, but it found only {frac_noisy_voxels:.3f}%'
+                           ' of voxels as pure noise with a mean standard deviation'
+                           f' of {np.mean(sigma_1D):.5f}. This is suspicious, so please check'
+                           ' the resulting sigma volume if something went wrong.'
+                           ' In cases where PIESNO is not working, you might want to try'
+                           ' --noise_est local_std or --noise_est auto')
 
     elif noise_method == 'local_std':
         logger.info(f"Estimating noise with method {noise_method}")

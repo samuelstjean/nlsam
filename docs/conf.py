@@ -25,7 +25,7 @@ sys.path.insert(0, os.path.abspath('../nlsam/'))
 # -- General configuration ------------------------------------------------
 # from recommonmark.parser import CommonMarkParser
 
-autodoc_mock_imports = ["scipy, spams, nibabel"]
+autodoc_mock_imports = ["scipy, spams, dipy, nibabel"]
 language = 'en'
 
 # Add any Sphinx extension module names here, as strings. They can be
