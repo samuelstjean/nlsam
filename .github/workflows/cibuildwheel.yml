@@ -17,7 +17,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - name: Test against oldest supported numpy version
         shell: bash
         run: |
@@ -31,3 +30,4 @@ jobs:
         with:
           name: cibw-nlsam_${{ matrix.os }}
           path: ./*.tar.gz
+          

@@ -1,6 +1,5 @@
 import numpy as np
 
-
 def angular_neighbors(vec, n):
     """
     Returns the indices of the n closest neighbors (excluding the vector itself)
@@ -131,3 +130,41 @@ def split_per_shell(bvals, bvecs, angular_size, dwis, is_symmetric=False, bval_t
         current_shell = [(dwi,) + tuple(current_shell[pos]) for pos, dwi in enumerate(new_positions) if dwi in dwis]
         neighbors[shell] = current_shell
     return neighbors
+
+
+def read_bvals_bvecs(fbvals, fbvecs):
+    """Read bvalues and bvectors from disk.
+
+    Parameters
+    ----------
+    fbvals : str
+       Path of bvalues
+    fbvecs : str
+       Path of bvectors
+
+    Returns
+    -------
+    bvals : array, (N,)
+    bvecs : array, (N, 3)
+    """
+
+    bvals = np.loadtxt(fbvals)
+    bvecs = np.loadtxt(fbvecs)
+
+    if 3 not in bvecs.shape:
+        raise ValueError("bvec file should have three rows")
+
+    if bvecs.shape[1] != 3:
+        bvecs = bvecs.T
+
+    if len(bvals.shape) > 1:
+        raise ValueError("bval file should have one row")
+
+    if bvals.shape[0] != bvecs.shape[0]:
+        raise ValueError(f"bvalues shape {bvals.shape} and bvectors shape {bvecs.shape} do not correspond")
+
+    norm = np.linalg.norm(bvecs, axis=1, keepdims=True)
+    norm[norm == 0] = 1
+    bvecs /= norm
+
+    return bvals, bvecs
