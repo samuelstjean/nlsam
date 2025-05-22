@@ -38,6 +38,7 @@ pip-wheel-metadata/*
 pip-log.txt
 pip-delete-this-directory.txt
 log
+log.txt
 
 # Unit test / coverage reports
 htmlcov/

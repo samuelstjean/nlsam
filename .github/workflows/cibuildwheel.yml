@@ -64,7 +64,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, windows-2019, macos-13, macos-14]
+        os: [ubuntu-22.04, windows-2019, macos-13, macos-14]
     steps:
       - uses: actions/checkout@v4
 
@@ -81,9 +81,9 @@ jobs:
           path=$(python -c "import distributed; print(distributed.__path__[0]);")
           echo "version=v$(python -c "from importlib.metadata import version; print(version('nlsam'));")" >> $GITHUB_ENV
           if [ "$RUNNER_OS" == "Windows" ]; then
-            pyinstaller ./scripts/nlsam_denoising -F --clean --add-data "${path};.\\distributed\\" --noupx
+            pyinstaller ./nlsam/script.py -n nlsam_denoising -F --clean --add-data "${path};.\\distributed\\" --noupx
           else
-            pyinstaller ./scripts/nlsam_denoising -F --clean --add-data ${path}:./distributed/ --noupx
+            pyinstaller ./nlsam/script.py -n nlsam_denoising -F --clean --add-data ${path}:./distributed/ --noupx
           fi
 
       - uses: actions/upload-artifact@v4
