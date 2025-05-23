@@ -1,10 +1,8 @@
-import nibabel as nib
-import numpy as np
-
 import os
 import gzip
 import shutil
 import subprocess
+
 import pytest
 
 from pathlib import Path
@@ -15,21 +13,6 @@ def prepare_datasets():
             with open(file, 'wb') as f_out:
                 shutil.copyfileobj(f_in, f_out)
 
-    currentdir = os.getcwd()
-    os.chdir(cwd)
-
-    dwi = nib.load("dwi.nii.gz").get_fdata()[40:50, 80:85]
-    mask = nib.load("mask.nii.gz").get_fdata()[40:50, 80:85]
-
-    if not os.path.isfile("dwi_crop.nii.gz"):
-        nib.save(nib.Nifti1Image(dwi, np.eye(4)), "dwi_crop.nii.gz")
-
-    if not os.path.isfile("mask_crop.nii.gz"):
-        nib.save(nib.Nifti1Image(mask, np.eye(4)), "mask_crop.nii.gz")
-
-    if not os.path.isfile("noise.nii.gz"):
-        nib.save(nib.Nifti1Image(np.random.rayleigh(10, dwi.shape), np.eye(4)), "noise.nii.gz")
-
     zip_files = ['dwi_crop.nii.gz',
                  'mask_crop.nii.gz',
                  'sigma.nii.gz']
@@ -38,8 +21,6 @@ def prepare_datasets():
         unzipped = file.removesuffix('.gz')
         if os.path.isfile(file) and not os.path.isfile(unzipped):
             unzip(file, unzipped)
-
-    os.chdir(currentdir)
 
 
 commands = [
@@ -59,9 +40,10 @@ commands = [
     'nlsam_denoising dwi_crop.nii.gz dwi_nlsam.nii.gz bvals bvecs -m mask_crop.nii.gz -f --verbose --sh_order 0 --no_denoising'
     ]
 
-cwd = Path(__file__).parents[2] / Path("example")
+cwd = Path(__file__).parent / Path("datasets")
 
 @pytest.mark.parametrize('command', commands)
 def test_script(command):
+    os.chdir(cwd)
     prepare_datasets()
     subprocess.run([command], shell=True, cwd=cwd, check=True)

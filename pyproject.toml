@@ -39,4 +39,4 @@ skip = "pp* *musllinux*"
 archs = ["auto64"]
 manylinux-x86_64-image = "manylinux_2_28"
 test-requires = ['pytest']
-test-command = "pytest --pyargs nlsam --verbose -s"
+test-command = "pytest --pyargs nlsam --verbose"
