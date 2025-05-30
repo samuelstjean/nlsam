@@ -81,9 +81,9 @@ jobs:
           path=$(python -c "import distributed; print(distributed.__path__[0]);")
           echo "version=v$(python -c "from importlib.metadata import version; print(version('nlsam'));")" >> $GITHUB_ENV
           if [ "$RUNNER_OS" == "Windows" ]; then
-            pyinstaller ./nlsam/script.py -n nlsam_denoising -F --clean --add-data "${path};.\\distributed\\" --noupx
+            pyinstaller ./nlsam/script.py -n nlsam_denoising --hiddenimport nlsam.utils --hiddenimport nlsam.stabilizer -F --clean --add-data "${path};.\\distributed\\" --noupx
           else
-            pyinstaller ./nlsam/script.py -n nlsam_denoising -F --clean --add-data ${path}:./distributed/ --noupx
+            pyinstaller ./nlsam/script.py -n nlsam_denoising --hiddenimport nlsam.utils --hiddenimport nlsam.stabilizer -F --clean --add-data ${path}:./distributed/ --noupx
           fi
 
       - uses: actions/upload-artifact@v4
