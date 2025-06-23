@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import os
 import argparse
 import logging
@@ -494,8 +492,10 @@ def main():
             nib.save(nib.Nifti1Image(np.abs(data_denoised - data).astype(np.float32), affine, header), args.save_difference)
             logger.info(f"Difference map saved as {os.path.realpath(args.save_difference)}")
 
+    return None
 
-if __name__ == "__main__":
+
+def main_workaround_joblib():
     # Until joblib.loky support pyinstaller, we use dask instead for the frozen binaries
     import sys
     frozen = getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
@@ -521,3 +521,7 @@ if __name__ == "__main__":
             main()
     else:
         main()
+
+
+if __name__ == "__main__":
+    main_workaround_joblib()

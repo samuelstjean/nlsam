@@ -75,6 +75,7 @@ def test_split_per_shell():
                         [-0.478,-0.754,0.450],
                         [0.872,-0.377,0.314],
                         [0.508,0.690,0.516]])
+
     bvals = np.array([5 * [0], 5 * [995], 5 * [1000], 5 * [1995], 5 * [2000], 5 * [3000]]).ravel()
     dwis = np.arange(len(bvals))[bvals > 0]
     angular_size = 5
@@ -91,8 +92,8 @@ def test_split_per_shell():
 
 def test_read_bvals_bvecs():
     path = dirname(__file__)
-    fbvals = join(path, 'bvals')
-    fbvecs = join(path, 'bvecs')
+    fbvals = join(path, 'datasets', 'bvals')
+    fbvecs = join(path, 'datasets', 'bvecs')
 
     bvals, bvecs = read_bvals_bvecs(fbvals, fbvecs)
     zeros = bvals == 0

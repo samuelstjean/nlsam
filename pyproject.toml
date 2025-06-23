@@ -2,10 +2,9 @@
 requires = ["Cython>=3.0",
             "scipy>=1.5",
             "numpy>=2.0",
-            "setuptools",
+            "setuptools>=61.0",
             "wheel"]
 build-backend = "setuptools.build_meta"
-
 
 [project]
 name = "nlsam"
@@ -14,8 +13,9 @@ authors = [{name = "Samuel St-Jean"}]
 description='Implementation of "Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising"'
 readme = "README.md"
 requires-python = ">=3.9"
-license = {text = "GPLv3"}
-
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+keywords = ["MRI", "diffusion", "dmri", "denoising"]
 dependencies = [
     'numpy>=1.21.3',
     'scipy>=1.5',
@@ -25,11 +25,13 @@ dependencies = [
     'spams-bin>=2.6.2',
     'tqdm>=4.56']
 
-
 [project.urls]
 homepage = "https://github.com/samuelstjean/nlsam"
 documentation = "https://nlsam.readthedocs.io/en/latest/"
 changelog = "https://github.com/samuelstjean/nlsam/blob/master/CHANGELOG.md"
+
+[project.scripts]
+nlsam_denoising = "nlsam.script:main_workaround_joblib"
 
 [tool.cibuildwheel]
 build-frontend = "build"
@@ -37,12 +39,4 @@ skip = "pp* *musllinux*"
 archs = ["auto64"]
 manylinux-x86_64-image = "manylinux_2_28"
 test-requires = ['pytest']
-test-command = """pytest --pyargs nlsam --verbose &&
-                cd {package}/example &&
-                chmod +x {package}/nlsam/tests/test_scripts1.sh &&
-                bash {package}/nlsam/tests/test_scripts1.sh &&
-                chmod +x {package}/nlsam/tests/test_scripts2.sh &&
-                bash {package}/nlsam/tests/test_scripts2.sh"""
-
-[tool.cibuildwheel.windows]
-test-command = "pytest --pyargs nlsam --verbose"
+test-command = "python -m pytest --pyargs nlsam --verbose"
