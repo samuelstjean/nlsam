@@ -18,7 +18,7 @@ def sh_smooth(data, bvals, bvecs, sh_order=4, b0_threshold=1.0, similarity_thres
         Corresponding gradients table object to data.
     b0_threshold : float, default 1.0
         Threshold to consider this bval as a b=0 image.
-    sh_order : int, default 8
+    sh_order : int, default 4
         Order of the spherical harmonics to fit.
     similarity_threshold : int, default 50
         All bvalues such that |b_1 - b_2| < similarity_threshold
@@ -257,12 +257,12 @@ def sph_harm_ind_list(sh_order_max):
     """
     if sh_order_max % 2 != 0:
         raise ValueError("sh_order_max must be an even integer >= 0")
-    l_range = np.arange(0, sh_order_max + 1, 2, dtype=int)
+    l_range = np.arange(0, sh_order_max + 1, 2, dtype=np.int16)
     ncoef = int((sh_order_max + 2) * (sh_order_max + 1) // 2)
 
     l_list = np.repeat(l_range, l_range * 2 + 1)
     offset = 0
-    m_list = np.empty(ncoef, "int")
+    m_list = np.empty(ncoef, dtype=np.int16)
     for ii in l_range:
         m_list[offset : offset + 2 * ii + 1] = np.arange(-ii, ii + 1)
         offset = offset + 2 * ii + 1
@@ -308,8 +308,14 @@ def real_sh_descoteaux_from_index(m_values, l_values, theta, phi):
     """
 
     def spherical_harmonics(m_values, l_values, theta, phi):
-         from scipy.special import sph_harm
-         return sph_harm(m_values, l_values, theta, phi, dtype=complex)
+        try:
+            from scipy.special import sph_harm_y
+            sph_harm_out = sph_harm_y(l_values, m_values, phi, theta)
+        except ImportError:
+            from scipy.special import sph_harm
+            sph_harm_out = sph_harm(m_values, l_values, theta, phi)
+
+        return sph_harm_out
 
     sh = spherical_harmonics(np.abs(m_values), l_values, phi, theta)
 

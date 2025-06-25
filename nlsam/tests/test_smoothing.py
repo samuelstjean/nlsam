@@ -151,10 +151,10 @@ def test_real_sh_descoteaux_from_index():
         * sqrt(2),
     )
 
-    aa = np.ones((3, 1, 1, 1))
-    bb = np.ones((1, 4, 1, 1))
-    cc = np.ones((1, 1, 5, 1))
-    dd = np.ones((1, 1, 1, 6))
+    aa = np.ones((3, 1, 1, 1), dtype=np.int32)
+    bb = np.ones((1, 4, 1, 1), dtype=np.int32)
+    cc = np.ones((1, 1, 5, 1), dtype=np.float32)
+    dd = np.ones((1, 1, 1, 6), dtype=np.float32)
 
     assert_equal(rsh(aa, bb, cc, dd).shape, (3, 4, 5, 6))
 
