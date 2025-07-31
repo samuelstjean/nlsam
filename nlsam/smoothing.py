@@ -157,7 +157,7 @@ def local_standard_deviation(arr, n_cores=-1, verbose=False):
         if verbose:
             slicer = tqdm(slicer)
 
-        result = Parallel(n_jobs=n_cores)(delayed(_local_standard_deviation)(arr, current_slice) for current_slice in slicer)
+        result = Parallel(n_jobs=n_cores, backend='threading')(delayed(_local_standard_deviation)(arr, current_slice) for current_slice in slicer)
         sigma = np.median(result, axis=0)
 
     # http://en.wikipedia.org/wiki/Full_width_at_half_maximum
