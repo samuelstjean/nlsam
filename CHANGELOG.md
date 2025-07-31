@@ -1,9 +1,10 @@
 # Changelog
 
-## [0.7.3]
+## [0.8]
 
 - Removed `PIESNO` as a noise estimation method. Use `auto` instead, which is the new default since 0.7, as it will automatically estimate `N` for you.
 - Support for scipy 1.17 and up
+- Use multithreading instead of loky for the frozen binaries to prevent issues and hangups with pyinstaller
 
 ## [0.7.2] - 2024-07-25
 

@@ -496,32 +496,24 @@ def main():
 
 
 def main_workaround_joblib():
-    # Until joblib.loky support pyinstaller, we use dask instead for the frozen binaries
+    # Until joblib.loky support pyinstaller, we use threading instead for the frozen binaries even if it's a bit slower
     import sys
     frozen = getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
 
     if frozen:
+        from joblib import parallel_config
         from multiprocessing import freeze_support
         freeze_support()
 
-        from dask.distributed import Client
-        from joblib import parallel_backend
-
         # Use the argparser to only fetch the number of cores, everything is still processed in main()
-        parser = buildArgsParser()
-        args = parser.parse_args()
+        args = buildArgsParser().parse_args()
 
         if args.cores is None or args.cores > cpu_count():
             n_cores = cpu_count()
         else:
             n_cores = args.cores
 
-        client = Client(threads_per_worker=1, n_workers=n_cores)
-        with parallel_backend("dask"):
+        with parallel_config(backend="threading", n_jobs=n_cores):
             main()
     else:
         main()
-
-
-if __name__ == "__main__":
-    main_workaround_joblib()
