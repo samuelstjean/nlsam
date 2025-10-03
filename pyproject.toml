@@ -34,9 +34,7 @@ changelog = "https://github.com/samuelstjean/nlsam/blob/master/CHANGELOG.md"
 nlsam_denoising = "nlsam.script:main_workaround_joblib"
 
 [tool.cibuildwheel]
-build-frontend = "build"
-skip = "pp* *musllinux*"
+skip = "*musllinux*"
 archs = ["auto64"]
-manylinux-x86_64-image = "manylinux_2_28"
 test-requires = ['pytest']
 test-command = "python -m pytest --pyargs nlsam --verbose"
