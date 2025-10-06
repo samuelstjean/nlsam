@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.7.3]
+## [0.7.3] - 2025-10-06
 
 - Removed `PIESNO` as a noise estimation method. Use `auto` instead, which is the new default since 0.7, as it will automatically estimate `N` for you.
 - Support for scipy 1.17 and up
