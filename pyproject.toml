@@ -19,10 +19,10 @@ keywords = ["MRI", "diffusion", "dmri", "denoising"]
 dependencies = [
     'numpy>=1.21.3',
     'scipy>=1.5',
-    'nibabel>=2.0',
+    'nibabel>=4.0',
     'joblib>=0.14.1',
     'autodmri>=0.2.1',
-    'spams-bin>=2.6.2',
+    'spams-bin>=2.6.12',
     'tqdm>=4.56']
 
 [project.urls]

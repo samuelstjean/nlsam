@@ -241,13 +241,12 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
                                                                 block_size,
                                                                 overlap,
                                                                 param_alpha,
-                                                                param_D,
                                                                 current_slice,
                                                                 dtype,
                                                                 n_iter)
                                                                 for current_slice in progress_slicer)
 
-    logger.info(f'Multiprocessing done in {(time() - time_multi) / 60:.2f} mins.')
+    logger.info(f'Multiprocessing done in {int(time() - time_multi)}s')
 
     # Put together the multiprocessed results
     data_subset = np.zeros_like(data, dtype=np.float32)
@@ -261,7 +260,7 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     return data_subset
 
 
-def processer(data, mask, variance, block_size, overlap, param_alpha, param_D, current_slice,
+def processer(data, mask, variance, block_size, overlap, param_alpha, current_slice,
               dtype=np.float64, n_iter=10, gamma=3, tau=1, tolerance=1e-5):
 
     # Fetch the current slice for parallel processing since now the arrays are dumped and read from disk
@@ -284,53 +283,48 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, param_D, c
     X_full_shape = X.shape
     X = X[:, train_idx].astype(dtype)
 
-    param_alpha['L'] = int(0.5 * X.shape[0])
-
+    param_alpha['L'] = X.shape[0] // 2
     D = param_alpha['D']
 
     alpha = np.zeros((D.shape[1], X.shape[1]), dtype=dtype)
-    W = np.ones(alpha.shape, dtype=dtype)
-    temp = np.zeros([alpha.shape[0], 1], dtype=dtype)
+    alpha_old = np.ones_like(alpha)
+    W = np.ones_like(alpha, order='F')
 
-    DtD = np.asfortranarray(D.T @ D)
-    DtX = np.asfortranarray(D.T @ X)
-    DtXW = np.empty_like(DtX, order='F')
-    DtDW = np.empty_like(DtD, order='F')
-
-    alpha_old = np.ones(alpha.shape, dtype=dtype)
     not_converged = np.ones(alpha.shape[1], dtype=bool)
     nonzero_ind = np.zeros(alpha.shape, dtype=bool)
-    arr = np.empty(alpha.shape)
 
     xi = np.random.randn(X.shape[0], X.shape[1]) * var_mat
     var_mat *= (X.shape[0] + gamma * np.sqrt(2 * X.shape[0]))
     eps = np.max(np.abs(D.T @ xi), axis=0)
 
+    # Rescale to ensure lambda1=1 as a constant, this allows passing everything to spams.lassoWeighted
+    # but the output coefficients are scaled by an extra np.sqrt(var_mat) factor since we do not rescale D to keep it constant also
+    scale = np.sqrt(var_mat)
+    X = np.asfortranarray(X / scale)
+    param_alpha['lambda1'] = 1
+
     for _ in range(n_iter):
-        DtXW[:, not_converged] = DtX[:, not_converged] / W[:, not_converged]
+        Xi = X[:, not_converged]
+        Wi = W[:, not_converged]
+        alpha[:, not_converged] = spams.lassoWeighted(X=Xi, W=Wi, **param_alpha).toarray() * scale[not_converged]
 
-        for i in range(alpha.shape[1]):
-            if not_converged[i]:
-                param_alpha['lambda1'] = var_mat[i]
-                DtDW[:] = (1 / W[..., None, i]) * DtD * (1 / W[:, i])
-                spams.lasso(X[:, i:i+1], Q=DtDW, q=DtXW[:, i:i+1], **param_alpha).todense(out=temp)
-                alpha[:, i:i+1] = temp
-
-        arr[:] = alpha
-        nonzero_ind[:] = arr != 0
-        arr[nonzero_ind] /= W[nonzero_ind]
-        not_converged[:] = np.max(np.abs(alpha_old - arr), axis=0) > tolerance
+        nonzero_ind[:] = alpha != 0
+        not_converged[:] = np.max(np.abs(alpha_old - alpha), axis=0) > tolerance
 
         if not np.any(not_converged):
             break
 
-        alpha_old[:] = arr
+        alpha_old[:] = alpha
         W[:] = 1 / (np.abs(alpha_old**tau) + eps)
+        # print(f'{_} W', W.min(), W.max(), eps.min(), eps.max(), np.sum(not_converged), not_converged.size)
+        # print(f'{_} alpha', alpha.min(), alpha.max(), np.min(X * scale), np.max(X*scale), np.min(D@alpha), np.max(D@alpha))
 
     weights = np.ones(X_full_shape[1], dtype=dtype)
     weights[train_idx] = 1 / (np.sum(alpha != 0, axis=0) + 1)
     X = np.zeros(X_full_shape, dtype=dtype, order='F')
-    X[:, train_idx] = D @ arr
+    X[:, train_idx] = D @ alpha
     out = col2im_nd(X, block_size, orig_shape, overlap, weights)
-    del X, W, alpha, alpha_old, DtX, DtXW, DtDW
+    # print('out', out.min(), out.max(), X.min(), X.max(), weights.min(), weights.max())
+    del X, W, alpha, alpha_old
+
     return out
