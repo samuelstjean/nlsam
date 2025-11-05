@@ -2,13 +2,12 @@
 requires = ["Cython>=3.0",
             "scipy>=1.5",
             "numpy>=2.0",
-            "setuptools>=61.0",
-            "wheel"]
+            "setuptools>=78.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "nlsam"
-version = '0.7.3'
+version = '1.0'
 authors = [{name = "Samuel St-Jean"}]
 description='Implementation of "Non Local Spatial and Angular Matching : Enabling higher spatial resolution diffusion MRI datasets through adaptive denoising"'
 readme = "README.md"

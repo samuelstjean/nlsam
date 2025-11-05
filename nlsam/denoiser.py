@@ -189,42 +189,38 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
     if mask is None:
         mask = np.ones(data.shape[:-1], dtype=bool)
 
-    X = extract_patches(data, block_size, [1, 1, 1, block_size[-1]]).reshape(-1, np.prod(block_size)).T
+    m = np.prod(block_size)
+    X = extract_patches(data, block_size, [1, 1, 1, block_size[-1]]).reshape(-1, m).T
 
     # Solving for D
     param_alpha = {}
     param_alpha['pos'] = True
     param_alpha['mode'] = 1
+    param_alpha['numThreads'] = 1
 
     param_D = {}
     param_D['verbose'] = False
     param_D['posAlpha'] = True
     param_D['posD'] = True
     param_D['mode'] = 2
-    param_D['lambda1'] = 1.2 / np.sqrt(np.prod(block_size))
-    param_D['K'] = int(2 * np.prod(block_size))
+    param_D['lambda1'] = 1.2 / np.sqrt(m)
+    param_D['K'] = int(2 * m)
     param_D['iter'] = 150
     param_D['batchsize'] = 500
     param_D['numThreads'] = n_cores
-
-    if 'D' in param_alpha:
-        param_D['D'] = param_alpha['D']
 
     mask_col = extract_patches(mask, block_size[:-1], (1, 1, 1), flatten=False)
     axis = tuple(range(mask_col.ndim//2, mask_col.ndim))
     train_idx = np.sum(mask_col, axis=axis).ravel() > (np.prod(block_size[:-1]) / 2)
 
     train_data = np.asfortranarray(X[:, train_idx])
-    train_data /= np.sqrt(np.sum(train_data**2, axis=0, keepdims=True), dtype=dtype)
+    train_data /= np.linalg.norm(train_data, axis=0, keepdims=True).astype(dtype, copy=False)
 
-    param_alpha['D'] = spams.trainDL(train_data, **param_D)
-    param_alpha['D'] /= np.sqrt(np.sum(param_alpha['D']**2, axis=0, keepdims=True, dtype=dtype))
-    param_D['D'] = param_alpha['D']
+    D = spams.trainDL(train_data, **param_D)
+    D /= np.linalg.norm(D, axis=0, keepdims=True).astype(dtype, copy=False)
+    param_alpha['D'] = D
 
     del train_idx, train_data, X, mask_col
-
-    param_alpha['numThreads'] = 1
-    param_D['numThreads'] = 1
 
     slicer = [np.index_exp[:, :, k:k + block_size[2]] for k in range((data.shape[2] - block_size[2] + 1))]
 
@@ -282,25 +278,27 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, current_sl
     var_mat = np.median(im2col_nd(variance, block_size[:-1], overlap[:-1])[:, train_idx], axis=0)
     X_full_shape = X.shape
     X = X[:, train_idx].astype(dtype)
-
-    param_alpha['L'] = X.shape[0] // 2
     D = param_alpha['D']
 
-    alpha = np.zeros((D.shape[1], X.shape[1]), dtype=dtype)
-    alpha_old = np.ones_like(alpha)
-    W = np.ones_like(alpha, order='F')
+    m, n = X.shape
+    p = D.shape[1]
+    param_alpha['L'] = m // 2
 
-    not_converged = np.ones(alpha.shape[1], dtype=bool)
+    alpha = np.zeros((p, n), dtype=dtype)
+    alpha_old = np.ones_like(alpha)
+    W = np.ones_like(alpha, order='F', dtype=dtype)
+
+    not_converged = np.ones(n, dtype=bool)
     nonzero_ind = np.zeros(alpha.shape, dtype=bool)
 
-    xi = np.random.randn(X.shape[0], X.shape[1]) * var_mat
-    var_mat *= (X.shape[0] + gamma * np.sqrt(2 * X.shape[0]))
+    xi = np.random.randn(m, n) * var_mat
+    var_mat *= (m + gamma * np.sqrt(2 * m))
     eps = np.max(np.abs(D.T @ xi), axis=0)
 
     # Rescale to ensure lambda1=1 as a constant, this allows passing everything to spams.lassoWeighted
     # but the output coefficients are scaled by an extra np.sqrt(var_mat) factor since we do not rescale D to keep it constant also
     scale = np.sqrt(var_mat)
-    X = np.asfortranarray(X / scale)
+    X = np.asfortranarray(X / scale, dtype=dtype)
     param_alpha['lambda1'] = 1
 
     for _ in range(n_iter):
@@ -316,15 +314,13 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, current_sl
 
         alpha_old[:] = alpha
         W[:] = 1 / (np.abs(alpha_old**tau) + eps)
-        # print(f'{_} W', W.min(), W.max(), eps.min(), eps.max(), np.sum(not_converged), not_converged.size)
-        # print(f'{_} alpha', alpha.min(), alpha.max(), np.min(X * scale), np.max(X*scale), np.min(D@alpha), np.max(D@alpha))
 
     weights = np.ones(X_full_shape[1], dtype=dtype)
     weights[train_idx] = 1 / (np.sum(alpha != 0, axis=0) + 1)
     X = np.zeros(X_full_shape, dtype=dtype, order='F')
     X[:, train_idx] = D @ alpha
+
     out = col2im_nd(X, block_size, orig_shape, overlap, weights)
-    # print('out', out.min(), out.max(), X.min(), X.max(), weights.min(), weights.max())
     del X, W, alpha, alpha_old
 
     return out
