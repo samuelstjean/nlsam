@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0] - 2025-xx-xx
+
+- Some internal rework for faster processing by an order of magnitude
+	- spams-bin 2.6.12 or higher is now *required* as it fixes a positivity bug needed in the solver
+- Some cleanups of old deprecated command line options
+- Frozen builds are now using the threading interface
+  
 ## [0.7.3] - 2025-10-06
 
 - Removed `PIESNO` as a noise estimation method. Use `auto` instead, which is the new default since 0.7, as it will automatically estimate `N` for you.

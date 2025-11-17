@@ -203,19 +203,19 @@ def buildArgsParser():
     # Old stuff
     ############
 
-    deprecated = p.add_argument_group('Deprecated options')
+    # deprecated = p.add_argument_group('Deprecated options')
 
-    deprecated.add_argument('--fix_implausible', action='store_true', dest='implausible_signal_fix',
-                            help='This option has been removed and has no effect.')
+    # deprecated.add_argument('--fix_implausible', action='store_true', dest='implausible_signal_fix',
+    #                         help='This option has been removed and has no effect.')
 
-    deprecated.add_argument('--sh_order', metavar='int', default=0, type=int, choices=[0, 2, 4, 6, 8],
-                            help='This option has been removed and has no effect.')
+    # deprecated.add_argument('--sh_order', metavar='int', default=0, type=int, choices=[0, 2, 4, 6, 8],
+    #                         help='This option has been removed and has no effect.')
 
-    deprecated.add_argument('--mp_method', metavar='string',
-                            help='This option has been removed and has no effect.')
+    # deprecated.add_argument('--mp_method', metavar='string',
+    #                         help='This option has been removed and has no effect.')
 
-    deprecated.add_argument('--use_threading', action='store_true',
-                            help='This option has been removed and has no effect.')
+    # deprecated.add_argument('--use_threading', action='store_true',
+    #                         help='This option has been removed and has no effect.')
 
     return p
 
@@ -262,18 +262,6 @@ def main():
         dtype = np.float32
     else:
         dtype = np.float64
-
-    if args.implausible_signal_fix:
-        logger.warning('Option --implausible_signal_fix has been deprecated')
-
-    if args.sh_order:
-        logger.warning('Option --sh_order has been deprecated')
-
-    if args.mp_method:
-        logger.warning('Option --mp_method has been deprecated')
-
-    if args.use_threading:
-        logger.warning('Option --use_threading has been deprecated')
 
     ##########################################
     #  Load up data and do some sanity checks
