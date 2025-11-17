@@ -505,3 +505,7 @@ def main_workaround_joblib():
             main()
     else:
         main()
+
+# This is needed for pyinstaller since it requires a file, even if we have an entrypoint in the wheel version
+if __name__ == "__main__":
+    main_workaround_joblib()
