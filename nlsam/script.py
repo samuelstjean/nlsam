@@ -2,7 +2,6 @@ import os
 import argparse
 import logging
 
-from multiprocessing import cpu_count
 from ast import literal_eval
 
 import nibabel as nib
@@ -349,8 +348,8 @@ def main():
 
     bvals, bvecs = read_bvals_bvecs(args.bvals, args.bvecs)
 
-    if args.cores is None or args.cores > cpu_count():
-        n_cores = cpu_count()
+    if args.cores is None or args.cores > os.cpu_count():
+        n_cores = os.cpu_count()
     else:
         n_cores = args.cores
 
@@ -496,32 +495,17 @@ def main():
 
 
 def main_workaround_joblib():
-    # Until joblib.loky support pyinstaller, we use dask instead for the frozen binaries
+    # Until joblib.loky support pyinstaller, we use threading instead for the frozen binaries
     import sys
     frozen = getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
 
     if frozen:
-        from multiprocessing import freeze_support
-        freeze_support()
-
-        from dask.distributed import Client
-        from joblib import parallel_backend
-
-        # Use the argparser to only fetch the number of cores, everything is still processed in main()
-        parser = buildArgsParser()
-        args = parser.parse_args()
-
-        if args.cores is None or args.cores > cpu_count():
-            n_cores = cpu_count()
-        else:
-            n_cores = args.cores
-
-        client = Client(threads_per_worker=1, n_workers=n_cores)
-        with parallel_backend("dask"):
+        from joblib import parallel_config
+        with parallel_config(backend="threading"):
             main()
     else:
         main()
 
-
+# This is needed for pyinstaller since it requires a file, even if we have an entrypoint in the wheel version
 if __name__ == "__main__":
     main_workaround_joblib()

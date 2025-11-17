@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-13, macos-14]
+        os: [ubuntu-latest, windows-latest, macos-14, macos-15-intel]
 
     steps:
       - uses: actions/checkout@v4
@@ -64,7 +64,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-22.04, windows-2022, macos-13, macos-14]
+        os: [ubuntu-22.04, windows-2022, macos-14, macos-15-intel]
     steps:
       - uses: actions/checkout@v4
 
@@ -76,20 +76,11 @@ jobs:
       - name: Get pyinstaller
         shell: bash
         run: |
-          pip install pyinstaller dask[distributed]
+          pip install pyinstaller
           pip install -e .
 
-          path=$(python -c "import distributed; print(distributed.__path__[0]);")
           echo "version=v$(python -c "from importlib.metadata import version; print(version('nlsam'));")" >> $GITHUB_ENV
-          tempfolder=temp_${{ runner.os }}_${{ runner.arch }}
-          mkdir $tempfolder
-
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            pyinstaller ./nlsam/script.py -n nlsam_denoising -F --clean --noupx --specpath $tempfolder --add-data "${path};.\\distributed\\"
-          else
-            pyinstaller ./nlsam/script.py -n nlsam_denoising -F --clean --noupx --specpath $tempfolder --add-data ${path}:./distributed/
-          fi
-
+          pyinstaller ./nlsam/script.py -n nlsam_denoising -F --clean --noupx
           mv ./dist/nlsam_denoising* ./
           ./nlsam_denoising* --help
 
