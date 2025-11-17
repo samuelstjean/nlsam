@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.0] - 2025-xx-xx
+## [1.0] - 2025-11-17
 
 - Some internal rework for faster processing by an order of magnitude
 	- spams-bin 2.6.12 or higher is now *required* as it fixes a positivity bug needed in the solver
