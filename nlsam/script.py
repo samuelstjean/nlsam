@@ -509,3 +509,7 @@ def main_workaround_joblib():
             main()
     else:
         main()
+
+
+if __name__ == "__main__":
+    main_workaround_joblib()
