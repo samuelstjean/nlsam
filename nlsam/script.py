@@ -290,22 +290,22 @@ def main():
     if args.load_sigma is not None:
         noise_method = None
 
-    if args.N != 'auto' or args.N != 'auto_maxlk':
+    if args.N != 'auto':
         if args.noise_maps is not None:
             parser.error(f'You need to pass -N auto when using noise maps, but you passed -N {args.N}')
 
-        if noise_method == 'auto':
-            parser.error(f'You need to pass -N auto when using --noise_est auto, but you passed -N {args.N}')
+        if noise_method == 'auto' or noise_method == 'auto_maxlk':
+            parser.error(f'You need to pass -N auto when using --noise_est auto/auto_maxlk, but you passed -N {args.N}')
 
     if args.noise_maps is None:
-        if (args.N == 'auto' and noise_method != 'auto') or (args.N == 'auto_maxlk' and noise_method != 'auto_maxlk'):
-            parser.error(f'You need to pass --noise_est auto when using -N {args.N}, but you passed --noise_est {noise_method}. Pass -N explicitly or use --noise_est {args.N}')
+        if args.N == 'auto' and noise_method not in ['auto', 'auto_maxlk']:
+            parser.error(f'You need to pass --noise_est auto/auto_maxlk when using -N auto, but you passed --noise_est {noise_method}. Pass -N explicitly or use --noise_est {args.N}')
 
     if args.load_sigma is None:
         if isinstance(N, np.ndarray):
             parser.error(f'You need to pass --load_sigma sigma.nii.gz when loading N as a volume, but you passed -N {args.N}')
     else:
-        if args.N == 'auto' or args.N == 'auto_maxlk':
+        if noise_method == 'auto' or noise_method == 'auto_maxlk':
             parser.error(f'You need to pass -N explicitly when using --load_sigma sigma.nii.gz, but you passed -N {args.N}')
 
     vol = nib.load(args.input)
