@@ -17,7 +17,7 @@ logger = logging.getLogger('nlsam')
 
 def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                   mask=None, is_symmetric=False, n_cores=-1, split_b0s=False, split_shell=False,
-                  subsample=True, n_iter=10, b0_threshold=10, bval_threshold=25, dtype=np.float64, verbose=False):
+                  subsample=True, n_iter=10, b0_threshold=10, bval_threshold=25, dtype=np.float64, verbose=False, gamma=None):
     """Main nlsam denoising function which sets up everything nicely for the local
     block denoising.
 
@@ -65,6 +65,8 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
         very, very large datasets (that is, your ram starts swapping) as it can lead to numerical precision errors.
     verbose : bool, default False
         print useful messages.
+    gamma : float, default 3.0
+        Controls the inner factor of smoothing, a lower value reduces the smoothing factor
 
     Output
     -----------
@@ -89,6 +91,9 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
     if not ((dtype == np.float32) or (dtype == np.float64)):
         raise ValueError(f'dtype should be either np.float32 or np.float64, but is {dtype}')
+
+    if gamma is not None and gamma <= 0:
+        raise ValueError(f'gamma should be positive but has value {gamma}')
 
     b0_loc = np.flatnonzero(bvals <= b0_threshold)
     dwis = np.flatnonzero(bvals > b0_threshold)
@@ -176,13 +181,14 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
                                                           mask=mask,
                                                           dtype=dtype,
                                                           n_cores=n_cores,
-                                                          verbose=verbose)
+                                                          verbose=verbose,
+                                                          gamma=gamma)
 
     data_denoised /= divider
     return data_denoised
 
 def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
-                  dtype=np.float64, n_cores=-1, verbose=False):
+                  dtype=np.float64, n_cores=-1, verbose=False, gamma=None):
     if verbose:
         logger.setLevel(logging.INFO)
 
@@ -239,7 +245,8 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
                                                                 param_alpha,
                                                                 current_slice,
                                                                 dtype,
-                                                                n_iter)
+                                                                n_iter,
+                                                                gamma)
                                                                 for current_slice in progress_slicer)
 
     logger.info(f'Multiprocessing done in {int(time() - time_multi)}s')
@@ -257,7 +264,7 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
 
 
 def processer(data, mask, variance, block_size, overlap, param_alpha, current_slice,
-              dtype=np.float64, n_iter=10, gamma=3, tau=1, tolerance=1e-5):
+              dtype=np.float64, n_iter=10, gamma=None, tau=1, tolerance=1e-5):
 
     # Fetch the current slice for parallel processing since now the arrays are dumped and read from disk
     # instead of passed around as smaller slices by the function to 'increase performance'
@@ -266,6 +273,7 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, current_sl
     mask = mask[current_slice]
     variance = variance[current_slice]
 
+    gamma = 3.0 if gamma is None else gamma
     orig_shape = data.shape
     mask_array = im2col_nd(mask, block_size[:-1], overlap[:-1])
     train_idx = np.sum(mask_array, axis=0) > (mask_array.shape[0] / 2)

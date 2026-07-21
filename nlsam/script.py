@@ -34,13 +34,15 @@ Automated characterization of noise distributions in diffusion MRI data.
 Medical Image Analysis, June 2020:101758. doi:10.1016/j.media.2020.101758
 """
 
+class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawTextHelpFormatter):
+    pass
 
 def buildArgsParser():
 
     p = argparse.ArgumentParser(description=DESCRIPTION,
                                 epilog=EPILOG,
                                 add_help=False,
-                                formatter_class=argparse.RawTextHelpFormatter)
+                                formatter_class=CustomFormatter)
 
     #####################
     # Required arguments
@@ -80,34 +82,32 @@ def buildArgsParser():
                            'This is now a required input to prevent sampling (and reconstructing) background noise instead of the data.')
 
     optionals.add_argument('--b0_threshold', metavar='int', default=10, type=int,
-                           help='Lowest bvalue to be considered as a b0. Default 10')
+                           help='Lowest bvalue to be considered as a b0.')
 
     optionals.add_argument('--split_b0s', action='store_true',
-                           help='If set and multiple b0s are present, they are split amongst the '
-                           'training data.')
+                           help='If set and multiple b0s are present, they are split amongst the training data.')
 
     optionals.add_argument('--split_shell', action='store_true',
                            help='If set, each shell/bvalue is processed separately by itself.')
 
     optionals.add_argument('--bval_threshold', metavar='int', default=25, type=int,
-                           help='Any bvalue within += bval_threshold of each others will be considered on the same shell (e.g. b=990 and b=1000 are on the same shell). Default 25')
+                           help='Any bvalue within += bval_threshold of each others will be considered on the same shell (e.g. b=990 and b=1000 are on the same shell)')
 
     optionals.add_argument('--block_size', dest='spatial_block_size',
                            metavar='tuple', type=literal_eval, default=(3, 3, 3),
-                           help='Size of the 3D spatial patch to be denoised. Default : 3, 3, 3')
+                           help='Size of the 3D spatial patch to be denoised.')
 
     optionals.add_argument('--is_symmetric', action='store_true',
                            help='If supplied, assumes the set of bvals/bvecs to be already symmetrized,\n'
                            'i.e. All points (x,y,z) on the sphere and (-x,-y,-z) were acquired, such as in full grid DSI.')
 
     optionals.add_argument('--iterations', metavar='int', default=10, type=int,
-                           help='Maximum number of iterations for the l1 reweighting. Default 10.')
+                           help='Maximum number of iterations for the l1 reweighting.')
 
     optionals.add_argument('--no_subsample', action='store_false',
                            help='If set, process all the dwis multiple times, '
                            'but note that this option lengthen the total time.\n'
-                           'The default is to find the smallest subset so that each dwi is '
-                           'processed at least once.')
+                           'The default is to find the smallest subset so that each dwi is processed at least once.')
 
     g1 = optionals.add_mutually_exclusive_group()
 
@@ -120,12 +120,13 @@ def buildArgsParser():
     g.add_argument('--noise_est',
                    dest='noise_method',
                    metavar='string',
-                   choices=['local_std', 'auto'],
+                   choices=['local_std', 'auto', 'auto_maxlk'],
                    default='auto',
                    help='Noise estimation method used for estimating sigma.\n'
                    'local_std : Compute local noise standard deviation '
                    'with correction factor. No a priori needed.\n'
-                   'auto (default): Automatically estimate sigma and N from background in the data.')
+                   'auto (default): Automatically estimate sigma and N from background in the data using the moments.\n'
+                   'auto_maxlk: Same as "auto", but with a maximum likelihood estimator')
 
     g.add_argument('--load_sigma', metavar='file',
                    help='Load this file as the noise standard deviation volume.\n'
@@ -148,7 +149,7 @@ def buildArgsParser():
     advanced.add_argument('--noise_mask', dest='save_piesno_mask', metavar='file',
                           help='If supplied, output filename for saving the mask of noisy voxels found by the automatic estimation.')
 
-    advanced.add_argument('--save_stab', metavar='file',
+    advanced.add_argument('--save_stabilization', metavar='file',
                           help='Path to save the intermediate noisy bias corrected volume.')
 
     advanced.add_argument('--save_sigma', metavar='file',
@@ -165,6 +166,9 @@ def buildArgsParser():
 
     advanced.add_argument('--no_clip_eta', action='store_false',
                           help='If set, allows eta to take negative values during stabilization, which is physically impossible.')
+
+    advanced.add_argument('--gamma', metavar='float', default=3.0, type=float,
+                          help='Controls the inner factor of smoothing, a lower value reduces the smoothing factor')
 
     ############
     # The rest
@@ -224,17 +228,9 @@ def main():
     parser = buildArgsParser()
     args = parser.parse_args()
 
-    noise_method = args.noise_method
-    subsample = args.no_subsample
-    is_symmetric = args.is_symmetric
-    n_iter = args.iterations
-    b0_threshold = args.b0_threshold
-    bval_threshold = args.bval_threshold
-    split_b0s = args.split_b0s
-    split_shell = args.split_shell
     block_size = np.array(args.spatial_block_size + (args.angular_block_size,))
-    clip_eta = args.no_clip_eta
     logger = logging.getLogger('nlsam')
+    noise_method = args.noise_method
     verbose = args.verbose
 
     if args.logfile is not None:
@@ -271,7 +267,7 @@ def main():
                           args.save_sigma,
                           args.save_difference,
                           args.save_piesno_mask,
-                          args.save_stab,
+                          args.save_stabilization,
                           args.save_eta]
 
     for f in overwritable_files:
@@ -294,7 +290,7 @@ def main():
     if args.load_sigma is not None:
         noise_method = None
 
-    if args.N != 'auto':
+    if args.N != 'auto' or args.N != 'auto_maxlk':
         if args.noise_maps is not None:
             parser.error(f'You need to pass -N auto when using noise maps, but you passed -N {args.N}')
 
@@ -302,14 +298,14 @@ def main():
             parser.error(f'You need to pass -N auto when using --noise_est auto, but you passed -N {args.N}')
 
     if args.noise_maps is None:
-        if args.N == 'auto' and noise_method != 'auto':
-            parser.error(f'You need to pass --noise_est auto when using -N auto, but you passed --noise_est {noise_method}. Pass -N explicitly or use --noise_est auto')
+        if (args.N == 'auto' and noise_method != 'auto') or (args.N == 'auto_maxlk' and noise_method != 'auto_maxlk'):
+            parser.error(f'You need to pass --noise_est auto when using -N {args.N}, but you passed --noise_est {noise_method}. Pass -N explicitly or use --noise_est {args.N}')
 
     if args.load_sigma is None:
         if isinstance(N, np.ndarray):
             parser.error(f'You need to pass --load_sigma sigma.nii.gz when loading N as a volume, but you passed -N {args.N}')
     else:
-        if args.N == 'auto':
+        if args.N == 'auto' or args.N == 'auto_maxlk':
             parser.error(f'You need to pass -N explicitly when using --load_sigma sigma.nii.gz, but you passed -N {args.N}')
 
     vol = nib.load(args.input)
@@ -346,6 +342,9 @@ def main():
 
     if data.shape[:-1] != mask.shape:
         raise ValueError(f'data shape is {data.shape}, but mask shape {mask.shape} is different!')
+
+    if args.gamma <= 0:
+        raise ValueError(f'gamma should be positive but has value {args.gamma}')
 
     #########################
     #  Noise estimation part
@@ -389,10 +388,11 @@ def main():
         if N > 0:
             sigma = root_finder_sigma(data, sigma, N, mask=mask, verbose=verbose, n_cores=n_cores)
 
-    elif noise_method == 'auto':
+    elif noise_method == 'auto' or noise_method == 'auto_maxlk':
         logger.info(f"Estimating noise with method {noise_method}")
 
-        sigma_1D, N_1D, mask_noise = estimate_from_dwis(data, return_mask=True, ncores=n_cores, verbose=verbose)
+        method = 'moments' if noise_method == 'auto' else 'maxlk'
+        sigma_1D, N_1D, mask_noise = estimate_from_dwis(data, return_mask=True, ncores=n_cores, verbose=verbose, method=method)
         sigma = np.broadcast_to(sigma_1D[None, None, :, None], data.shape)
         N = np.broadcast_to(N_1D[None, None, :, None], data.shape)
 
@@ -426,7 +426,7 @@ def main():
                                              sigma,
                                              N,
                                              mask=mask,
-                                             clip_eta=clip_eta,
+                                             clip_eta=args.no_clip_eta,
                                              return_eta=True,
                                              n_cores=n_cores,
                                              verbose=verbose)
@@ -435,9 +435,9 @@ def main():
             nib.save(nib.Nifti1Image(eta, affine), args.save_eta)
             logger.info(f"eta volume saved as {os.path.realpath(args.save_eta)}")
 
-        if args.save_stab is not None:
-            nib.save(nib.Nifti1Image(data_stabilized, affine), args.save_stab)
-            logger.info(f"Stabilized data saved as {os.path.realpath(args.save_stab)}")
+        if args.save_stabilization is not None:
+            nib.save(nib.Nifti1Image(data_stabilized, affine), args.save_stabilization)
+            logger.info(f"Stabilized data saved as {os.path.realpath(args.save_stabilization)}")
 
         del m_hat, eta
 
@@ -455,22 +455,27 @@ def main():
         if args.save_difference is None:
             del data
 
+        all_args = {
+            'mask': mask,
+            'is_symmetric': args.is_symmetric,
+            'n_cores': n_cores,
+            'split_b0s': args.split_b0s,
+            'split_shell': args.split_shell,
+            'subsample': args.no_subsample,
+            'n_iter': args.iterations,
+            'b0_threshold': args.b0_threshold,
+            'bval_threshold': args.bval_threshold,
+            'dtype': dtype,
+            'verbose': verbose,
+            'gamma': args.gamma
+        }
+
         data_denoised = nlsam_denoise(data_stabilized,
                                       sigma,
                                       bvals,
                                       bvecs,
                                       block_size,
-                                      mask=mask,
-                                      is_symmetric=is_symmetric,
-                                      n_cores=n_cores,
-                                      split_b0s=split_b0s,
-                                      split_shell=split_shell,
-                                      subsample=subsample,
-                                      n_iter=n_iter,
-                                      b0_threshold=b0_threshold,
-                                      bval_threshold=bval_threshold,
-                                      dtype=dtype,
-                                      verbose=verbose)
+                                      **all_args)
 
         nib.save(nib.Nifti1Image(data_denoised.astype(np.float32), affine, header), args.output)
         logger.info(f"Denoised data saved as {os.path.realpath(args.output)}")
