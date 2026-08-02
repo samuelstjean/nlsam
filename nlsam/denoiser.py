@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.typing as npt
 import logging
 
 from time import time
@@ -14,10 +15,26 @@ from tqdm.autonotebook import tqdm
 import spams
 
 logger = logging.getLogger('nlsam')
+rng = np.random.default_rng()
 
-def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
-                  mask=None, is_symmetric=False, n_cores=-1, split_b0s=False, split_shell=False,
-                  subsample=True, n_iter=10, b0_threshold=10, bval_threshold=25, dtype=np.float64, verbose=False, gamma=None):
+
+def nlsam_denoise(data: npt.NDArray,
+                  sigma: npt.NDArray,
+                  bvals: npt.NDArray,
+                  bvecs: npt.NDArray,
+                  block_size: tuple,
+                  mask: npt.NDArray | None = None,
+                  is_symmetric: bool = False,
+                  n_cores: int = -1,
+                  split_b0s: bool = False,
+                  split_shell: bool = False,
+                  subsample: bool = True,
+                  n_iter: int = 10,
+                  b0_threshold: int = 10,
+                  bval_threshold: int = 25,
+                  dtype: npt.DTypeLike = np.float64,
+                  verbose: bool = False,
+                  gamma: float = 3.0) -> npt.NDArray:
     """Main nlsam denoising function which sets up everything nicely for the local
     block denoising.
 
@@ -92,8 +109,8 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
     if not ((dtype == np.float32) or (dtype == np.float64)):
         raise ValueError(f'dtype should be either np.float32 or np.float64, but is {dtype}')
 
-    if gamma is not None and gamma <= 0:
-        raise ValueError(f'gamma should be positive but has value {gamma}')
+    if gamma <= 0:
+        raise ValueError(f'gamma should be strictly positive but has value {gamma}')
 
     b0_loc = np.flatnonzero(bvals <= b0_threshold)
     dwis = np.flatnonzero(bvals > b0_threshold)
@@ -114,7 +131,7 @@ def nlsam_denoise(data, sigma, bvals, bvecs, block_size,
 
     # Split the b0s in a cyclic fashion along the training data
     # If we only had one, cycle just return b0_loc indefinitely, else we go through all indexes.
-    np.random.shuffle(b0_loc)
+    rng.shuffle(b0_loc)
     split_b0s_idx = cycle(b0_loc)
 
     # Double bvecs to find neighbors with assumed symmetry if needed
@@ -264,7 +281,7 @@ def local_denoise(data, block_size, overlap, variance, n_iter=10, mask=None,
 
 
 def processer(data, mask, variance, block_size, overlap, param_alpha, current_slice,
-              dtype=np.float64, n_iter=10, gamma=None, tau=1, tolerance=1e-5):
+              dtype=np.float64, n_iter=10, gamma=3.0, tau=1, tolerance=1e-5):
 
     # Fetch the current slice for parallel processing since now the arrays are dumped and read from disk
     # instead of passed around as smaller slices by the function to 'increase performance'
@@ -273,7 +290,10 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, current_sl
     mask = mask[current_slice]
     variance = variance[current_slice]
 
-    gamma = 3.0 if gamma is None else gamma
+    if gamma is None:
+        error = f'gamma should be set to a value but is None (default: 3.0)'
+        raise ValueError(error)
+
     orig_shape = data.shape
     mask_array = im2col_nd(mask, block_size[:-1], overlap[:-1])
     train_idx = np.sum(mask_array, axis=0) > (mask_array.shape[0] / 2)
@@ -299,7 +319,7 @@ def processer(data, mask, variance, block_size, overlap, param_alpha, current_sl
     not_converged = np.ones(n, dtype=bool)
     nonzero_ind = np.zeros(alpha.shape, dtype=bool)
 
-    xi = np.random.randn(m, n) * var_mat
+    xi = rng.standard_normal((m, n)) * var_mat
     var_mat *= (m + gamma * np.sqrt(2 * m))
     eps = np.max(np.abs(D.T @ xi), axis=0)
 
