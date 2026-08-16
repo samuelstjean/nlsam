@@ -3,6 +3,7 @@ from numpy.testing import assert_allclose, assert_array_less
 
 from nlsam.bias_correction import root_finder_sigma, multiprocess_stabilization
 
+rng = np.random.default_rng()
 
 def test_root_finder_sigma():
 
@@ -22,7 +23,7 @@ def test_root_finder_sigma():
     assert_allclose(output, sigma, atol=1e-4)
 
     # magnitude SNR of 0.5 -> sigma = 50, eta = 25 for N = 1
-    a = [np.sqrt((25 + np.random.randn(10000) * 50)**2 + (np.random.randn(10000) * 50)**2) for ii in range(1250)]
+    a = [np.sqrt((25 + rng.standard_normal(10000) * 50)**2 + (rng.standard_normal(10000) * 50)**2) for ii in range(1250)]
     eta = np.mean(a, axis=1, keepdims=True, dtype=np.float64)
     sigma = np.std(a, axis=1, keepdims=True, dtype=np.float64)
     N = np.ones(sigma.shape, dtype=np.float32)

@@ -37,6 +37,8 @@ commands = [
     ('nlsam_denoising', 'dwi_crop.nii.gz', 'dwi_nlsam.nii.gz', 'bvals', 'bvecs', '-m', 'mask_crop.nii.gz', '-f', '--verbose', '-N', '1', '--load_sigma', 'sigma.nii.gz', '--no_denoising', '--no_clip_eta'),
     ('nlsam_denoising', 'dwi_crop.nii.gz', 'dwi_nlsam.nii.gz', 'bvals', 'bvecs', '-m', 'mask_crop.nii.gz', '-f', '--verbose', '-N', '1', '--noise_est', 'local_std', '--no_denoising'),
     ('nlsam_denoising', 'dwi_crop.nii.gz', 'dwi_nlsam.nii.gz', 'bvals', 'bvecs', '-m', 'mask_crop.nii.gz', '-f', '--verbose', '--noise_est', 'auto', '--no_denoising', '--cores', '4'),
+    ('nlsam_denoising', 'dwi_crop.nii.gz', 'dwi_nlsam.nii.gz', 'bvals', 'bvecs', '-m', 'mask_crop.nii.gz', '-f', '--verbose', '--noise_est', 'auto_maxlk', '--no_denoising'),
+    ('nlsam_denoising', 'dwi_crop.nii.gz', 'dwi_nlsam.nii.gz', 'bvals', 'bvecs', '-m', 'mask_crop.nii.gz', '-f', '--verbose', '--noise_est', 'auto_maxlk', '--gamma', '3'),
     ('nlsam_denoising', 'dwi_crop.nii.gz', 'dwi_nlsam.nii.gz', 'bvals', 'bvecs', '-m', 'mask_crop.nii.gz', '-f', '--verbose', '--no_denoising')
     ]
 

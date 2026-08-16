@@ -4,6 +4,7 @@ from numpy.testing import assert_array_less, assert_equal, assert_array_equal, a
 from nlsam.stabilizer import _test_xi as xi
 from nlsam.smoothing import local_standard_deviation, real_sh_descoteaux_from_index, sph_harm_ind_list, smooth_pinv
 
+rng = np.random.default_rng()
 
 def test_local_standard_deviation():
 
@@ -15,7 +16,7 @@ def test_local_standard_deviation():
     for N in [1, 4, 8, 12]:
         noise = 0
         for _ in range(N):
-            noise += np.random.normal(mean, std, shape)**2 + np.random.normal(mean, std, shape)**2
+            noise += rng.normal(mean, std, shape)**2 + rng.normal(mean, std, shape)**2
 
         noise = np.sqrt(noise)
         corrected_std = local_standard_deviation(noise) / np.sqrt(xi(mean, std, N))
@@ -33,7 +34,7 @@ def test_local_standard_deviation():
     for N in [1, 4, 8, 12]:
         noise = 0
         for _ in range(N):
-            noise += np.random.normal(mean, std, shape)**2 + np.random.normal(mean, std, shape)**2
+            noise += rng.normal(mean, std, shape)**2 + rng.normal(mean, std, shape)**2
 
         noise = np.sqrt(noise)
         corrected_std = local_standard_deviation(noise) / np.sqrt(xi(mean, std, N))
