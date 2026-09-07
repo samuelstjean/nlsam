@@ -96,10 +96,10 @@ jobs:
                 example/*
 
   build_doc:
-  name: Build docs
+    name: Build docs
     needs: build_wheels
-   runs-on: ubuntu-latest
-   steps:
+    runs-on: ubuntu-latest
+    steps:
      - uses: actions/checkout@v7
 
      - uses: actions/setup-python@v7
