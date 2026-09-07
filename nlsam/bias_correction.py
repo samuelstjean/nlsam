@@ -1,7 +1,8 @@
-import numpy as np
 import logging
+import numpy as np
 
 from nlsam.stabilizer import root_finder_loop, multiprocess_stabilization
+
 from joblib import Parallel, delayed
 from tqdm.autonotebook import tqdm
 
@@ -9,7 +10,6 @@ logger = logging.getLogger('nlsam')
 
 
 def stabilization(data, m_hat, sigma, N, mask=None, clip_eta=True, return_eta=False, n_cores=-1, verbose=False):
-
     data = np.asarray(data)
     m_hat = np.asarray(m_hat)
     sigma = np.atleast_3d(sigma).astype(np.float32)

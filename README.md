@@ -1,13 +1,10 @@
 # Non Local Spatial and Angular Matching (NLSAM) denoising
 
-[release]: https://github.com/samuelstjean/nlsam/releases
 [DOI]: http://dx.doi.org/doi:10.1016/j.media.2016.02.010
 [URL]: http://www.sciencedirect.com/science/article/pii/S1361841516000335
 [paper]: https://arxiv.org/pdf/1606.07239.pdf
 [autodmri_paper]: https://www.sciencedirect.com/science/article/pii/S1361841520301225
 [nlsam_data]: https://github.com/samuelstjean/nlsam_data
-[spams]: http://spams-devel.gforge.inria.fr/
-[rtd]: https://nlsam.readthedocs.io/en/latest/
 [koay_bias]: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2765718/
 
 The reference implementation for the Non Local Spatial and Angular Matching (NLSAM) denoising algorithm for diffusion MRI.
@@ -17,7 +14,7 @@ The reference implementation for the Non Local Spatial and Angular Matching (NLS
 + [Source downloads + precompiled binaries](https://github.com/samuelstjean/nlsam/releases)
 + [Example + Usage guide](example/README.md)
 
-You can find the latest documentation and installation instructions over [here](http://nlsam.readthedocs.io/en/latest) with a downloadable version of the documentation [here](https://readthedocs.org/projects/nlsam/downloads).
+You can find the latest documentation over [here](https://samuelstjean.github.io/nlsam/nlsam.html) with a downloadable version of the documentation [here](https://readthedocs.org/projects/nlsam/downloads).
 
 ## How to install
 

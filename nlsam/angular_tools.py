@@ -5,13 +5,19 @@ def angular_neighbors(vec, n):
     Returns the indices of the n closest neighbors (excluding the vector itself)
     given an array of m points with x, y and z coordinates.
 
-    Input : A m x 3 array, with m being the number of points, one per line.
+    Input
+    -----------
+    A m x 3 array, with m being the number of points, one per line.
     Each column has x, y and z coordinates for each vector.
 
-    Output : A m x n array. Each line has the n indices of
+    Output 
+    -----------
+    A m x n array. Each line has the n indices of
     the closest n neighbors amongst the m input vectors.
 
-    Note : Symmetries are not considered here so a vector and its opposite sign
+    Note 
+    -----------
+    Symmetries are not considered here so a vector and its opposite sign
     counterpart will be considered far apart, even though in dMRI we consider
     (x, y, z) and -(x, y, z) to be practically identical.
     """

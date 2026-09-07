@@ -1,22 +1,22 @@
+import logging
+
 import numpy as np
 import numpy.typing as npt
-import logging
 
 from time import time
 from itertools import cycle
 
 from nlsam.utils import im2col_nd, col2im_nd
 from nlsam.angular_tools import angular_neighbors, split_per_shell, greedy_set_finder
-from autodmri.blocks import extract_patches
-
-from joblib import Parallel, delayed
-from tqdm.autonotebook import tqdm
 
 import spams
 
+from autodmri.blocks import extract_patches
+from joblib import Parallel, delayed
+from tqdm.autonotebook import tqdm
+
 logger = logging.getLogger('nlsam')
 rng = np.random.default_rng()
-
 
 def nlsam_denoise(data: npt.NDArray,
                   sigma: npt.NDArray,
@@ -42,13 +42,17 @@ def nlsam_denoise(data: npt.NDArray,
     -----------
     data : ndarray
         Input volume to denoise.
+
     sigma : ndarray
         Noise standard deviation estimation at each voxel.
         Converted to variance internally.
+
     bvals : 1D array
         the N bvalues associated to each of the N diffusion volume.
+
     bvecs : N x 3 2D array
         the N 3D vectors for each acquired diffusion gradients.
+
     block_size : tuple, length = data.ndim
         Patch size + number of angular neighbors to process at once as similar data.
 
@@ -56,32 +60,43 @@ def nlsam_denoise(data: npt.NDArray,
     -------------------
     mask : ndarray, default None
         Restrict computations to voxels inside the mask to reduce runtime.
+
     is_symmetric : bool, default False
         If True, assumes that for each coordinate (x, y, z) in bvecs,
         (-x, -y, -z) was also acquired.
+
     n_cores : int, default -1
         Number of processes to use for the denoising. Default is to use
         all available cores.
+
     split_b0s : bool, default False
         If True and the dataset contains multiple b0s, a different b0 will be used for
         each run of the denoising. If False, the b0s are averaged and the average b0 is used instead.
+
     split_shell : bool, default False
         If True and the dataset contains multiple bvalues, each shell is processed independently.
         If False, all the data is used at the same time for computing angular neighbors.
+
     subsample : bool, default True
         If True, find the smallest subset of indices required to process each
         dwi at least once.
+
     n_iter : int, default 10
         Maximum number of iterations for the reweighted l1 solver.
+
     b0_threshold : int, default 10
         A bvalue below b0_threshold will be considered as a b0 image.
+
     bval_threshold : int, default 25
         Any bvalue within += bval_threshold of each others will be considered on the same shell (e.g. b=990 and b=1000 are on the same shell).
+
     dtype : np.float32 or np.float64, default np.float64
         Precision to use for inner computations. Note that np.float32 should only be used for
         very, very large datasets (that is, your ram starts swapping) as it can lead to numerical precision errors.
+
     verbose : bool, default False
         print useful messages.
+
     gamma : float, default 3.0
         Controls the inner factor of smoothing, a lower value reduces the smoothing factor
 

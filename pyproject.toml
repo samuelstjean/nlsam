@@ -26,7 +26,7 @@ dependencies = [
 
 [project.urls]
 homepage = "https://github.com/samuelstjean/nlsam"
-documentation = "https://nlsam.readthedocs.io/en/latest/"
+documentation = "https://samuelstjean.github.io/nlsam/nlsam.html"
 changelog = "https://github.com/samuelstjean/nlsam/blob/master/CHANGELOG.md"
 
 [project.scripts]
