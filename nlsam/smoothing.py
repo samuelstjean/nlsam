@@ -14,16 +14,21 @@ def sh_smooth(data, bvals, bvecs, sh_order=4, b0_threshold=1.0, similarity_thres
 
     data : ndarray
         The diffusion data to smooth.
+
     gtab : gradient table object
         Corresponding gradients table object to data.
+
     b0_threshold : float, default 1.0
         Threshold to consider this bval as a b=0 image.
+
     sh_order : int, default 4
         Order of the spherical harmonics to fit.
+
     similarity_threshold : int, default 50
         All bvalues such that |b_1 - b_2| < similarity_threshold
         will be considered as identical for smoothing purpose.
         Must be lower than 200.
+
     regul : float, default 0.006
         Amount of regularization to apply to sh coefficients computation.
 
@@ -205,14 +210,16 @@ def cart2sphere(x, y, z):
     This is the standard physics convention where `theta` is the
     inclination (polar) angle, and `phi` is the azimuth angle.
 
-    $0\le\theta\mathrm{(theta)}\le\pi$ and $-\pi\le\phi\mathrm{(phi)}\le\pi$
+    $0\le\theta\le\pi$ and $-\pi\le\phi\le\pi$
 
     Parameters
     ----------
     x : array_like
        x coordinate in Cartesian space
+
     y : array_like
        y coordinate in Cartesian space
+
     z : array_like
        z coordinate
 
@@ -220,8 +227,10 @@ def cart2sphere(x, y, z):
     -------
     r : array
        radius
+
     theta : array
        inclination (polar) angle
+
     phi : array
        azimuth angle
 
@@ -252,6 +261,7 @@ def sph_harm_ind_list(sh_order_max):
     -------
     m_list : array of int
         phase factors ($m$) of even spherical harmonics
+
     l_list : array of int
         orders ($l$) of even spherical harmonics
     """
@@ -278,8 +288,6 @@ def real_sh_descoteaux_from_index(m_values, l_values, theta, phi):
     real harmonic $Y_l^m$ is defined to be:
 
     .. math::
-       :nowrap:
-
         Y_l^m =
         \begin{cases}
             \sqrt{2} * \Im(Y_l^m) \; if m > 0 \\
@@ -294,10 +302,13 @@ def real_sh_descoteaux_from_index(m_values, l_values, theta, phi):
     ----------
     m_values : array of int ``|m| <= l``
         The phase factors ($m$) of the harmonics.
+
     l_values : array of int ``l >= 0``
         The orders ($l$) of the harmonics.
+
     theta : float [0, pi]
         The polar (colatitudinal) coordinate.
+
     phi : float [0, 2*pi]
         The azimuthal (longitudinal) coordinate.
 
@@ -334,6 +345,7 @@ def smooth_pinv(B, L):
     ----------
     B : array_like (n, m)
         Matrix to be inverted
+
     L : array_like (m,)
 
     Returns
